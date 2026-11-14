@@ -1,45 +1,56 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { join } from "node:path";
 
 const ROOT_DIR = process.cwd();
 
 describe("Architectural & Codebase Integrity Suite", () => {
-  it("ensures .env contains strictly public variables and NO private secrets", () => {
+  it("ensures .env is never git-tracked and a local .env (if present) has NO private secrets", () => {
+    // AUD-3: .env must not be committed; only .env.example is tracked and .env is ignored.
+    const tracked = execSync("git ls-files -- .env", { cwd: ROOT_DIR }).toString().trim();
+    expect(tracked, ".env must not be tracked in git").toBe("");
+    const ignored = execSync("git check-ignore .env", { cwd: ROOT_DIR }).toString().trim();
+    expect(ignored).toBe(".env");
+
+    // If a local .env exists, it must contain strictly public variables.
     const envPath = join(ROOT_DIR, ".env");
-    expect(existsSync(envPath)).toBe(true);
+    if (existsSync(envPath)) {
+      const envContent = readFileSync(envPath, "utf-8");
 
-    const envContent = readFileSync(envPath, "utf-8");
+      // Strictly forbidden private secrets in a local .env
+      const forbiddenSecrets = [
+        "LOVABLE_API_KEY",
+        "SEMRUSH_API_KEY",
+        "GOOGLE_SEARCH_CONSOLE_API_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "SUPERFAKTURA_API_KEY",
+      ];
 
-    // Strictly forbidden private secrets in git-tracked .env
-    const forbiddenSecrets = [
-      "LOVABLE_API_KEY",
-      "SEMRUSH_API_KEY",
-      "GOOGLE_SEARCH_CONSOLE_API_KEY",
-      "SUPABASE_SERVICE_ROLE_KEY",
-      "STRIPE_SECRET_KEY",
-      "STRIPE_WEBHOOK_SECRET",
-      "SUPERFAKTURA_API_KEY",
-    ];
+      for (const secret of forbiddenSecrets) {
+        expect(envContent, `.env must NEVER contain private secret ${secret}`).not.toContain(
+          `${secret}=`,
+        );
+      }
 
-    for (const secret of forbiddenSecrets) {
-      expect(envContent, `.env must NEVER contain private secret ${secret}`).not.toContain(
-        `${secret}=`,
-      );
+      // Only VITE_SUPABASE_* or SUPABASE_PUBLISHABLE* should be present
+      expect(envContent).toContain("VITE_SUPABASE_URL");
+      expect(envContent).toContain("VITE_SUPABASE_PUBLISHABLE_KEY");
     }
-
-    // Only VITE_SUPABASE_* or SUPABASE_PUBLIC* should be present
-    expect(envContent).toContain("VITE_SUPABASE_URL");
-    expect(envContent).toContain("VITE_SUPABASE_PUBLISHABLE_KEY");
   });
 
-  it("ensures .gitignore protects local overrides and secrets", () => {
+  it("ensures .gitignore protects .env variants and local overrides, keeping .env.example tracked", () => {
     const gitignorePath = join(ROOT_DIR, ".gitignore");
     expect(existsSync(gitignorePath)).toBe(true);
     const gitignoreContent = readFileSync(gitignorePath, "utf-8");
 
     expect(gitignoreContent).toContain(".env.local");
     expect(gitignoreContent).toContain("node_modules");
+    expect(gitignoreContent).toMatch(/^\.env$/m);
+    expect(gitignoreContent).toMatch(/^\.env\.\*$/m);
+    expect(gitignoreContent).toContain("!.env.example");
   });
 
   it("ensures .env.example documents all configuration keys without real secret values", () => {
