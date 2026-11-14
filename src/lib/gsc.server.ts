@@ -2,6 +2,7 @@
 // Never call the Google API directly and never construct siteUrl from user input:
 // only exact values returned by GET /webmasters/v3/sites are ever used.
 import type { DecayRow, QueryRow } from "./decay-schema";
+import { isAdminUser } from "./admin.server";
 
 const GATEWAY = "https://connector-gateway.lovable.dev/google_search_console";
 
@@ -18,24 +19,10 @@ export function isGscConfigured(): boolean {
   return creds() !== null;
 }
 
-/**
- * Platform admin e-mails come exclusively from the ADMIN_EMAILS env variable
- * (comma-separated, trimmed, lowercased). Fail-closed: when the variable is
- * missing or empty, the list is empty and nobody is treated as an admin.
- * Admin addresses must never be hardcoded in source.
- */
-function getAdminEmails(): string[] {
-  return (process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-function getAdminUserIds(): string[] {
-  return (process.env.ADMIN_USER_IDS || "")
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
+/** Verified-email metadata from the JWT claims, used by the admin fallback. */
+export interface GscUserMeta {
+  email_verified?: boolean;
+  email_confirmed_at?: string | null;
 }
 
 async function gscFetch(path: string, init?: RequestInit): Promise<Response> {
@@ -82,12 +69,9 @@ export async function listVerifiedProperties(): Promise<VerifiedProperty[]> {
 export async function listUserVerifiedProperties(
   userId: string,
   email?: string,
+  userMeta?: GscUserMeta,
 ): Promise<VerifiedProperty[]> {
-  const adminEmails = getAdminEmails();
-  const adminUserIds = getAdminUserIds();
-
-  const isPlatformOwner =
-    (email && adminEmails.includes(email.toLowerCase())) || adminUserIds.includes(userId);
+  const isPlatformOwner = isAdminUser({ id: userId, email, ...userMeta });
 
   if (isPlatformOwner) {
     return listVerifiedProperties();
@@ -123,14 +107,11 @@ export async function assertUserPropertyAccess(
   userId: string,
   siteUrl: string,
   email?: string,
+  userMeta?: GscUserMeta,
 ): Promise<string> {
   const verified = await assertVerifiedProperty(siteUrl);
 
-  const adminEmails = getAdminEmails();
-  const adminUserIds = getAdminUserIds();
-
-  const isPlatformOwner =
-    (email && adminEmails.includes(email.toLowerCase())) || adminUserIds.includes(userId);
+  const isPlatformOwner = isAdminUser({ id: userId, email, ...userMeta });
 
   if (isPlatformOwner) {
     return verified;

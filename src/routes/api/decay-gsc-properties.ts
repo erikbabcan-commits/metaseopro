@@ -37,7 +37,10 @@ export const Route = createFileRoute("/api/decay-gsc-properties")({
 
         try {
           // Multi-tenant safe: only return properties belonging to the user's tenant or platform owner
-          const properties = await listUserVerifiedProperties(auth.userId, auth.email);
+          const properties = await listUserVerifiedProperties(auth.userId, auth.email, {
+            email_verified: auth.emailVerified,
+            email_confirmed_at: auth.emailConfirmedAt,
+          });
           return new Response(JSON.stringify({ status: "ok", properties }), {
             headers: { "Content-Type": "application/json" },
           });
