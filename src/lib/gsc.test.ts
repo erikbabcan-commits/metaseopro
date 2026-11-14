@@ -71,6 +71,7 @@ describe("GSC comparison regressions", () => {
   it("enforces multi-tenant isolation so unauthorized users cannot access competitor properties", async () => {
     vi.stubEnv("LOVABLE_API_KEY", "test-only");
     vi.stubEnv("GOOGLE_SEARCH_CONSOLE_API_KEY", "test-only");
+    vi.stubEnv("ADMIN_USER_IDS", "admin-uuid");
     vi.stubEnv("ADMIN_EMAILS", "founder@seo4web.sk");
     vi.stubGlobal(
       "fetch",
@@ -136,10 +137,35 @@ describe("ADMIN_EMAILS env-based admin resolution (fail-closed, no hardcoded add
     stubCreds();
     vi.stubEnv("ADMIN_EMAILS", " A@x.sk , b@y.sk ");
     stubSites();
-    const props = await listUserVerifiedProperties("user-1", "A@X.SK");
+    const props = await listUserVerifiedProperties("user-1", "A@X.SK", { email_verified: true });
     expect(props).toHaveLength(1);
     await expect(
+      assertUserPropertyAccess("user-1", "https://vip-client.sk/", "a@x.sk", {
+        email_verified: true,
+      }),
+    ).resolves.toBe("https://vip-client.sk/");
+  });
+
+  it("AUD-11: an UNVERIFIED listed email is NOT admin (email fallback needs verified email)", async () => {
+    stubCreds();
+    vi.stubEnv("ADMIN_EMAILS", " A@x.sk ");
+    stubSites();
+    const props = await listUserVerifiedProperties("user-1", "a@x.sk");
+    expect(props).toEqual([]);
+    await expect(
       assertUserPropertyAccess("user-1", "https://vip-client.sk/", "a@x.sk"),
+    ).rejects.toThrow("GSC_USER_UNAUTHORIZED_FOR_PROPERTY");
+  });
+
+  it("AUD-11: ADMIN_USER_IDS wins over email and needs no verified email", async () => {
+    stubCreds();
+    vi.stubEnv("ADMIN_USER_IDS", "admin-uuid-1");
+    vi.stubEnv("ADMIN_EMAILS", "someone@example.com");
+    stubSites();
+    const props = await listUserVerifiedProperties("admin-uuid-1", "unverified@example.com");
+    expect(props).toHaveLength(1);
+    await expect(
+      assertUserPropertyAccess("admin-uuid-1", "https://vip-client.sk/", "unverified@example.com"),
     ).resolves.toBe("https://vip-client.sk/");
   });
 
