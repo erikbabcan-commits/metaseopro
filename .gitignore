@@ -19,9 +19,9 @@ dist-ssr/
 .nitro/
 
 # Environment files & Local Secrets
-# NOTE: .env and any .env.* variant are never committed (only .env.example is).
-# Never commit private keys! Use .env.local / platform secrets for local overrides.
-.env
+# NOTE: .env IS committed, but with PUBLIC values only (Lovable reads VITE_* from it).
+# .env.* variants stay ignored (except .env.example). Never commit private keys!
+# Use .env.local / platform secrets for local overrides.
 .env.*
 !.env.example
 .env.local
