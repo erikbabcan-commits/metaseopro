@@ -458,7 +458,7 @@ export function generateShareableReportLink(params: {
 
   const base =
     params.origin?.replace(/\/$/, "") ||
-    (typeof window !== "undefined" ? window.location.origin : "https://seo4web.lovable.app");
+    (typeof window !== "undefined" ? window.location.origin : "https://metaseopro.vercel.app");
 
   return `${base}/dashboard?client=${encodeURIComponent(domain)}&view=report&token=${token}`;
 }

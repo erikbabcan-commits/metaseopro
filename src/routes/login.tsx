@@ -7,16 +7,18 @@ import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/use-auth";
+import {
+  authCallbackUrl,
+  clearAuthRedirect,
+  hasAuthErrorInUrl,
+  peekAuthRedirect,
+  safeRedirect,
+  saveAuthRedirect,
+} from "@/lib/safe-auth-redirect";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
-    redirect:
-      typeof search.redirect === "string" &&
-      search.redirect.startsWith("/") &&
-      !search.redirect.startsWith("//") &&
-      !search.redirect.includes("\\")
-        ? search.redirect
-        : "/",
+    redirect: safeRedirect(search.redirect),
   }),
   head: () => ({
     meta: [
@@ -40,8 +42,21 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // OAuth error comes back in the URL query — show a toast, strip the params, stay on /login.
   useEffect(() => {
-    if (!loading && user) navigate({ to: redirect });
+    if (typeof window !== "undefined" && hasAuthErrorInUrl(window.location.search)) {
+      toast.error("Prihlásenie zlyhalo. Skús to znova.");
+      navigate({ to: "/login", search: { redirect }, replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!loading && user) {
+      const stored = peekAuthRedirect();
+      if (stored) clearAuthRedirect();
+      navigate({ to: stored ?? redirect });
+    }
   }, [user, loading, navigate, redirect]);
 
   const submit = async (e: React.FormEvent) => {
@@ -52,7 +67,7 @@ function LoginPage() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}${redirect}` },
+          options: { emailRedirectTo: authCallbackUrl() },
         });
         if (error) throw error;
         toast.success("Účet vytvorený. Skontroluj email a potvrď registráciu.");
@@ -71,10 +86,11 @@ function LoginPage() {
   const socialSignIn = async (provider: "google" | "apple") => {
     setBusy(true);
     try {
-      const callback = new URL("/login", window.location.origin);
-      callback.searchParams.set("redirect", redirect);
+      // Persist the post-login target in sessionStorage (survives the OAuth broker
+      // round-trip); the callback URL stays on the current app origin, clean of params.
+      saveAuthRedirect(redirect);
       const result = await lovable.auth.signInWithOAuth(provider, {
-        redirect_uri: callback.toString(),
+        redirect_uri: authCallbackUrl(),
       });
       if (result.error) throw result.error;
       if (result.redirected) return;

@@ -71,7 +71,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     const userEmail = typeof claims?.email === "string" ? claims.email : undefined;
 
     // 2. Safe URL builder: enforce trusted application origin
-    const baseOrigin = process.env.SITE_URL || "https://seo4web.lovable.app";
+    const baseOrigin = process.env.SITE_URL || "https://metaseopro.vercel.app";
     const successUrl = data.successUrl
       ? new URL(data.successUrl, baseOrigin).toString()
       : `${baseOrigin}/dashboard?payment=success&session_id={CHECKOUT_SESSION_ID}`;
