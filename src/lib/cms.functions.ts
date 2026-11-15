@@ -175,14 +175,10 @@ export const testConnectionBeforeSave = createServerFn({ method: "POST" })
       return { ok: false, message: "Neplatná URL adresa API." };
     }
     const { listUserVerifiedProperties } = await import("./gsc.server");
-    const claims = context.claims as
-      { email?: string; email_verified?: boolean; email_confirmed_at?: string | null } | undefined;
+    const claims = context.claims as { email?: string } | undefined;
     let props: { siteUrl: string }[] = [];
     try {
-      props = await listUserVerifiedProperties(context.userId, claims?.email, {
-        email_verified: claims?.email_verified,
-        email_confirmed_at: claims?.email_confirmed_at,
-      });
+      props = await listUserVerifiedProperties(context.userId, claims?.email);
     } catch {
       props = [];
     }

@@ -2,14 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 export type AuthResult =
-  | {
-      ok: true;
-      userId: string;
-      email?: string;
-      emailConfirmedAt?: string | null;
-      emailVerified?: boolean;
-    }
-  | { ok: false; response: Response };
+  { ok: true; userId: string; email?: string } | { ok: false; response: Response };
 
 function unauthorized(message = "Vyžaduje sa prihlásenie."): Response {
   return new Response(JSON.stringify({ error: message }), {
@@ -45,13 +38,9 @@ export async function requireUser(request: Request): Promise<AuthResult> {
   if (error || !data?.claims?.sub) {
     return { ok: false, response: unauthorized() };
   }
-  const claims = data.claims as Record<string, unknown>;
   return {
     ok: true,
-    userId: String(claims.sub),
-    email: typeof claims.email === "string" ? claims.email : undefined,
-    emailConfirmedAt:
-      typeof claims.email_confirmed_at === "string" ? claims.email_confirmed_at : null,
-    emailVerified: claims.email_verified === true,
+    userId: String(data.claims.sub),
+    email: typeof data.claims.email === "string" ? data.claims.email : undefined,
   };
 }

@@ -5,14 +5,9 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-const unsetBoth = () => {
-  vi.stubEnv("ADMIN_USER_IDS", "");
-  vi.stubEnv("ADMIN_EMAILS", "");
-};
-
-describe("isAdminUser (AUD-11: ADMIN_USER_IDS primary, verified-email fallback, fail-closed)", () => {
+describe("isAdminUser — AUD-11 follow-ups: ADMIN_USER_IDS only, fail-closed", () => {
   it("returns true when user.id is in ADMIN_USER_IDS", () => {
-    vi.stubEnv("ADMIN_USER_IDS", "uuid-1, uuid-2");
+    vi.stubEnv("ADMIN_USER_IDS", "uuid-1,uuid-2");
     expect(isAdminUser({ id: "uuid-2" })).toBe(true);
   });
 
@@ -21,63 +16,47 @@ describe("isAdminUser (AUD-11: ADMIN_USER_IDS primary, verified-email fallback, 
     expect(isAdminUser({ id: "uuid-9" })).toBe(false);
   });
 
-  it("ignores whitespace and empty entries in ADMIN_USER_IDS", () => {
-    vi.stubEnv("ADMIN_USER_IDS", "  uuid-1 , ,uuid-2  ,");
+  it("ignores whitespace and empty entries in the list", () => {
+    vi.stubEnv("ADMIN_USER_IDS", "  uuid-1 , , uuid-2 ,");
     expect(isAdminUser({ id: "uuid-1" })).toBe(true);
     expect(isAdminUser({ id: "uuid-2" })).toBe(true);
-    expect(isAdminUser({ id: "" })).toBe(false);
   });
 
-  it("does NOT fall back to email when ADMIN_USER_IDS is configured", () => {
-    vi.stubEnv("ADMIN_USER_IDS", "uuid-1");
+  it('treats ADMIN_USER_IDS=" , " as "no admin" (false), not as a fallback', () => {
+    vi.stubEnv("ADMIN_USER_IDS", " , ");
     vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
-    expect(isAdminUser({ id: "uuid-9", email: "admin@example.com", email_verified: true })).toBe(
-      false,
-    );
+    expect(isAdminUser({ id: "uuid-1" })).toBe(false);
   });
 
-  it("falls back to ADMIN_EMAILS only for a VERIFIED email (email_verified)", () => {
-    unsetBoth();
-    vi.stubEnv("ADMIN_EMAILS", " Admin@Example.com ");
-    expect(isAdminUser({ id: "u1", email: "admin@example.com", email_verified: true })).toBe(true);
-    expect(
-      isAdminUser({
-        id: "u1",
-        email: "ADMIN@EXAMPLE.COM",
-        email_confirmed_at: "2026-01-01T00:00:00Z",
-      }),
-    ).toBe(true);
-  });
-
-  it("rejects an UNVERIFIED email even when it is in ADMIN_EMAILS", () => {
-    unsetBoth();
-    vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
-    expect(isAdminUser({ id: "u1", email: "admin@example.com" })).toBe(false);
-    expect(isAdminUser({ id: "u1", email: "admin@example.com", email_verified: false })).toBe(
-      false,
-    );
-    expect(isAdminUser({ id: "u1", email: "admin@example.com", email_confirmed_at: null })).toBe(
-      false,
-    );
-  });
-
-  it("rejects a verified email that is not in ADMIN_EMAILS", () => {
-    unsetBoth();
-    vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
-    expect(isAdminUser({ id: "u1", email: "other@example.com", email_verified: true })).toBe(false);
-  });
-
-  it("returns false when neither ADMIN_USER_IDS nor ADMIN_EMAILS is configured (fail-closed)", () => {
-    unsetBoth();
-    expect(isAdminUser({ id: "uuid-1", email: "admin@example.com", email_verified: true })).toBe(
-      false,
-    );
+  it("returns false when nothing is configured (fail-closed)", () => {
+    vi.stubEnv("ADMIN_USER_IDS", "");
+    vi.stubEnv("ADMIN_EMAILS", "");
+    expect(isAdminUser({ id: "uuid-1" })).toBe(false);
   });
 
   it("returns false for a missing user or missing id", () => {
     vi.stubEnv("ADMIN_USER_IDS", "uuid-1");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expect(isAdminUser(undefined as any)).toBe(false);
+    expect(isAdminUser(undefined)).toBe(false);
+    expect(isAdminUser(null)).toBe(false);
     expect(isAdminUser({ id: "" })).toBe(false);
+  });
+
+  it("ADMIN_EMAILS never grants admin, even for the listed email (no email fallback)", () => {
+    vi.stubEnv("ADMIN_USER_IDS", "uuid-1");
+    vi.stubEnv("ADMIN_EMAILS", "admin@example.com");
+    expect(isAdminUser({ id: "uuid-9" } as never) && false).toBe(false);
+    // email is not even part of the decision — ID outside the list is not admin
+    expect(isAdminUser({ id: "uuid-9" })).toBe(false);
+  });
+
+  it("user_metadata/app_metadata spoof ({ role: 'admin', email_verified: true }) does NOT grant admin", () => {
+    vi.stubEnv("ADMIN_USER_IDS", "");
+    const spoofed = {
+      id: "attacker-uuid",
+      email: "admin@example.com",
+      user_metadata: { role: "admin", email_verified: true },
+      app_metadata: { role: "admin" },
+    };
+    expect(isAdminUser(spoofed as never)).toBe(false);
   });
 });

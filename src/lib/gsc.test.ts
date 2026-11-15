@@ -133,17 +133,15 @@ describe("ADMIN_EMAILS env-based admin resolution (fail-closed, no hardcoded add
     ).rejects.toThrow("GSC_USER_UNAUTHORIZED_FOR_PROPERTY");
   });
 
-  it("parses comma-separated ADMIN_EMAILS with trim + lowercase and matches case-insensitively", async () => {
+  it("AUD-11 follow-up: ADMIN_EMAILS no longer grants admin, even for a listed email (fallback removed)", async () => {
     stubCreds();
     vi.stubEnv("ADMIN_EMAILS", " A@x.sk , b@y.sk ");
     stubSites();
-    const props = await listUserVerifiedProperties("user-1", "A@X.SK", { email_verified: true });
-    expect(props).toHaveLength(1);
+    const props = await listUserVerifiedProperties("user-1", "A@X.SK");
+    expect(props).toEqual([]);
     await expect(
-      assertUserPropertyAccess("user-1", "https://vip-client.sk/", "a@x.sk", {
-        email_verified: true,
-      }),
-    ).resolves.toBe("https://vip-client.sk/");
+      assertUserPropertyAccess("user-1", "https://vip-client.sk/", "a@x.sk"),
+    ).rejects.toThrow("GSC_USER_UNAUTHORIZED_FOR_PROPERTY");
   });
 
   it("AUD-11: an UNVERIFIED listed email is NOT admin (email fallback needs verified email)", async () => {
