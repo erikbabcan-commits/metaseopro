@@ -155,6 +155,8 @@ const sk = {
   "login.authError.emailNotConfirmed":
     "Email ešte nie je potvrdený. Skontroluj schránku a potvrď registráciu.",
   "login.authError.passwordTooShort": "Heslo musí mať aspoň 6 znakov.",
+  "login.authError.weakPassword":
+    "Heslo je príliš slabé. Použi aspoň 6 znakov a nepoužívaj bežné heslá.",
   "login.authError.invalidEmail": "Zadaj platnú emailovú adresu.",
   "login.authError.rateLimit": "Príliš veľa pokusov. Skús to o chvíľu znova.",
   "login.authError.generic": "Prihlásenie zlyhalo. Skús to znova.",
@@ -323,6 +325,8 @@ const en: Record<keyof typeof sk, string> = {
   "login.authError.emailNotConfirmed":
     "Email is not confirmed yet. Check your inbox and confirm the registration.",
   "login.authError.passwordTooShort": "Password must be at least 6 characters.",
+  "login.authError.weakPassword":
+    "Password is too weak. Use at least 6 characters and avoid common passwords.",
   "login.authError.invalidEmail": "Enter a valid email address.",
   "login.authError.rateLimit": "Too many attempts. Try again in a moment.",
   "login.authError.generic": "Sign-in failed. Try again.",
@@ -490,6 +494,8 @@ const de: Record<keyof typeof sk, string> = {
   "login.authError.emailNotConfirmed":
     "Die E-Mail ist noch nicht bestätigt. Prüfe dein Postfach und bestätige die Registrierung.",
   "login.authError.passwordTooShort": "Das Passwort muss mindestens 6 Zeichen haben.",
+  "login.authError.weakPassword":
+    "Das Passwort ist zu schwach. Verwende mindestens 6 Zeichen und keine gängigen Passwörter.",
   "login.authError.invalidEmail": "Gib eine gültige E-Mail-Adresse ein.",
   "login.authError.rateLimit": "Zu viele Versuche. Versuche es in einem Moment erneut.",
   "login.authError.generic": "Anmeldung fehlgeschlagen. Versuche es erneut.",

@@ -16,7 +16,7 @@ describe("mapAuthErrorKey", () => {
     expect(mapAuthErrorKey({ code: "email_not_confirmed" })).toBe(
       "login.authError.emailNotConfirmed",
     );
-    expect(mapAuthErrorKey({ code: "weak_password" })).toBe("login.authError.passwordTooShort");
+    expect(mapAuthErrorKey({ code: "weak_password" })).toBe("login.authError.weakPassword");
     expect(mapAuthErrorKey({ code: "over_email_send_rate_limit" })).toBe(
       "login.authError.rateLimit",
     );
@@ -47,6 +47,41 @@ describe("mapAuthErrorKey", () => {
     expect(mapAuthErrorKey(undefined)).toBe("login.authError.generic");
     expect(mapAuthErrorKey(null)).toBe("login.authError.generic");
     expect(mapAuthErrorKey({})).toBe("login.authError.generic");
+  });
+});
+
+describe("weak_password copy (#18 P3-1)", () => {
+  it("does not claim every weak password is merely too short", () => {
+    const sk = translateAuthError(
+      { code: "weak_password", message: "Password is known to be weak" },
+      "sk",
+    );
+    expect(sk).toBe("Heslo je príliš slabé. Použi aspoň 6 znakov a nepoužívaj bežné heslá.");
+    expect(sk).toBe(t("sk", "login.authError.weakPassword"));
+    expect(sk).not.toBe(t("sk", "login.authError.passwordTooShort"));
+  });
+
+  it("maps the known-weak English message without a code", () => {
+    expect(mapAuthErrorKey("Password is known to be weak and easy to guess")).toBe(
+      "login.authError.weakPassword",
+    );
+  });
+
+  it("keeps the length message for plain too-short errors", () => {
+    expect(mapAuthErrorKey("Password should be at least 6 characters")).toBe(
+      "login.authError.passwordTooShort",
+    );
+    expect(translateAuthError("Password is too short", "sk")).toBe(
+      "Heslo musí mať aspoň 6 znakov.",
+    );
+  });
+
+  it("has weakPassword copy in every locale", () => {
+    for (const locale of ["sk", "en", "de"] as const) {
+      const text = t(locale, "login.authError.weakPassword");
+      expect(text.length).toBeGreaterThan(10);
+      expect(text).not.toBe("login.authError.weakPassword");
+    }
   });
 });
 
