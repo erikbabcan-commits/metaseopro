@@ -104,8 +104,6 @@ const sk = {
   "home.step4": "SEO článok",
   "home.step4d": "Vygeneruj long-form článok podľa briefu.",
   "home.forAgencies": "Pre agentúry",
-  "home.forAgenciesD":
-    "Zdvojnásob výstup tímu bez najímania ďalších copywriterov. Briefy a články priamo k schváleniu.",
   "home.forFreelancers": "Pre freelancerov",
   "home.forFreelancersD":
     "Doruč klientovi audit, plán a článok za hodiny, nie dni. Profesionálne výstupy v slovenčine.",
@@ -276,8 +274,6 @@ const en: Record<keyof typeof sk, string> = {
   "home.step4": "SEO article",
   "home.step4d": "Generate a long-form article from the brief.",
   "home.forAgencies": "For agencies",
-  "home.forAgenciesD":
-    "Double team output without hiring more writers. Briefs and articles ready for approval.",
   "home.forFreelancers": "For freelancers",
   "home.forFreelancersD": "Deliver an audit, plan and article in hours, not days.",
   "home.forSmb": "For small businesses",
@@ -446,8 +442,6 @@ const de: Record<keyof typeof sk, string> = {
   "home.step4": "SEO-Artikel",
   "home.step4d": "Long-Form-Artikel aus dem Briefing generieren.",
   "home.forAgencies": "Für Agenturen",
-  "home.forAgenciesD":
-    "Team-Output verdoppeln ohne zusätzliche Texter. Briefings und Artikel bereit zur Freigabe.",
   "home.forFreelancers": "Für Freelancer",
   "home.forFreelancersD": "Audit, Plan und Artikel in Stunden liefern, nicht in Tagen.",
   "home.forSmb": "Für KMU",
