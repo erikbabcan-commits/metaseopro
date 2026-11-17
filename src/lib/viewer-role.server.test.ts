@@ -118,6 +118,19 @@ describe("checkViewerRateLimit (single admin bypass for per-user limits)", () =>
     }
   });
 
+  it("admin is never rate-limited, even far above 10x the limit (intentional: Erik 2026-11-17)", () => {
+    vi.stubEnv("ADMIN_USER_IDS", ADMIN_ID);
+    const key = `sa-test-admin-nocap:${Date.now()}`;
+    const opts = { limit: 2, windowMs: 60_000 };
+    for (let i = 0; i < opts.limit * 10 * 5; i++) {
+      expect(checkViewerRateLimit({ id: ADMIN_ID }, key, opts)).toEqual({ ok: true });
+    }
+    // The bypass must not consume the shared bucket: a regular user on the same key still gets the full limit.
+    expect(checkViewerRateLimit({ id: USER_ID }, key, opts).ok).toBe(true);
+    expect(checkViewerRateLimit({ id: USER_ID }, key, opts).ok).toBe(true);
+    expect(checkViewerRateLimit({ id: USER_ID }, key, opts).ok).toBe(false);
+  });
+
   it("regular user keeps exactly the existing limit", () => {
     vi.stubEnv("ADMIN_USER_IDS", ADMIN_ID);
     const key = `sa-test-user:${Date.now()}`;

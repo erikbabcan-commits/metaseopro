@@ -74,6 +74,12 @@ export function hasViewerPaidAccess(
 /**
  * Per-user rate limit for paid/AI endpoints. Superadmins bypass it; everyone
  * else gets exactly the existing limit. The bucket key is unchanged.
+ *
+ * DECISION (Erik, 2026-11-17): the admin bypass is a FULL bypass with NO cap
+ * (not even a 10x limit). Bora's review (P2-1) recommended a 10x cap as
+ * protection against a stolen admin token; Erik knowingly accepted the risk
+ * and confirmed "admin bez limitov". This is intentional, not a bug. Do not add
+ * a cap here without a new decision from Erik.
  */
 export function checkViewerRateLimit(
   user: ViewerIdentity,
