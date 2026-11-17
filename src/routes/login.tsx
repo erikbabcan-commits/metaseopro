@@ -13,7 +13,6 @@ import {
   authCallbackUrl,
   consumeAuthRedirect,
   hasAuthErrorInUrl,
-  peekAuthRedirect,
   saveAuthRedirect,
 } from "@/lib/safe-auth-redirect";
 
@@ -61,9 +60,9 @@ function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Keep a landing-saved domain if present; otherwise remember ?redirect= for after auth.
+  // An explicit ?redirect= always wins; a landing-saved target is kept when none is given.
   useEffect(() => {
-    if (!peekAuthRedirect()) saveAuthRedirect(redirect);
+    if (redirect) saveAuthRedirect(redirect);
   }, [redirect]);
 
   useEffect(() => {
@@ -101,7 +100,7 @@ function LoginPage() {
     try {
       // Persist the post-login target in sessionStorage (survives the OAuth broker
       // round-trip); the callback URL stays on the current app origin, clean of params.
-      if (!peekAuthRedirect()) saveAuthRedirect(redirect);
+      if (redirect) saveAuthRedirect(redirect);
       const result = await lovable.auth.signInWithOAuth(provider, {
         redirect_uri: authCallbackUrl(),
       });
