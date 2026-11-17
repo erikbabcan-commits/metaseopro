@@ -11,7 +11,9 @@ import { streamSSE } from "@/lib/stream-sse";
 import { AppHeader } from "@/components/AppHeader";
 import { SidebarTips } from "@/components/SidebarTips";
 import { useAuth } from "@/hooks/use-auth";
+import { parseDomainInput } from "@/lib/domain-input";
 import { saveOutput } from "@/lib/outputs.functions";
+import { safeRedirect } from "@/lib/safe-auth-redirect";
 import { PaywallModal } from "@/components/PaywallModal";
 
 export const Route = createFileRoute("/audit")({
@@ -50,7 +52,23 @@ function AuditPage() {
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (!loading && !user) navigate({ to: "/login", search: { redirect: "/audit" } });
+    if (typeof window === "undefined") return;
+    const raw = new URL(window.location.href).searchParams.get("domain");
+    if (!raw) return;
+    const normalized = parseDomainInput(raw);
+    if (!normalized) return;
+    setDomains((current) =>
+      current.includes(normalized) ? current : [...current, normalized].slice(0, 5),
+    );
+  }, []);
+
+  useEffect(() => {
+    if (loading || user) return;
+    const redirect =
+      typeof window !== "undefined"
+        ? safeRedirect(`${window.location.pathname}${window.location.search}`)
+        : "/audit";
+    navigate({ to: "/login", search: { redirect } });
   }, [user, loading, navigate]);
 
   const parseDomains = (raw: string): string[] => {

@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import ReactMarkdown from "react-markdown";
@@ -22,6 +22,8 @@ import { streamSSE } from "@/lib/stream-sse";
 import { AppHeader } from "@/components/AppHeader";
 import { SidebarTips } from "@/components/SidebarTips";
 import { useAuth } from "@/hooks/use-auth";
+import { saveAuthRedirect } from "@/lib/safe-auth-redirect";
+import { domainInputError, parseDomainInput } from "@/lib/domain-input";
 import { SerpLab } from "@/components/SerpLab";
 import { saveOutput } from "@/lib/outputs.functions";
 import { CmsDeployDialog } from "@/components/CmsDeployDialog";
@@ -56,8 +58,11 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
   const save = useServerFn(saveOutput);
+  const [domain, setDomain] = useState("");
+  const [domainError, setDomainError] = useState<string | null>(null);
   const [topic, setTopic] = useState("");
   const [primaryKeyword, setPrimaryKeyword] = useState("");
   const [audience, setAudience] = useState("");
@@ -180,6 +185,26 @@ function Index() {
     URL.revokeObjectURL(url);
   };
 
+  const submitDomain = (event: React.FormEvent) => {
+    event.preventDefault();
+    const error = domainInputError(domain);
+    const normalized = parseDomainInput(domain);
+    if (error || !normalized) {
+      setDomainError(error ?? "Zadajte platnú doménu, napríklad example.sk.");
+      return;
+    }
+    setDomainError(null);
+    const auditPath = `/audit?domain=${encodeURIComponent(normalized)}`;
+    saveAuthRedirect(auditPath);
+    if (user) {
+      void navigate({ href: auditPath });
+      return;
+    }
+    if (!loading) {
+      void navigate({ href: "/login?mode=signup" });
+    }
+  };
+
   const showOutput = status !== "idle" || article.length > 0;
 
   return (
@@ -191,33 +216,72 @@ function Index() {
         {/* Hero */}
         <section className="px-6">
           <div className="mx-auto max-w-screen-xl">
-            <div className="max-w-[44ch]">
+            <div className="max-w-2xl">
               <span className="inline-block rounded-full bg-primary px-3 py-1 text-[10px] font-medium tracking-normalst text-primary-foreground uppercase">
                 AI SEO Command Center
               </span>
               <h1 className="mt-5 mb-6 font-display text-4xl md:text-5xl lg:text-6xl leading-tight text-balance text-foreground">
-                SEO4WEB
+                SEO audit vášho webu začína jednou doménou
               </h1>
-              <p className="mb-8 text-base md:text-lg text-secondary-foreground text-pretty">
+              <p className="mb-8 text-base md:text-lg text-secondary-foreground text-pretty max-w-[44ch]">
                 Audit konkurencie, content brief, 30-dňový plán a hotový článok — jeden workflow pre
                 agentúry, freelancerov a malé firmy.
               </p>
+              <form onSubmit={submitDomain} className="mb-6" noValidate>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <div className="min-w-0 flex-1">
+                    <label
+                      htmlFor="landing-domain"
+                      className="mb-1.5 block text-sm font-medium text-foreground"
+                    >
+                      Zadajte doménu
+                    </label>
+                    <input
+                      id="landing-domain"
+                      name="domain"
+                      type="text"
+                      inputMode="url"
+                      autoComplete="url"
+                      spellCheck={false}
+                      placeholder="Zadajte doménu"
+                      value={domain}
+                      onChange={(event) => {
+                        setDomain(event.target.value);
+                        if (domainError) setDomainError(null);
+                      }}
+                      aria-invalid={domainError ? true : undefined}
+                      aria-describedby={domainError ? "landing-domain-error" : undefined}
+                      className="min-h-11 w-full rounded-full border border-border bg-card px-5 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="inline-flex min-h-11 min-w-[11rem] shrink-0 items-center justify-center rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Analyzovať web
+                  </button>
+                </div>
+                {domainError ? (
+                  <p
+                    id="landing-domain-error"
+                    role="alert"
+                    className="mt-2 text-sm text-destructive"
+                  >
+                    {domainError}
+                  </p>
+                ) : null}
+              </form>
               <div className="flex flex-wrap gap-3">
                 <Link
                   to={user ? "/brief" : "/login"}
-                  className="inline-flex min-h-11 items-center justify-center rounded-[8px] bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex min-h-11 items-center justify-center rounded-[8px] bg-card px-4 py-2.5 text-sm font-medium text-foreground ring-1 ring-border/10 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {user ? "Vytvoriť SEO brief" : "Začať zadarmo"}
                 </Link>
-                <Link
-                  to="/audit"
-                  className="rounded-[8px] bg-card px-4 py-2.5 text-sm font-medium text-foreground ring-1 ring-border/10 hover:bg-background"
-                >
-                  Spustiť SEO audit
-                </Link>
                 <a
                   href="#writer"
-                  className="rounded-[8px] bg-card px-4 py-2.5 text-sm font-medium text-foreground ring-1 ring-border/10 hover:bg-background"
+                  className="inline-flex min-h-11 items-center justify-center rounded-[8px] bg-card px-4 py-2.5 text-sm font-medium text-foreground ring-1 ring-border/10 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   Vytvoriť článok
                 </a>
@@ -296,10 +360,7 @@ function Index() {
         <section className="mt-20 px-6">
           <div className="mx-auto max-w-screen-xl grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
-              [
-                "Pre agentúry",
-                "Zdvojnásob výstup tímu bez najímania ďalších copywriterov. Briefy a články priamo k schváleniu.",
-              ],
+              ["Pre agentúry", "Briefy a články priamo k schváleniu pre váš tím."],
               [
                 "Pre freelancerov",
                 "Doruč klientovi audit, plán a článok za hodiny, nie dni. Profesionálne výstupy v slovenčine.",
