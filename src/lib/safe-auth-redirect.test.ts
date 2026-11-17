@@ -90,6 +90,35 @@ describe("safeRedirect — control characters and backslashes (#18 P3-3)", () =>
   });
 });
 
+describe("safeRedirect — /login loop guard is case-insensitive and decode-aware", () => {
+  it.each<[string, string]>([
+    ["/LOGIN", "upper case"],
+    ["/Login?x=1", "mixed case with query"],
+    ["/login/", "trailing slash"],
+    ["/%6cogin", "encoded l"],
+    ["/%4C%4FGIN", "encoded upper case"],
+    ["/%6C%6f%67%69%6E?x=1", "fully encoded"],
+    ["/%256cogin", "double encoded"],
+    ["/./login", "dot segment"],
+    ["/a/../login", "parent segment"],
+    ["/%2e/login", "encoded dot segment"],
+    ["/%2Flogin", "encoded slash"],
+    ["/login#frag", "fragment"],
+    ["/%", "malformed escape"],
+    ["/%E0%A4%A", "truncated multibyte escape"],
+    ["/audit%zz", "invalid hex escape"],
+  ])("rejects %s (%s)", (input) => {
+    expect(safeRedirect(input)).toBe("/dashboard");
+  });
+
+  it("still allows non-login paths, including a bare % in the query", () => {
+    expect(safeRedirect("/audit?domain=a.sk&x=100%")).toBe("/audit?domain=a.sk&x=100%");
+    expect(safeRedirect("/brief")).toBe("/brief");
+    expect(safeRedirect("/a/login-help-not")).toBe("/a/login-help-not");
+    expect(safeRedirect("/dashboard?next=/login")).toBe("/dashboard?next=/login");
+  });
+});
+
 describe("appOrigin", () => {
   it.each([
     "https://seo4web.lovable.app",
