@@ -9,6 +9,8 @@
 export const DEFAULT_APP_ORIGIN = "https://seo4web.lovable.app";
 const REDIRECT_STORAGE_KEY = "seo4web:auth-redirect";
 const DEFAULT_REDIRECT = "/dashboard";
+// eslint-disable-next-line no-control-regex -- intentionally matches C0 controls and DEL
+const CONTROL_CHARS = /[\x00-\x1f\x7f]/;
 
 export function appOrigin(): string {
   if (typeof window !== "undefined") {
@@ -21,10 +23,13 @@ export function appOrigin(): string {
 /**
  * Returns a safe relative same-origin path, or DEFAULT_REDIRECT.
  * Rejects protocol-relative, absolute, backslash, scheme and userinfo tricks,
+ * control characters (a "/\t/evil.com" style path parses cross-origin in WHATWG URL),
  * and any /login path (avoids redirect loops).
  */
 export function safeRedirect(candidate: unknown): string {
   if (typeof candidate !== "string") return DEFAULT_REDIRECT;
+  // Checked on the raw value: trim() would otherwise hide "/\t" as "/".
+  if (CONTROL_CHARS.test(candidate)) return DEFAULT_REDIRECT;
   const path = candidate.trim();
   if (!path.startsWith("/")) return DEFAULT_REDIRECT;
   if (path.startsWith("//")) return DEFAULT_REDIRECT;

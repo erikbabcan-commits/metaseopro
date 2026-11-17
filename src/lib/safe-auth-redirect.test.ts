@@ -59,6 +59,37 @@ describe("safeRedirect — open-redirect cases are rejected to /dashboard", () =
   });
 });
 
+describe("safeRedirect — control characters and backslashes (#18 P3-3)", () => {
+  it.each<[string, string]>([
+    ["/\t/evil.com", "tab then protocol-relative"],
+    ["/\n/evil.com", "newline then protocol-relative"],
+    ["/\r/evil.com", "carriage return then protocol-relative"],
+    ["/\t", "bare /\\t"],
+    ["/\\", "bare /\\ (backslash)"],
+    ["/\\evil.com", "backslash host"],
+    ["/audit\u0000x", "NUL (\\x00)"],
+    ["/audit\u0001", "SOH (\\x01)"],
+    ["/a\u001fb", "unit separator (\\x1F)"],
+    ["/a\u007fb", "DEL (\\x7F)"],
+    ["/audit?domain=a.sk\u000bx", "vertical tab in query"],
+    ["/audit?domain=a.sk\u000cx", "form feed in query"],
+  ])("rejects %j (%s)", (input) => {
+    expect(safeRedirect(input)).toBe("/dashboard");
+  });
+
+  it("still allows normal paths with encoded characters", () => {
+    expect(safeRedirect("/%09/x")).toBe("/%09/x");
+    expect(safeRedirect("/audit?domain=a.sk&x=%0A")).toBe("/audit?domain=a.sk&x=%0A");
+  });
+
+  it("covers every C0 control character and DEL", () => {
+    for (let code = 0; code <= 0x1f; code += 1) {
+      expect(safeRedirect(`/a${String.fromCharCode(code)}b`)).toBe("/dashboard");
+    }
+    expect(safeRedirect(`/a${String.fromCharCode(0x7f)}b`)).toBe("/dashboard");
+  });
+});
+
 describe("appOrigin", () => {
   it.each([
     "https://seo4web.lovable.app",
