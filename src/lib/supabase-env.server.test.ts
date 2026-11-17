@@ -86,3 +86,69 @@ describe("requireUser (api-auth.server) config handling", () => {
     if (!r.ok) expect(r.response.status).toBe(401);
   });
 });
+
+// NOTE: under vitest import.meta.env is an alias of process.env, so these tests cover
+// precedence/trim/empty handling only. That the build really inlines the third step is
+// proven in supabase-env.build-inline.test.ts (real Vite build, empty runtime env).
+describe("import.meta.env.VITE_* build-time fallback (third step)", () => {
+  const meta = import.meta.env as Record<string, string | undefined>;
+  const saved = {
+    url: meta.VITE_SUPABASE_URL,
+    key: meta.VITE_SUPABASE_PUBLISHABLE_KEY,
+  };
+
+  function setMeta(url: string | undefined, key: string | undefined) {
+    meta.VITE_SUPABASE_URL = url;
+    meta.VITE_SUPABASE_PUBLISHABLE_KEY = key;
+  }
+
+  afterEach(() => {
+    meta.VITE_SUPABASE_URL = saved.url;
+    meta.VITE_SUPABASE_PUBLISHABLE_KEY = saved.key;
+  });
+
+  it("used when SUPABASE_* and process.env.VITE_* are all unset", () => {
+    clearAll();
+    setMeta("https://meta.example.test", "meta-key");
+    expect(getServerSupabaseUrl()).toBe("https://meta.example.test");
+    expect(getServerSupabasePublishableKey()).toBe("meta-key");
+  });
+
+  it("process.env.VITE_* wins over import.meta.env", () => {
+    clearAll();
+    setMeta("https://meta.example.test", "meta-key");
+    vi.stubEnv("VITE_SUPABASE_URL", "https://vite.example.test");
+    vi.stubEnv("VITE_SUPABASE_PUBLISHABLE_KEY", "vite-key");
+    expect(getServerSupabaseUrl()).toBe("https://vite.example.test");
+    expect(getServerSupabasePublishableKey()).toBe("vite-key");
+  });
+
+  it("SUPABASE_* wins over import.meta.env", () => {
+    clearAll();
+    setMeta("https://meta.example.test", "meta-key");
+    vi.stubEnv("SUPABASE_URL", "https://server.example.test");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "server-key");
+    expect(getServerSupabaseUrl()).toBe("https://server.example.test");
+    expect(getServerSupabasePublishableKey()).toBe("server-key");
+  });
+
+  it("empty / whitespace import.meta.env counts as unset (fail closed)", () => {
+    clearAll();
+    setMeta("   ", "");
+    expect(getServerSupabaseUrl()).toBeUndefined();
+    expect(getServerSupabasePublishableKey()).toBeUndefined();
+  });
+
+  it("returned values are trimmed (every step)", () => {
+    clearAll();
+    vi.stubEnv("SUPABASE_URL", "  https://server.example.test \n");
+    expect(getServerSupabaseUrl()).toBe("https://server.example.test");
+    clearAll();
+    vi.stubEnv("VITE_SUPABASE_PUBLISHABLE_KEY", "\tvite-key  ");
+    expect(getServerSupabasePublishableKey()).toBe("vite-key");
+    clearAll();
+    setMeta("  https://meta.example.test  ", " meta-key ");
+    expect(getServerSupabaseUrl()).toBe("https://meta.example.test");
+    expect(getServerSupabasePublishableKey()).toBe("meta-key");
+  });
+});

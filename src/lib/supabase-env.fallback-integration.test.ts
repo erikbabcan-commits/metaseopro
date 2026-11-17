@@ -33,9 +33,10 @@ afterEach(() => {
 });
 
 async function runMiddleware() {
-  const { requireSupabaseAuth } = (await import("./auth-middleware")) as unknown as {
-    requireSupabaseAuth: { run: (ctx: { next: (x: unknown) => unknown }) => Promise<unknown> };
-  };
+  const { requireSupabaseAuth } =
+    (await import("@/integrations/supabase/auth-middleware")) as unknown as {
+      requireSupabaseAuth: { run: (ctx: { next: (x: unknown) => unknown }) => Promise<unknown> };
+    };
   return requireSupabaseAuth.run({ next: (x) => x });
 }
 
@@ -93,7 +94,7 @@ describe("auth-middleware env fallback (SUPABASE_* → VITE_SUPABASE_*)", () => 
 describe("client.server (supabaseAdmin) env fallback for the URL", () => {
   async function touchAdmin() {
     vi.resetModules();
-    const { supabaseAdmin } = await import("./client.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     return (supabaseAdmin as unknown as { auth: unknown }).auth;
   }
 
