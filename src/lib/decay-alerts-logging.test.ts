@@ -100,13 +100,11 @@ describe("decay alerts never log customer e-mails", () => {
 
   it("Resend error body echoing the address is redacted", async () => {
     process.env.RESEND_API_KEY = "re_test_x";
-    const fetchFn = vi
-      .fn()
-      .mockResolvedValue({
-        ok: false,
-        status: 422,
-        text: async () => `invalid recipient ${EMAIL}`,
-      });
+    const fetchFn = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 422,
+      text: async () => `invalid recipient ${EMAIL}`,
+    });
     const res = await sendDecayAlertEmail({
       toEmail: EMAIL,
       domain: "eshop.sk",
@@ -146,47 +144,5 @@ describe("decay alerts never log customer e-mails", () => {
       expect(logText()).not.toContain(e);
     }
     expect(body).toContain("userEmailMasked");
-  });
-});
-
-describe("decay alert trigger is limited to the authenticated user's own properties", () => {
-  beforeEach(() => {
-    spyConsole();
-    delete process.env.RESEND_API_KEY;
-  });
-  afterEach(() => vi.restoreAllMocks());
-
-  it("scoped run queries only the caller's snapshots and never touches another user's", async () => {
-    const { client, calls } = fakeSupabase({ snapshots, profiles });
-    const sendEmail = vi.fn().mockResolvedValue({ ok: true, simulated: true });
-    const authorizeProperty = vi.fn().mockResolvedValue("ok");
-    const r = await runDecayAlertSweep({
-      supabase: client,
-      scope: { userId: "u1", authorizeProperty },
-      sendEmail,
-    });
-    expect(calls.find((c) => c.table === "seo_snapshots")?.eq).toContainEqual(["user_id", "u1"]);
-    expect(r.body.evaluated).toBe(1);
-    expect(sendEmail).toHaveBeenCalledTimes(1);
-    expect(sendEmail.mock.calls[0][0].toEmail).toBe(EMAIL);
-    expect(authorizeProperty).toHaveBeenCalledWith("https://eshop.sk/");
-  });
-
-  it("foreign / unauthorized property is rejected: no e-mail is sent", async () => {
-    const { client } = fakeSupabase({ snapshots, profiles });
-    const sendEmail = vi.fn();
-    const authorizeProperty = vi
-      .fn()
-      .mockRejectedValue(new Error("GSC_USER_UNAUTHORIZED_FOR_PROPERTY"));
-    const r = await runDecayAlertSweep({
-      supabase: client,
-      scope: { userId: "u1", authorizeProperty },
-      sendEmail,
-    });
-    expect(sendEmail).not.toHaveBeenCalled();
-    expect(r.body.alertsSent).toBe(0);
-    expect(JSON.stringify(r.body)).toContain("Not authorized for this property");
-    expect(JSON.stringify(r.body)).not.toContain(EMAIL);
-    expect(logText()).not.toContain(EMAIL);
   });
 });

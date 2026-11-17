@@ -13,13 +13,29 @@ export function maskEmail(email: unknown): string {
   return `${email[0]}***@${email[at + 1]}***`;
 }
 
-/** Replaces every e-mail address found in free text (provider error bodies, error messages). */
+/** Upper bound for text that goes through the e-mail regex (keeps worst-case cost small). */
+export const MAX_REDACT_INPUT = 4096;
+
+/**
+ * Replaces every e-mail address found in free text (provider error bodies, error messages).
+ * Input is truncated to MAX_REDACT_INPUT characters first, so the output is bounded as well.
+ */
 export function redactEmails(text: string): string {
-  return text.replace(EMAIL_RE, "[redacted-email]");
+  const input = typeof text === "string" ? text : String(text);
+  const bounded =
+    input.length > MAX_REDACT_INPUT ? `${input.slice(0, MAX_REDACT_INPUT)}…[truncated]` : input;
+  return bounded.replace(EMAIL_RE, "[redacted-email]");
 }
 
-/** Safe representation of an unknown error for logs: message only, e-mails redacted. */
+/**
+ * Safe representation of an unknown error for logs: message only, e-mails redacted.
+ * Never throws (Object.create(null), throwing toString/getters, symbols, etc.).
+ */
 export function safeErrorForLog(err: unknown): string {
-  const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-  return redactEmails(msg);
+  try {
+    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    return redactEmails(msg);
+  } catch {
+    return "[unloggable error]";
+  }
 }

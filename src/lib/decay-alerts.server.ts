@@ -193,38 +193,27 @@ export async function sendDecayAlertEmail(params: {
   }
 }
 
-export interface DecayAlertScope {
-  /** Authenticated user the sweep is limited to. Omit only for the CRON_SECRET system run. */
-  userId: string;
-  /** Must throw when the user may not access the property (assertUserPropertyAccess). */
-  authorizeProperty: (siteUrl: string) => Promise<unknown>;
-}
-
 export interface DecayAlertSweepResult {
   status: number;
   body: Record<string, unknown>;
 }
 
 /**
- * Evaluates the latest snapshot per user+site and sends decay alerts.
- * - system run (no scope): all users, only reachable with CRON_SECRET;
- * - user run (scope): only that user's snapshots, and only for properties the user is authorized for.
+ * Evaluates the latest snapshot per user+site and sends decay alerts for all users.
+ * Only callable from the CRON_SECRET-protected cron route.
  * E-mail addresses are looked up for sending only; they are never logged or returned.
  */
 export async function runDecayAlertSweep(opts: {
   supabase: SupabaseClient<Database>;
-  scope?: DecayAlertScope;
   sendEmail?: typeof sendDecayAlertEmail;
 }): Promise<DecayAlertSweepResult> {
-  const { supabase, scope, sendEmail = sendDecayAlertEmail } = opts;
+  const { supabase, sendEmail = sendDecayAlertEmail } = opts;
 
-  let query = supabase
+  const { data: snapshots, error: snapErr } = await supabase
     .from("seo_snapshots")
     .select("id, user_id, site_url, metrics_summary, raw_data, created_at")
     .order("created_at", { ascending: false })
     .limit(100);
-  if (scope) query = query.eq("user_id", scope.userId);
-  const { data: snapshots, error: snapErr } = await query;
 
   if (snapErr) {
     console.error("Error fetching snapshots:", snapErr.code ?? "unknown");
@@ -266,20 +255,6 @@ export async function runDecayAlertSweep(opts: {
       siteUrl: snap.site_url,
       domain,
     };
-
-    if (scope) {
-      try {
-        await scope.authorizeProperty(snap.site_url);
-      } catch {
-        evaluations.push({
-          ...base,
-          droppedPages: [],
-          alertSent: false,
-          reason: "Not authorized for this property",
-        });
-        continue;
-      }
-    }
 
     if (!userEmail) {
       evaluations.push({

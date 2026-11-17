@@ -2,9 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { checkRateLimit } from "@/lib/rate-limit.server";
-import { runDecayAlertSweep, type DecayAlertScope } from "@/lib/decay-alerts.server";
-import { requireUser } from "@/lib/api-auth.server";
-import { assertUserPropertyAccess } from "@/lib/gsc.server";
+import { runDecayAlertSweep } from "@/lib/decay-alerts.server";
+import { secretsMatch } from "@/lib/secret-compare.server";
 import { safeErrorForLog } from "@/lib/log-redact";
 
 function getSupabaseAdmin() {
@@ -46,7 +45,7 @@ async function handleCron(request: Request): Promise<Response> {
     });
   }
 
-  // Authorization: either the system CRON_SECRET (all users) or an authenticated user (own properties only).
+  // Security: the cron runs ONLY with a valid CRON_SECRET; everything else is 401.
   const expectedSecret = process.env.CRON_SECRET;
   const authHeader = request.headers.get("authorization");
   const xCronSecret = request.headers.get("x-cron-secret");
@@ -56,28 +55,11 @@ async function handleCron(request: Request): Promise<Response> {
   const providedSecret =
     authHeader?.replace(/^Bearer\s+/i, "").trim() || xCronSecret?.trim() || querySecret?.trim();
 
-  const isSystemRun = Boolean(
-    expectedSecret && providedSecret && providedSecret === expectedSecret,
-  );
-
-  let scope: DecayAlertScope | undefined;
-  if (!isSystemRun) {
-    // Anyone else must be a signed-in user; the trigger is then limited to their own properties.
-    const auth = await requireUser(request);
-    if (!auth.ok) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-    scope = {
-      userId: auth.userId,
-      authorizeProperty: (siteUrl) =>
-        assertUserPropertyAccess(auth.userId, siteUrl, auth.email, {
-          email_verified: auth.emailVerified,
-          email_confirmed_at: auth.emailConfirmedAt,
-        }),
-    };
+  if (!secretsMatch(expectedSecret, providedSecret)) {
+    return new Response(JSON.stringify({ error: "Unauthorized: Invalid or missing CRON_SECRET" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const supabase = getSupabaseAdmin();
@@ -89,7 +71,7 @@ async function handleCron(request: Request): Promise<Response> {
   }
 
   try {
-    const result = await runDecayAlertSweep({ supabase, scope });
+    const result = await runDecayAlertSweep({ supabase });
     return new Response(JSON.stringify(result.body), {
       status: result.status,
       headers: { "Content-Type": "application/json" },
