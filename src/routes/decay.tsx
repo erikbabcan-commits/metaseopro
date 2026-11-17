@@ -27,6 +27,7 @@ import { handoffToWriter } from "@/lib/refresh-handoff";
 import { saveOutput } from "@/lib/outputs.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { PaywallModal } from "@/components/PaywallModal";
+import { useViewerRole } from "@/hooks/use-viewer-role";
 import {
   DECAY_LANGUAGES,
   DECAY_SCENARIOS,
@@ -130,6 +131,7 @@ function DecayPage() {
   const [planLoading, setPlanLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const { isAdmin } = useViewerRole();
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -243,7 +245,7 @@ function DecayPage() {
     if (!dataset || !selected) return;
 
     const rowIndex = dataset.rows.findIndex((r) => r.url === selected.url);
-    if (rowIndex >= 3) {
+    if (rowIndex >= 3 && !isAdmin) {
       setPaywallOpen(true);
       return;
     }

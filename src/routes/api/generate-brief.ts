@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { BRIEF_SYSTEM_PROMPT } from "@/lib/brief-prompt";
 import { requireUser } from "@/lib/api-auth.server";
-import { checkRateLimit } from "@/lib/rate-limit.server";
+import { checkViewerRateLimit } from "@/lib/viewer-role.server";
 
 const MAX_BODY_BYTES = 8 * 1024;
 
@@ -34,7 +34,7 @@ export const Route = createFileRoute("/api/generate-brief")({
           const contentLength = Number(request.headers.get("content-length") ?? "0");
           if (contentLength > MAX_BODY_BYTES) return err(413, "Vstup je príliš veľký.");
 
-          const rl = checkRateLimit(`brief:${auth.userId}`, {
+          const rl = checkViewerRateLimit({ id: auth.userId }, `brief:${auth.userId}`, {
             limit: 10,
             windowMs: 60_000,
           });

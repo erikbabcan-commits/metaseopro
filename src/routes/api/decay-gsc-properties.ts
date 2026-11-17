@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireUser } from "@/lib/api-auth.server";
-import { checkRateLimit } from "@/lib/rate-limit.server";
+import { checkViewerRateLimit } from "@/lib/viewer-role.server";
 import { isGscConfigured, listUserVerifiedProperties } from "@/lib/gsc.server";
 
 export const Route = createFileRoute("/api/decay-gsc-properties")({
@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/decay-gsc-properties")({
         const auth = await requireUser(request);
         if (!auth.ok) return auth.response;
 
-        const rl = checkRateLimit(`decay-gsc:${auth.userId}`, {
+        const rl = checkViewerRateLimit({ id: auth.userId }, `decay-gsc:${auth.userId}`, {
           limit: 20,
           windowMs: 60_000,
         });

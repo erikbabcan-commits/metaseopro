@@ -21,6 +21,7 @@ import { getUserSubscription, updateCompanyBillingDetails } from "@/lib/billing.
 import { isValidDIC, isValidICDPH, isValidICO, PLANS, type PlanId } from "@/lib/slovak-billing";
 import { checkoutPlanLabel } from "@/lib/billing-ui";
 import { PaywallModal } from "@/components/PaywallModal";
+import { useViewerRole } from "@/hooks/use-viewer-role";
 
 interface BillingAddressState {
   line1?: string;
@@ -37,6 +38,7 @@ export function BillingInvoiceSection() {
   const [loadRetry, setLoadRetry] = useState(0);
   const [saving, setSaving] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const { isAdmin } = useViewerRole();
 
   // Plan info
   const [plan, setPlan] = useState<PlanId>("free");
@@ -257,7 +259,7 @@ export function BillingInvoiceSection() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            {plan === "free" ? (
+            {isAdmin ? null : plan === "free" ? (
               <Button
                 size="sm"
                 onClick={() => setPaywallOpen(true)}

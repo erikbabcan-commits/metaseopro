@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
-import { hasPaidEntitlement } from "@/lib/billing-policy";
+import { hasViewerPaidAccess, isUnlimited } from "@/lib/viewer-role.server";
 
 const InputSchema = z.object({
   niche: z.string().min(2).max(500),
@@ -20,6 +20,8 @@ function isWithinFirstDay(firstUsedAt: string, now: number): boolean {
 }
 
 async function loadPaidAccess(supabase: SupabaseClient<Database>, userId: string, now: number) {
+  // Superadmin (ADMIN_USER_IDS) bypasses the paywall through the single shared gate.
+  if (isUnlimited({ id: userId })) return true;
   try {
     const { data, error } = await supabase
       .from("subscriptions")
@@ -27,7 +29,7 @@ async function loadPaidAccess(supabase: SupabaseClient<Database>, userId: string
       .eq("user_id", userId)
       .maybeSingle();
     if (error) throw error;
-    return hasPaidEntitlement(data, now);
+    return hasViewerPaidAccess({ id: userId }, data, now);
   } catch {
     throw new Error("Nepodarilo sa overiť predplatné. Skúste to znova.");
   }

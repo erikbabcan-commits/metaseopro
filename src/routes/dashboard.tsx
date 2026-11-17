@@ -29,6 +29,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import type { DecayDataset, ScoredDecayRow } from "@/lib/decay-schema";
 import { PaywallModal } from "@/components/PaywallModal";
+import { useViewerRole } from "@/hooks/use-viewer-role";
 import { ClientReportModal } from "@/components/ClientReportModal";
 import { BillingInvoiceSection } from "@/components/BillingInvoiceSection";
 import { CmsDeployDialog } from "@/components/CmsDeployDialog";
@@ -145,6 +146,7 @@ function DashboardPage() {
   const [scanError, setScanError] = useState("");
   const [scanStage, setScanStage] = useState("");
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const { isAdmin } = useViewerRole();
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [cmsDeployOpen, setCmsDeployOpen] = useState(false);
   const [deployTargetUrl, setDeployTargetUrl] = useState("");
@@ -405,7 +407,7 @@ function DashboardPage() {
               variant="outline"
               disabled={busy || scanning}
               onClick={() => {
-                if (sites.length >= 1) {
+                if (sites.length >= 1 && !isAdmin) {
                   setPaywallOpen(true);
                   return;
                 }
@@ -427,13 +429,15 @@ function DashboardPage() {
                 Stiahnuť klientsky report (PDF)
               </Button>
             )}
-            <Button
-              onClick={() => setPaywallOpen(true)}
-              className="gap-1.5 rounded-lg bg-white text-zinc-950 font-semibold hover:bg-zinc-200 transition-all shadow-md active:scale-[0.98]"
-            >
-              <Sparkles className="size-4 text-amber-500" />
-              Aktivovať Pro (39 €)
-            </Button>
+            {!isAdmin && (
+              <Button
+                onClick={() => setPaywallOpen(true)}
+                className="gap-1.5 rounded-lg bg-white text-zinc-950 font-semibold hover:bg-zinc-200 transition-all shadow-md active:scale-[0.98]"
+              >
+                <Sparkles className="size-4 text-amber-500" />
+                Aktivovať Pro (39 €)
+              </Button>
+            )}
           </div>
         </div>
 

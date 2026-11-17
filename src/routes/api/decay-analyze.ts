@@ -3,7 +3,7 @@ import { AnalyzeDecaySchema } from "@/lib/decay-schema";
 import { buildLiveDataset, runDecayAnalysis } from "@/lib/decay-analyze.server";
 import { isGscConfigured, assertUserPropertyAccess } from "@/lib/gsc.server";
 import { requireUser } from "@/lib/api-auth.server";
-import { checkRateLimit } from "@/lib/rate-limit.server";
+import { checkViewerRateLimit } from "@/lib/viewer-role.server";
 import { saveDecaySnapshot } from "@/lib/snapshots.server";
 
 const MAX_BODY_BYTES = 8 * 1024;
@@ -26,7 +26,7 @@ export const Route = createFileRoute("/api/decay-analyze")({
           const contentLength = Number(request.headers.get("content-length") ?? "0");
           if (contentLength > MAX_BODY_BYTES) return err(413, "Vstup je príliš veľký.");
 
-          const rl = checkRateLimit(`decay-analyze:${auth.userId}`, {
+          const rl = checkViewerRateLimit({ id: auth.userId }, `decay-analyze:${auth.userId}`, {
             limit: 20,
             windowMs: 60_000,
           });

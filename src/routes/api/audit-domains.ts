@@ -4,7 +4,7 @@ import { z } from "zod";
 import { AUDIT_SYSTEM_PROMPT } from "@/lib/audit-prompt";
 import { getCachedDomainSnapshot, SemrushError, type DomainSnapshot } from "@/lib/semrush.server";
 import { requireUser } from "@/lib/api-auth.server";
-import { checkRateLimit } from "@/lib/rate-limit.server";
+import { checkViewerRateLimit } from "@/lib/viewer-role.server";
 
 const MAX_BODY_BYTES = 8 * 1024;
 
@@ -45,7 +45,7 @@ export const Route = createFileRoute("/api/audit-domains")({
           const contentLength = Number(request.headers.get("content-length") ?? "0");
           if (contentLength > MAX_BODY_BYTES) return err(413, "Vstup je príliš veľký.");
 
-          const rl = checkRateLimit(`audit:${auth.userId}`, {
+          const rl = checkViewerRateLimit({ id: auth.userId }, `audit:${auth.userId}`, {
             limit: 6,
             windowMs: 60_000,
           });

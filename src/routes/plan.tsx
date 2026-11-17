@@ -10,6 +10,7 @@ import { ArrowDown, Copy, RotateCcw, Lock } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { SidebarTips } from "@/components/SidebarTips";
 import { useAuth } from "@/hooks/use-auth";
+import { useViewerRole } from "@/hooks/use-viewer-role";
 import { generateContentPlan, checkContentPlanAccess } from "@/lib/content-plan.functions";
 import { saveOutput } from "@/lib/outputs.functions";
 
@@ -50,6 +51,7 @@ function PlanPage() {
   const save = useServerFn(saveOutput);
 
   const [access, setAccess] = useState<Access | null>(null);
+  const { isAdmin } = useViewerRole();
   const [niche, setNiche] = useState("");
   const [goal, setGoal] = useState("");
   const [extra, setExtra] = useState("");
@@ -150,7 +152,7 @@ function PlanPage() {
               </p>
             </div>
 
-            {access && (
+            {access && !isAdmin && (
               <div
                 className={
                   "mb-6 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs " +

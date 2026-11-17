@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AnalyzeBodySchema, normalizeUrl } from "@/lib/raketa-schema";
 import { AnalyzeError, runAnalysis } from "@/lib/site-analyze.server";
 import { requireUser } from "@/lib/api-auth.server";
-import { checkRateLimit } from "@/lib/rate-limit.server";
+import { checkViewerRateLimit } from "@/lib/viewer-role.server";
 import { assertSafePublicUrl } from "@/lib/ssrf";
 
 const MAX_BODY_BYTES = 8 * 1024;
@@ -25,7 +25,7 @@ export const Route = createFileRoute("/api/raketa-analyze")({
           const contentLength = Number(request.headers.get("content-length") ?? "0");
           if (contentLength > MAX_BODY_BYTES) return err(413, "Vstup je príliš veľký.");
 
-          const rl = checkRateLimit(`raketa-analyze:${auth.userId}`, {
+          const rl = checkViewerRateLimit({ id: auth.userId }, `raketa-analyze:${auth.userId}`, {
             limit: 10,
             windowMs: 60_000,
           });
