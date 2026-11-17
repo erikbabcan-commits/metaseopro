@@ -5,6 +5,7 @@ import { checkRateLimit } from "@/lib/rate-limit.server";
 import { formatDomainDisplayName } from "@/lib/agency";
 import {
   detectDroppedPages,
+  resolveVerifiedAlertRecipients,
   sendDecayAlertEmail,
   type SiteAlertEvaluation,
 } from "@/lib/decay-alerts.server";
@@ -108,17 +109,10 @@ async function handleCron(request: Request): Promise<Response> {
 
     const evaluations: SiteAlertEvaluation[] = [];
 
-    // 2. Fetch user profile emails
+    // 2. Recipients: verified auth e-mail only. public.profiles.email is user-editable
+    // through RLS and must never decide where the server sends content.
     const userIds = Array.from(new Set(latestPerSite.map((s) => s.user_id)));
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("user_id, email")
-      .in("user_id", userIds);
-
-    const emailMap = new Map<string, string>();
-    profiles?.forEach((p) => {
-      if (p.email) emailMap.set(p.user_id, p.email);
-    });
+    const emailMap = await resolveVerifiedAlertRecipients(supabase, userIds);
 
     for (const snap of latestPerSite) {
       const userEmail = emailMap.get(snap.user_id);
@@ -132,7 +126,7 @@ async function handleCron(request: Request): Promise<Response> {
           domain,
           droppedPages: [],
           alertSent: false,
-          reason: "User email not found in profile",
+          reason: "Verified account email not found",
         });
         continue;
       }

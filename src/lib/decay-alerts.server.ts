@@ -58,6 +58,50 @@ export function detectDroppedPages(rawData: unknown, thresholdPct = 25): Dropped
   return dropped.sort((a, b) => a.deltaClicks - b.deltaClicks);
 }
 
+/** Escapes snapshot-derived text before it is placed into alert e-mail HTML. */
+export function escapeHtml(value: unknown): string {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+type AuthAdminLookup = {
+  auth: {
+    admin: {
+      getUserById(id: string): Promise<{
+        data: { user: { email?: string | null; email_confirmed_at?: string | null } | null };
+        error: unknown;
+      }>;
+    };
+  };
+};
+
+/**
+ * Alert recipients come only from the verified auth account e-mail
+ * (auth.users.email with email_confirmed_at), never from public.profiles.email,
+ * which every user can rewrite through RLS. A failed or unverified lookup means
+ * "no recipient" (fail closed), so content is never sent to a user-chosen address.
+ */
+export async function resolveVerifiedAlertRecipients(
+  admin: AuthAdminLookup,
+  userIds: string[],
+): Promise<Map<string, string>> {
+  const recipients = new Map<string, string>();
+  for (const userId of userIds) {
+    try {
+      const { data, error } = await admin.auth.admin.getUserById(userId);
+      const email = data?.user?.email?.trim();
+      if (!error && email && data.user?.email_confirmed_at) recipients.set(userId, email);
+    } catch {
+      // Skip this user; never fall back to an unverified address.
+    }
+  }
+  return recipients;
+}
+
 /**
  * Builds a responsive, professional HTML email for traffic decay alerts.
  */
@@ -67,7 +111,9 @@ export function buildDecayAlertEmailHtml(params: {
   droppedPages: DroppedUrlAlert[];
   dashboardUrl: string;
 }): string {
-  const { domain, droppedPages, dashboardUrl } = params;
+  const domain = escapeHtml(params.domain);
+  const dashboardUrl = escapeHtml(params.dashboardUrl);
+  const { droppedPages } = params;
 
   return `<!DOCTYPE html>
 <html lang="sk">
@@ -114,10 +160,10 @@ export function buildDecayAlertEmailHtml(params: {
             .slice(0, 10)
             .map(
               (p) => `<tr>
-            <td class="url">${p.url.replace(/^https?:\/\/[^/]+/i, "")}</td>
-            <td style="text-align: right;">${p.clicksPrev}</td>
-            <td style="text-align: right;">${p.clicksNow}</td>
-            <td class="loss">-${p.lossPct}% (${p.deltaClicks})</td>
+            <td class="url">${escapeHtml(p.url.replace(/^https?:\/\/[^/]+/i, ""))}</td>
+            <td style="text-align: right;">${escapeHtml(p.clicksPrev)}</td>
+            <td style="text-align: right;">${escapeHtml(p.clicksNow)}</td>
+            <td class="loss">-${escapeHtml(p.lossPct)}% (${escapeHtml(p.deltaClicks)})</td>
           </tr>`,
             )
             .join("")}
