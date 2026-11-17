@@ -7,19 +7,18 @@ import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/use-auth";
+import { translateAuthError } from "@/lib/auth-errors";
+import { parseLoginSearch, type LoginMode } from "@/lib/login-search";
 import {
   authCallbackUrl,
-  clearAuthRedirect,
+  consumeAuthRedirect,
   hasAuthErrorInUrl,
   peekAuthRedirect,
-  safeRedirect,
   saveAuthRedirect,
 } from "@/lib/safe-auth-redirect";
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    redirect: safeRedirect(search.redirect),
-  }),
+  validateSearch: parseLoginSearch,
   head: () => ({
     meta: [
       { title: "Prihlásenie — SEO4WEB" },
@@ -33,31 +32,45 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
+const inputClassName =
+  "mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-base md:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
 function LoginPage() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
-  const { redirect } = Route.useSearch();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const { redirect, mode: searchMode } = Route.useSearch();
+  const [mode, setMode] = useState<LoginMode>(searchMode === "signup" ? "signup" : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setMode(searchMode === "signup" ? "signup" : "signin");
+  }, [searchMode]);
 
   // OAuth error comes back in the URL query — show a toast, strip the params, stay on /login.
   useEffect(() => {
     if (typeof window !== "undefined" && hasAuthErrorInUrl(window.location.search)) {
       toast.error("Prihlásenie zlyhalo. Skús to znova.");
-      navigate({ to: "/login", search: { redirect }, replace: true });
+      navigate({
+        to: "/login",
+        search: searchMode === "signup" ? { redirect, mode: "signup" } : { redirect },
+        replace: true,
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Keep a landing-saved domain if present; otherwise remember ?redirect= for after auth.
+  useEffect(() => {
+    if (!peekAuthRedirect()) saveAuthRedirect(redirect);
+  }, [redirect]);
+
   useEffect(() => {
     if (!loading && user) {
-      const stored = peekAuthRedirect();
-      if (stored) clearAuthRedirect();
-      navigate({ to: stored ?? redirect });
+      navigate({ to: consumeAuthRedirect() });
     }
-  }, [user, loading, navigate, redirect]);
+  }, [user, loading, navigate]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,10 +87,10 @@ function LoginPage() {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate({ to: redirect });
+        // Session is set by useAuth; the effect above consumes the saved redirect.
       }
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(translateAuthError(err));
     } finally {
       setBusy(false);
     }
@@ -88,7 +101,7 @@ function LoginPage() {
     try {
       // Persist the post-login target in sessionStorage (survives the OAuth broker
       // round-trip); the callback URL stays on the current app origin, clean of params.
-      saveAuthRedirect(redirect);
+      if (!peekAuthRedirect()) saveAuthRedirect(redirect);
       const result = await lovable.auth.signInWithOAuth(provider, {
         redirect_uri: authCallbackUrl(),
       });
@@ -96,10 +109,20 @@ function LoginPage() {
       if (result.redirected) return;
       // The auth listener navigates only after the helper has set the session.
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Prihlásenie zlyhalo. Skús to znova.");
+      toast.error(translateAuthError(error));
     } finally {
       setBusy(false);
     }
+  };
+
+  const toggleMode = () => {
+    const next: LoginMode = mode === "signin" ? "signup" : "signin";
+    setMode(next);
+    navigate({
+      to: "/login",
+      search: next === "signup" ? { redirect, mode: "signup" } : { redirect },
+      replace: true,
+    });
   };
 
   return (
@@ -116,7 +139,7 @@ function LoginPage() {
           <div className="auth-rule mb-6" />
           <p className="mb-2 text-xs font-semibold uppercase text-primary">SEO Command Center</p>
           <h1 className="auth-heading mb-2 text-3xl font-semibold">
-            {mode === "signin" ? "Vitaj späť." : "Vytvor účet."}
+            {mode === "signin" ? "Vitaj späť." : "Vytvoriť účet"}
           </h1>
           <p className="mb-7 text-sm text-muted-foreground">
             {mode === "signin"
@@ -166,7 +189,7 @@ function LoginPage() {
                 placeholder="email@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className={inputClassName}
               />
             </label>
             <label className="block text-sm font-medium">
@@ -179,7 +202,7 @@ function LoginPage() {
                 placeholder="Minimálne 6 znakov"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-2 h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className={inputClassName}
               />
             </label>
             <Button type="submit" disabled={busy} className="h-11 w-full">
@@ -190,7 +213,7 @@ function LoginPage() {
           <div className="mt-6 border-t border-border pt-4 text-center">
             <Button
               variant="link"
-              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+              onClick={toggleMode}
               className="h-auto whitespace-normal text-sm"
             >
               {mode === "signin" ? "Nemáš účet? Zaregistruj sa" : "Už máš účet? Prihlás sa"}
