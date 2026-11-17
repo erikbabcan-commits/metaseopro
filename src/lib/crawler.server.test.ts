@@ -1,12 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SERP_LIMITS, textPixelWidth } from "@/lib/opportunity";
 import {
+  acquireCrawlSlot,
   canonicalizeCrawlUrl,
   crawlSite,
+  CRAWL_RATE_LIMIT,
   DEFAULT_PAGE_LIMIT,
   isPathAllowed,
   parseRobotsTxt,
   parseSitemapLocs,
+  robotsPatternMatches,
+  runCrawlForUser,
+  type CrawlResult,
 } from "@/lib/crawler.server";
 import type { DnsResolver } from "@/lib/ssrf";
 
@@ -475,19 +480,421 @@ describe("crawlSite per-page checks", () => {
     expect(home.findings.find((f) => f.code === "BROKEN_INTERNAL_LINK")?.severity).toBe("critical");
   });
 
-  it("caps the downloaded response body", async () => {
-    const huge = `<!DOCTYPE html><html><head><title>SEO služby pre firmy na Slovensku</title></head><body><h1>SEO</h1>${"A".repeat(50_000)}</body></html>`;
+  it("aborts the body download at maxBytes and ignores content past the cap", async () => {
+    const chunk = new TextEncoder().encode("A".repeat(1_000));
+    const head = new TextEncoder().encode(
+      "<!DOCTYPE html><html><head><meta charset=utf-8></head><body><h1>SEO</h1>",
+    );
+    let pulled = 0;
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (pulled === 0) controller.enqueue(head);
+        else if (pulled < 200) controller.enqueue(chunk);
+        else {
+          // The title sits far past the 3 000 byte cap.
+          controller.enqueue(new TextEncoder().encode("<title>Neskorý title tag je tu</title>"));
+          controller.close();
+        }
+        pulled += 1;
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
     const result = await crawl(
       "https://mojweb.sk/",
       {
         "https://mojweb.sk/robots.txt": ok("User-agent: *\nAllow: /\n", "text/plain"),
         "https://mojweb.sk/sitemap.xml": ok("no", "text/html", 404),
         "https://mojweb.sk/sitemap_index.xml": ok("no", "text/html", 404),
-        "https://mojweb.sk/": ok(huge),
+        "https://mojweb.sk/": () =>
+          new Response(stream, { status: 200, headers: { "content-type": "text/html" } }),
       },
-      { maxBytes: 2_000 },
+      { maxBytes: 3_000 },
     );
     expect(result.crawledCount).toBe(1);
-    expect(result.pages[0]!.status).toBe(200);
+    const page = result.pages[0]!;
+    expect(page.status).toBe(200);
+    // The title after the cap was never read, so it must be reported missing.
+    expect(page.title).toBe("");
+    expect(page.findings.some((f) => f.code === "TITLE_MISSING")).toBe(true);
+    // The reader stopped early (a handful of pulls, not all 200) and cancelled the stream.
+    expect(pulled).toBeLessThanOrEqual(6);
+    expect(cancelled).toBe(true);
+  });
+});
+
+const robotsOk = ok("User-agent: *\nAllow: /\n", "text/plain");
+const noSitemaps = {
+  "https://mojweb.sk/sitemap.xml": () => ok("no", "text/html", 404),
+  "https://mojweb.sk/sitemap_index.xml": () => ok("no", "text/html", 404),
+};
+
+function fetchedUrls(fetchFn: typeof fetch): string[] {
+  return (fetchFn as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((c) =>
+    String(c[0]),
+  );
+}
+
+describe("review fixes: sitemap index host and SSRF filtering (P2-1)", () => {
+  it("does not fetch nested sitemaps on a foreign host, a private IP or a bad scheme", async () => {
+    const fetchFn = mockFetch({
+      "https://mojweb.sk/robots.txt": robotsOk,
+      "https://mojweb.sk/sitemap.xml": ok(
+        xmlIndex([
+          "https://victim.example.com/api/delete?id=1",
+          "http://10.0.0.5/sitemap.xml",
+          "http://[::ffff:127.0.0.1]/sitemap.xml",
+          "ftp://mojweb.sk/sitemap.xml",
+          "https://mojweb.sk/sitemap-pages.xml",
+        ]),
+        "application/xml",
+      ),
+      "https://mojweb.sk/sitemap-pages.xml": ok(
+        xmlSitemap(["https://mojweb.sk/o-nas"]),
+        "application/xml",
+      ),
+      "https://mojweb.sk/": ok(html()),
+      "https://mojweb.sk/o-nas": ok(html()),
+    });
+    const result = await crawlSite("https://mojweb.sk/", {
+      fetchFn,
+      resolver: publicResolver,
+      timeoutMs: 5_000,
+    });
+    const urls = fetchedUrls(fetchFn);
+    expect(urls.some((u) => u.includes("victim.example.com"))).toBe(false);
+    expect(urls.some((u) => u.includes("10.0.0.5"))).toBe(false);
+    expect(urls.some((u) => u.includes("127.0.0.1"))).toBe(false);
+    expect(urls.some((u) => u.startsWith("ftp:"))).toBe(false);
+    expect(urls).toContain("https://mojweb.sk/sitemap-pages.xml");
+    expect(result.pages.map((p) => p.url)).toContain("https://mojweb.sk/o-nas");
+  });
+
+  it("does not queue a sitemap loc that points to an internal IP inside a urlset", async () => {
+    const fetchFn = mockFetch({
+      "https://mojweb.sk/robots.txt": robotsOk,
+      "https://mojweb.sk/sitemap.xml": ok(
+        xmlSitemap(["http://169.254.169.254/latest/meta-data", "https://other.example.org/x"]),
+        "application/xml",
+      ),
+      "https://mojweb.sk/": ok(html()),
+    });
+    await crawlSite("https://mojweb.sk/", { fetchFn, resolver: publicResolver, timeoutMs: 5_000 });
+    const urls = fetchedUrls(fetchFn);
+    expect(urls.some((u) => u.includes("169.254.169.254"))).toBe(false);
+    expect(urls.some((u) => u.includes("other.example.org"))).toBe(false);
+  });
+});
+
+describe("review fixes: more SSRF cases (P3-7)", () => {
+  it("sends no request when the host resolves to a private IP via DNS", async () => {
+    const fetchFn = vi.fn(async () => ok(html())) as unknown as typeof fetch;
+    const result = await crawlSite("https://mojweb.sk/", {
+      fetchFn,
+      resolver: { resolve: async () => ["10.0.0.5"] },
+      timeoutMs: 2_000,
+    });
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(result.stepStates).toContain("BLOCKED: SSRF");
+    expect(result.crawledCount).toBe(0);
+  });
+
+  it("blocks a redirect to an IPv4-mapped IPv6 loopback address", async () => {
+    for (const target of ["http://[::ffff:127.0.0.1]/x", "http://[::ffff:7f00:1]/x"]) {
+      const fetchFn = mockFetch({
+        "https://mojweb.sk/robots.txt": robotsOk,
+        ...noSitemaps,
+        "https://mojweb.sk/": () => redirect(target),
+      });
+      const result = await crawlSite("https://mojweb.sk/", {
+        fetchFn,
+        resolver: publicResolver,
+        timeoutMs: 5_000,
+      });
+      expect(result.stepStates, target).toContain("BLOCKED: SSRF");
+      expect(fetchedUrls(fetchFn).some((u) => u.includes("127.0.0.1") || u.includes("7f00"))).toBe(
+        false,
+      );
+    }
+  });
+
+  it("blocks a redirect to the cloud metadata address", async () => {
+    const fetchFn = mockFetch({
+      "https://mojweb.sk/robots.txt": robotsOk,
+      ...noSitemaps,
+      "https://mojweb.sk/": () => redirect("http://169.254.169.254/latest/meta-data"),
+    });
+    const result = await crawlSite("https://mojweb.sk/", {
+      fetchFn,
+      resolver: publicResolver,
+      timeoutMs: 5_000,
+    });
+    expect(result.stepStates).toContain("BLOCKED: SSRF");
+    expect(fetchedUrls(fetchFn).some((u) => u.includes("169.254.169.254"))).toBe(false);
+  });
+
+  it("does not follow internal links with userinfo, ports or private hosts", async () => {
+    const fetchFn = mockFetch({
+      "https://mojweb.sk/robots.txt": robotsOk,
+      ...noSitemaps,
+      "https://mojweb.sk/": ok(
+        html({
+          extras:
+            '<a href="http://u:p@mojweb.sk/x">a</a><a href="http://10.0.0.1/">b</a><a href="https://mojweb.sk:8080/c">c</a><a href="/ok">ok</a>',
+        }),
+      ),
+      "https://mojweb.sk/ok": ok(html()),
+    });
+    await crawlSite("https://mojweb.sk/", { fetchFn, resolver: publicResolver, timeoutMs: 5_000 });
+    const urls = fetchedUrls(fetchFn);
+    expect(urls.some((u) => u.includes("10.0.0.1"))).toBe(false);
+    expect(urls.some((u) => u.includes("u:p@"))).toBe(false);
+    expect(urls.some((u) => u.includes(":8080"))).toBe(false);
+    expect(urls).toContain("https://mojweb.sk/ok");
+  });
+
+  it("does not report the DoH endpoint as the URL of a failed lookup", async () => {
+    const result = await crawlSite("https://mojweb.sk/", {
+      // No resolver: the default DoH resolver uses this fetch, which answers 404.
+      fetchFn: mockFetch({}),
+      timeoutMs: 2_000,
+    });
+    expect(result.stepStates).toContain("BLOCKED: SSRF");
+    for (const f of result.findings) expect(f.url).not.toContain("cloudflare-dns.com");
+  });
+});
+
+describe("review fixes: robots.txt availability and grouping (P3-1, P3-2, P3-3)", () => {
+  it("treats robots.txt 5xx as complete disallow and fetches no page", async () => {
+    for (const status of [500, 503]) {
+      const fetchFn = mockFetch({
+        "https://mojweb.sk/robots.txt": ok("down", "text/plain", status),
+        "https://mojweb.sk/": ok(html()),
+      });
+      const result = await crawlSite("https://mojweb.sk/", {
+        fetchFn,
+        resolver: publicResolver,
+        timeoutMs: 5_000,
+      });
+      expect(result.stepStates, String(status)).toContain("BLOCKED: ROBOTS");
+      expect(result.crawledCount).toBe(0);
+      expect(result.findings.some((f) => f.code === "ROBOTS_UNAVAILABLE")).toBe(true);
+      expect(fetchedUrls(fetchFn)).toEqual(["https://mojweb.sk/robots.txt"]);
+    }
+  });
+
+  it("treats a robots.txt network error as complete disallow", async () => {
+    const fetchFn = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/robots.txt")) throw new TypeError("network down");
+      return ok(html());
+    }) as unknown as typeof fetch;
+    const result = await crawlSite("https://mojweb.sk/", {
+      fetchFn,
+      resolver: publicResolver,
+      timeoutMs: 5_000,
+    });
+    expect(result.stepStates).toContain("BLOCKED: ROBOTS");
+    expect(result.crawledCount).toBe(0);
+  });
+
+  it("still allows crawling when robots.txt is 404", async () => {
+    const result = await crawl("https://mojweb.sk/", {
+      "https://mojweb.sk/robots.txt": ok("nope", "text/plain", 404),
+      ...noSitemaps,
+      "https://mojweb.sk/": ok(html()),
+    });
+    expect(result.stepStates).not.toContain("BLOCKED: ROBOTS");
+    expect(result.crawledCount).toBe(1);
+  });
+
+  it("starts a new group at User-agent after a rule, even without a blank line", () => {
+    const robots = parseRobotsTxt("User-agent: *\nAllow: /\nUser-agent: SEO4WEBBot\nDisallow: /\n");
+    expect(robots.groups).toHaveLength(2);
+    expect(isPathAllowed(robots, "/x", "SEO4WEBBot")).toBe(false);
+    expect(isPathAllowed(robots, "/x", "OtherBot")).toBe(true);
+  });
+
+  it("keeps consecutive User-agent lines in one group even across blank lines", () => {
+    const robots = parseRobotsTxt("User-agent: OtherBot\n\nUser-agent: SEO4WEBBot\nDisallow: /\n");
+    expect(robots.groups).toHaveLength(1);
+    expect(isPathAllowed(robots, "/x", "SEO4WEBBot")).toBe(false);
+  });
+
+  it("matches the product token, ignoring a version suffix on either side", () => {
+    const robots = parseRobotsTxt("User-agent: SEO4WEBBot/1.0\nDisallow: /\n");
+    expect(isPathAllowed(robots, "/x", "SEO4WEBBot")).toBe(false);
+    expect(isPathAllowed(robots, "/x", "SEO4WEBBot/2.0")).toBe(false);
+    expect(isPathAllowed(robots, "/x", "OtherBot")).toBe(true);
+  });
+});
+
+describe("review fixes: robots wildcard matcher (P2-2)", () => {
+  it("supports * and $ per RFC 9309", () => {
+    expect(robotsPatternMatches("/private", "/private/a")).toBe(true);
+    expect(robotsPatternMatches("/private", "/pub")).toBe(false);
+    expect(robotsPatternMatches("/*.pdf$", "/a/b.pdf")).toBe(true);
+    expect(robotsPatternMatches("/*.pdf$", "/a/b.pdf?x=1")).toBe(false);
+    expect(robotsPatternMatches("/a*b*c", "/a-b-c-d")).toBe(true);
+    expect(robotsPatternMatches("/a*b*c", "/a-c-b")).toBe(false);
+    expect(robotsPatternMatches("/fish$", "/fish")).toBe(true);
+    expect(robotsPatternMatches("/fish$", "/fish/")).toBe(false);
+    expect(robotsPatternMatches("/*", "/anything")).toBe(true);
+    expect(robotsPatternMatches("/a*$", "/abc")).toBe(true);
+    expect(robotsPatternMatches("/a.b+c", "/a.b+c")).toBe(true);
+    expect(robotsPatternMatches("/a.b", "/axb")).toBe(false);
+  });
+
+  it("applies the longest matching rule, Allow winning ties", () => {
+    const robots = parseRobotsTxt("User-agent: *\nDisallow: /*.pdf$\nAllow: /public/*.pdf$\n");
+    expect(isPathAllowed(robots, "/x/a.pdf", "Bot")).toBe(false);
+    expect(isPathAllowed(robots, "/public/a.pdf", "Bot")).toBe(true);
+  });
+});
+
+describe("review fixes: ReDoS inputs finish quickly (P2-2)", () => {
+  const BUDGET_MS = 500;
+
+  function timed<T>(fn: () => T): { value: T; ms: number } {
+    const t = performance.now();
+    const value = fn();
+    return { value, ms: performance.now() - t };
+  }
+
+  it("pathological robots patterns do not backtrack", () => {
+    const pattern = `/${"*a".repeat(8)} b`;
+    const path = `/${"a".repeat(2_000)}`;
+    const { value, ms } = timed(() => robotsPatternMatches(pattern, path));
+    expect(value).toBe(false);
+    expect(ms).toBeLessThan(BUDGET_MS);
+
+    const robots = parseRobotsTxt(`User-agent: *\nDisallow: ${pattern}\n`);
+    const parsed = timed(() => isPathAllowed(robots, path, "SEO4WEBBot"));
+    expect(parsed.value).toBe(true);
+    expect(parsed.ms).toBeLessThan(BUDGET_MS);
+  });
+
+  it("caps robots.txt rule count and pattern length", () => {
+    const many = Array.from({ length: 5_000 }, (_, i) => `Disallow: /p${i}`).join("\n");
+    const robots = parseRobotsTxt(`User-agent: *\n${many}\nDisallow: /${"a".repeat(5_000)}\n`);
+    expect(robots.groups[0]!.rules.length).toBeLessThanOrEqual(1_000);
+    expect(robots.groups[0]!.rules.every((r) => r.pattern.length <= 512)).toBe(true);
+  });
+
+  it("sitemap <loc> parsing is linear on whitespace and unterminated input", () => {
+    const inputs = [
+      `<urlset><loc>a${" ".repeat(1_000_000)}`,
+      `<urlset>${"<loc>".repeat(100_000)}`,
+      `<urlset>${"<loc ".repeat(100_000)}`,
+      `<urlset><loc>${"<".repeat(500_000)}</loc>`,
+    ];
+    for (const xml of inputs) {
+      const { ms } = timed(() => parseSitemapLocs(xml));
+      expect(ms).toBeLessThan(BUDGET_MS);
+    }
+  });
+
+  it("HTML extraction is linear on unterminated and nested tag soup", async () => {
+    const inputs = [
+      "<meta ".repeat(150_000),
+      "<a <link <img ".repeat(60_000),
+      `<meta name="description" content="${"x".repeat(900_000)}`,
+      `<title>${"<".repeat(900_000)}`,
+      `<script type="application/ld+json">${"{".repeat(900_000)}`,
+      `<meta ${'a="'.repeat(200_000)}`,
+      "<h1 ".repeat(200_000),
+    ];
+    for (const [i, body] of inputs.entries()) {
+      const t = performance.now();
+      const result = await crawl("https://mojweb.sk/", {
+        "https://mojweb.sk/robots.txt": robotsOk,
+        ...noSitemaps,
+        "https://mojweb.sk/": ok(body),
+      });
+      const ms = performance.now() - t;
+      expect(result.crawledCount, `input ${i}`).toBe(1);
+      expect(ms, `input ${i}`).toBeLessThan(2_000);
+    }
+  });
+});
+
+describe("review fixes: offsite redirect (P3-4)", () => {
+  it("records REDIRECT_OFFSITE and does not audit the foreign host's content", async () => {
+    const result = await crawl("https://mojweb.sk/", {
+      "https://mojweb.sk/robots.txt": robotsOk,
+      ...noSitemaps,
+      "https://mojweb.sk/": () => redirect("https://iny-host.example.org/"),
+      "https://iny-host.example.org/": ok(html({ title: "Cudzí obsah ktorý nepatrí sem" })),
+    });
+    const page = result.pages[0]!;
+    expect(page.findings.some((f) => f.code === "REDIRECT_OFFSITE")).toBe(true);
+    expect(page.title).toBe("");
+    expect(result.findings.find((f) => f.code === "REDIRECT_OFFSITE")?.severity).toBe("warning");
+  });
+});
+
+describe("review fixes: crawlSiteFn rate and concurrency limits (P2-3)", () => {
+  const fakeResult: CrawlResult = {
+    startUrl: "https://mojweb.sk/",
+    host: "mojweb.sk",
+    pages: [],
+    findings: [],
+    stepStates: [],
+    crawledCount: 0,
+    discoveredCount: 0,
+  };
+
+  it("rejects the call after the per-user rate limit is used up", async () => {
+    const crawlFn = vi.fn(async () => fakeResult) as unknown as typeof crawlSite;
+    const user = `rate-user-${Math.random()}`;
+    for (let i = 0; i < CRAWL_RATE_LIMIT.limit; i++) {
+      await runCrawlForUser(user, { url: "https://mojweb.sk/" }, crawlFn);
+    }
+    await expect(runCrawlForUser(user, { url: "https://mojweb.sk/" }, crawlFn)).rejects.toThrow(
+      /Príliš veľa požiadaviek/,
+    );
+    expect(crawlFn).toHaveBeenCalledTimes(CRAWL_RATE_LIMIT.limit);
+    // Another user is unaffected.
+    await runCrawlForUser(`other-${user}`, { url: "https://mojweb.sk/" }, crawlFn);
+  });
+
+  it("allows only one concurrent crawl per user and frees the slot afterwards", async () => {
+    const user = `conc-user-${Math.random()}`;
+    let finish!: (r: CrawlResult) => void;
+    const crawlFn = vi.fn(
+      () => new Promise<CrawlResult>((resolve) => (finish = resolve)),
+    ) as unknown as typeof crawlSite;
+    const first = runCrawlForUser(user, { url: "https://mojweb.sk/" }, crawlFn);
+    await expect(runCrawlForUser(user, { url: "https://mojweb.sk/" }, crawlFn)).rejects.toThrow(
+      /Crawl už beží/,
+    );
+    finish(fakeResult);
+    await first;
+    const second = runCrawlForUser(user, { url: "https://mojweb.sk/" }, crawlFn);
+    finish(fakeResult);
+    await second;
+  });
+
+  it("releases the slot when the crawl throws, and caps global concurrency", async () => {
+    const user = `err-user-${Math.random()}`;
+    const failing = vi.fn(async () => {
+      throw new Error("boom");
+    }) as unknown as typeof crawlSite;
+    await expect(runCrawlForUser(user, { url: "https://mojweb.sk/" }, failing)).rejects.toThrow(
+      "boom",
+    );
+    const release = acquireCrawlSlot(user);
+    expect(release).not.toBeNull();
+    release!();
+    release!(); // idempotent
+
+    const held = ["g1", "g2", "g3", "g4"].map((u) => acquireCrawlSlot(`${user}-${u}`));
+    expect(held.every((r) => r !== null)).toBe(true);
+    expect(acquireCrawlSlot(`${user}-g5`)).toBeNull();
+    for (const r of held) r!();
+    const again = acquireCrawlSlot(`${user}-g5`);
+    expect(again).not.toBeNull();
+    again!();
   });
 });

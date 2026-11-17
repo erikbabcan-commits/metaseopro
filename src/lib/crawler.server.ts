@@ -7,11 +7,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireUser } from "@/lib/api-auth.server";
+import { checkRateLimit } from "@/lib/rate-limit.server";
 import { SERP_LIMITS, textPixelWidth, validateJsonLd } from "@/lib/opportunity";
 import { normalizeUrl } from "@/lib/raketa-schema";
 import {
   isSafePublicUrl,
   safeFetch,
+  createDohResolver,
   SsrfBlockedError,
   TooManyRedirectsError,
   type DnsResolver,
@@ -21,6 +23,12 @@ export const DEFAULT_PAGE_LIMIT = 25;
 export const DEFAULT_CRAWL_TIMEOUT_MS = 30_000;
 export const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 export const DEFAULT_MAX_BYTES = 1_000_000;
+/** Hard caps so that no parser ever works on unbounded attacker-controlled input. */
+export const MAX_ROBOTS_BYTES = 512 * 1024;
+export const MAX_ROBOTS_RULES = 1_000;
+export const MAX_ROBOTS_PATTERN_LENGTH = 512;
+const MAX_ROBOTS_PATH_LENGTH = 2_048;
+const MAX_TITLE_SCAN = 2_000;
 export const CRAWLER_USER_AGENT = "Mozilla/5.0 (compatible; SEO4WEBBot/1.0)";
 
 export type FindingSeverity = "critical" | "warning" | "info";
@@ -114,6 +122,93 @@ function normalizeHost(hostname: string): string {
   return hostname.toLowerCase().trim().replace(/\.+$/, "");
 }
 
+function asciiLower(s: string): string {
+  // Unlike String#toLowerCase this never changes the string length, so indexes
+  // found in the lowered copy are valid in the original.
+  return s.replace(/[A-Z]+/g, (m) => m.toLowerCase());
+}
+
+function isTagBoundary(ch: string | undefined): boolean {
+  return ch === undefined || ch === ">" || ch === "/" || /\s/.test(ch);
+}
+
+type ScannedTag = {
+  /** Lower-cased attribute names, first occurrence wins. */
+  attrs: Map<string, string>;
+  /** Index right after the closing ">" of the start tag. */
+  end: number;
+};
+
+function isSpace(ch: string): boolean {
+  return ch === " " || ch === "\t" || ch === "\n" || ch === "\r" || ch === "\f";
+}
+
+/**
+ * Parses one start tag beginning at `from` (just after the tag name) with a
+ * single forward pass. Returns null when the tag is never closed. No regex,
+ * no backtracking: the cost is O(length of the tag).
+ */
+function parseStartTag(html: string, from: number): ScannedTag | null {
+  const attrs = new Map<string, string>();
+  const n = html.length;
+  let i = from;
+  for (;;) {
+    while (i < n && (isSpace(html[i]!) || html[i] === "/")) i++;
+    if (i >= n) return null;
+    if (html[i] === ">") return { attrs, end: i + 1 };
+    const nameStart = i;
+    while (i < n && !isSpace(html[i]!) && html[i] !== "=" && html[i] !== ">" && html[i] !== "/") {
+      i++;
+    }
+    const name = asciiLower(html.slice(nameStart, i));
+    while (i < n && isSpace(html[i]!)) i++;
+    let value = "";
+    if (html[i] === "=") {
+      i++;
+      while (i < n && isSpace(html[i]!)) i++;
+      const q = html[i];
+      if (q === '"' || q === "'") {
+        const close = html.indexOf(q, i + 1);
+        if (close < 0) return null;
+        value = html.slice(i + 1, close);
+        i = close + 1;
+      } else {
+        const vs = i;
+        while (i < n && !isSpace(html[i]!) && html[i] !== ">") i++;
+        value = html.slice(vs, i);
+      }
+    }
+    if (name && !attrs.has(name)) attrs.set(name, value);
+  }
+}
+
+/**
+ * Linear iteration over start tags named `tagName`. `lower` must be
+ * asciiLower(html). The scan position always moves forward past the tag that
+ * was just parsed, so the total cost is O(html.length).
+ */
+function* scanTags(
+  html: string,
+  lower: string,
+  tagName: string,
+): Generator<ScannedTag & { start: number }> {
+  const needle = `<${tagName}`;
+  let pos = 0;
+  for (;;) {
+    const at = lower.indexOf(needle, pos);
+    if (at < 0) return;
+    const after = at + needle.length;
+    if (!isTagBoundary(lower[after])) {
+      pos = after;
+      continue;
+    }
+    const tag = parseStartTag(html, after);
+    if (!tag) return;
+    yield { ...tag, start: at };
+    pos = tag.end;
+  }
+}
+
 function isSameHost(a: string, b: string): boolean {
   try {
     return normalizeHost(new URL(a).hostname) === normalizeHost(new URL(b).hostname);
@@ -164,14 +259,16 @@ export function parseRobotsTxt(text: string): ParsedRobots {
   const groups: RobotsGroup[] = [];
   const sitemaps: string[] = [];
   let current: RobotsGroup | null = null;
-  let fresh = true;
+  // RFC 9309: consecutive User-agent lines form one group; a User-agent line
+  // after any rule starts a new group. Blank lines carry no meaning.
+  let lastWasAgent = false;
+  let ruleCount = 0;
 
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.replace(/#.*$/, "").trim();
-    if (!line) {
-      fresh = true;
-      continue;
-    }
+  const capped = text.length > MAX_ROBOTS_BYTES ? text.slice(0, MAX_ROBOTS_BYTES) : text;
+  for (const rawLine of capped.split(/\r?\n/)) {
+    const hash = rawLine.indexOf("#");
+    const line = (hash >= 0 ? rawLine.slice(0, hash) : rawLine).trim();
+    if (!line) continue;
     const idx = line.indexOf(":");
     if (idx < 0) continue;
     const field = line.slice(0, idx).trim().toLowerCase();
@@ -182,41 +279,65 @@ export function parseRobotsTxt(text: string): ParsedRobots {
       continue;
     }
     if (field === "user-agent" && value) {
-      if (!current || fresh) {
+      if (!current || !lastWasAgent) {
         current = { agents: [value.toLowerCase()], rules: [] };
         groups.push(current);
       } else {
         current.agents.push(value.toLowerCase());
       }
-      fresh = false;
+      lastWasAgent = true;
       continue;
     }
     if ((field === "disallow" || field === "allow") && current) {
+      lastWasAgent = false;
+      if (ruleCount >= MAX_ROBOTS_RULES || value.length > MAX_ROBOTS_PATTERN_LENGTH) continue;
+      ruleCount += 1;
       current.rules.push({ allow: field === "allow", pattern: value });
-      fresh = false;
     }
   }
   return { groups, sitemaps };
 }
 
-function patternToRegex(pattern: string): RegExp {
-  let source = "";
-  for (let i = 0; i < pattern.length; i++) {
-    const ch = pattern[i]!;
-    if (ch === "*") {
-      source += ".*";
-    } else if (ch === "$" && i === pattern.length - 1) {
-      source += "$";
-    } else {
-      source += ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    }
+/**
+ * RFC 9309 pattern match without a regex engine: `*` matches any run of
+ * characters, a trailing `$` anchors the end, everything else is literal.
+ * The pattern is split on `*` and the literal segments are located left to
+ * right with indexOf, so there is no backtracking and no exponential case.
+ */
+export function robotsPatternMatches(pattern: string, path: string): boolean {
+  if (pattern.length > MAX_ROBOTS_PATTERN_LENGTH) return false;
+  const target =
+    path.length > MAX_ROBOTS_PATH_LENGTH ? path.slice(0, MAX_ROBOTS_PATH_LENGTH) : path;
+  const anchored = pattern.endsWith("$");
+  const body = anchored ? pattern.slice(0, -1) : pattern;
+  const parts = body.split("*");
+  const first = parts[0]!;
+  if (!target.startsWith(first)) return false;
+  if (parts.length === 1) return anchored ? target === first : true;
+
+  let pos = first.length;
+  const last = parts[parts.length - 1]!;
+  for (let i = 1; i < parts.length - 1; i++) {
+    const seg = parts[i]!;
+    if (!seg) continue;
+    const at = target.indexOf(seg, pos);
+    if (at < 0) return false;
+    pos = at + seg.length;
   }
-  return new RegExp(`^${source}`);
+  if (anchored) {
+    return target.length - last.length >= pos && target.endsWith(last);
+  }
+  return last === "" || target.indexOf(last, pos) >= 0;
+}
+
+/** Product token of a User-agent value: "SEO4WEBBot/1.0 (x)" -> "seo4webbot". */
+function robotsProductToken(value: string): string {
+  return value.toLowerCase().trim().split(/[\s/]/, 1)[0] ?? "";
 }
 
 export function isPathAllowed(robots: ParsedRobots, path: string, userAgent: string): boolean {
-  const ua = userAgent.toLowerCase();
-  const exact = robots.groups.filter((g) => g.agents.some((a) => a === ua));
+  const token = robotsProductToken(userAgent);
+  const exact = robots.groups.filter((g) => g.agents.some((a) => robotsProductToken(a) === token));
   const wildcard = robots.groups.filter((g) => g.agents.includes("*"));
   const groups = exact.length > 0 ? exact : wildcard;
   if (groups.length === 0) return true;
@@ -225,9 +346,8 @@ export function isPathAllowed(robots: ParsedRobots, path: string, userAgent: str
   for (const group of groups) {
     for (const rule of group.rules) {
       if (rule.pattern === "") continue;
-      const re = patternToRegex(rule.pattern);
-      if (!re.test(path)) continue;
-      const length = rule.pattern.replace(/\$$/, "").length;
+      if (!robotsPatternMatches(rule.pattern, path)) continue;
+      const length = rule.pattern.endsWith("$") ? rule.pattern.length - 1 : rule.pattern.length;
       if (!best || length > best.length || (length === best.length && rule.allow && !best.allow)) {
         best = { length, allow: rule.allow };
       }
@@ -237,139 +357,172 @@ export function isPathAllowed(robots: ParsedRobots, path: string, userAgent: str
 }
 
 export function parseSitemapLocs(xml: string): { locs: string[]; isIndex: boolean } {
-  const isIndex = /<sitemapindex\b/i.test(xml);
+  const lower = asciiLower(xml);
+  const isIndex = lower.includes("<sitemapindex");
   const locs: string[] = [];
-  const re = /<loc\b[^>]*>\s*([^<\s][^<]*)\s*<\/loc>/gi;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(xml)) !== null) {
-    const loc = decodeEntities(match[1]!.trim());
+  let pos = 0;
+  for (;;) {
+    const at = lower.indexOf("<loc", pos);
+    if (at < 0) break;
+    const afterName = at + 4;
+    if (!isTagBoundary(lower[afterName])) {
+      pos = afterName;
+      continue;
+    }
+    const gt = lower.indexOf(">", afterName);
+    if (gt < 0) break;
+    const close = lower.indexOf("</loc", gt + 1);
+    if (close < 0) break;
+    const inner = xml.slice(gt + 1, close);
+    pos = close + 5;
+    if (inner.includes("<")) continue;
+    const loc = decodeEntities(inner.trim());
     if (loc) locs.push(loc);
   }
   return { locs, isIndex };
 }
 
-function extractMeta(html: string, name: string): string {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(
-    `<meta\\b[^>]*(?:name|property)\\s*=\\s*["']${escaped}["'][^>]*content\\s*=\\s*["']([^"']*)["']`,
-    "i",
-  );
-  const match = re.exec(html);
-  if (match) return decodeEntities(match[1]!.trim());
-  const re2 = new RegExp(
-    `<meta\\b[^>]*content\\s*=\\s*["']([^"']*)["'][^>]*(?:name|property)\\s*=\\s*["']${escaped}["']`,
-    "i",
-  );
-  const match2 = re2.exec(html);
-  return match2 ? decodeEntities(match2[1]!.trim()) : "";
+function extractMeta(html: string, name: string, lower = asciiLower(html)): string {
+  const wanted = name.toLowerCase();
+  for (const tag of scanTags(html, lower, "meta")) {
+    const key = tag.attrs.get("name") ?? tag.attrs.get("property");
+    if (key === undefined || key.trim().toLowerCase() !== wanted) continue;
+    const content = tag.attrs.get("content");
+    if (content === undefined) continue;
+    return decodeEntities(content.trim());
+  }
+  return "";
 }
 
-function extractTitle(html: string): string {
-  const match = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html);
-  if (!match) return "";
-  return decodeEntities(
-    match[1]!
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim(),
-  );
+function extractTitle(html: string, lower = asciiLower(html)): string {
+  const [tag] = scanTags(html, lower, "title");
+  if (!tag) return "";
+  const close = lower.indexOf("</title", tag.end);
+  if (close < 0) return "";
+  const raw = html.slice(tag.end, Math.min(close, tag.end + MAX_TITLE_SCAN));
+  // Strip nested tags with indexOf instead of /<[^>]+>/ (quadratic on "<<<<").
+  let text = "";
+  let i = 0;
+  for (;;) {
+    const lt = raw.indexOf("<", i);
+    if (lt < 0) {
+      text += raw.slice(i);
+      break;
+    }
+    text += raw.slice(i, lt);
+    const gt = raw.indexOf(">", lt + 1);
+    if (gt < 0) {
+      text += raw.slice(lt);
+      break;
+    }
+    text += " ";
+    i = gt + 1;
+  }
+  return decodeEntities(text.replace(/\s+/g, " ").trim());
 }
 
-function countH1(html: string): number {
-  const matches = html.match(/<h1\b[^>]*>/gi);
-  return matches?.length ?? 0;
+function countH1(html: string, lower = asciiLower(html)): number {
+  let count = 0;
+  for (const _tag of scanTags(html, lower, "h1")) count += 1;
+  return count;
 }
 
-function extractCanonical(html: string): string | null {
-  const re = /<link\b[^>]*>/gi;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(html)) !== null) {
-    const tag = match[0];
-    const rel = /\brel\s*=\s*["']([^"']+)["']/i.exec(tag);
-    if (!rel) continue;
-    const tokens = rel[1]!.split(/\s+/).map((t) => t.toLowerCase());
-    if (!tokens.includes("canonical")) continue;
-    const href = /\bhref\s*=\s*["']([^"']+)["']/i.exec(tag);
-    if (href) return decodeEntities(href[1]!.trim());
+function relTokens(rel: string | undefined): string[] {
+  return (rel ?? "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((t) => t.toLowerCase());
+}
+
+function extractCanonical(html: string, lower = asciiLower(html)): string | null {
+  for (const tag of scanTags(html, lower, "link")) {
+    if (!relTokens(tag.attrs.get("rel")).includes("canonical")) continue;
+    const href = tag.attrs.get("href");
+    if (href && href.trim()) return decodeEntities(href.trim());
   }
   return null;
 }
 
-function extractHreflang(html: string): HreflangRef[] {
+function extractHreflang(html: string, lower = asciiLower(html)): HreflangRef[] {
   const out: HreflangRef[] = [];
-  const re = /<link\b[^>]*>/gi;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(html)) !== null) {
-    const tag = match[0];
-    const rel = /\brel\s*=\s*["']([^"']+)["']/i.exec(tag);
-    if (!rel) continue;
-    const tokens = rel[1]!.split(/\s+/).map((t) => t.toLowerCase());
-    if (!tokens.includes("alternate")) continue;
-    const lang = /\bhreflang\s*=\s*["']([^"']+)["']/i.exec(tag);
-    const href = /\bhref\s*=\s*["']([^"']+)["']/i.exec(tag);
-    if (lang && href) {
-      out.push({ lang: lang[1]!.trim(), href: decodeEntities(href[1]!.trim()) });
+  for (const tag of scanTags(html, lower, "link")) {
+    if (!relTokens(tag.attrs.get("rel")).includes("alternate")) continue;
+    const lang = tag.attrs.get("hreflang");
+    const href = tag.attrs.get("href");
+    if (lang && lang.trim() && href && href.trim()) {
+      out.push({ lang: lang.trim(), href: decodeEntities(href.trim()) });
     }
   }
   return out;
 }
 
-function extractNamedMetaPrefix(html: string, prefix: "og:" | "twitter:"): Record<string, string> {
+function extractNamedMetaPrefix(
+  html: string,
+  prefix: "og:" | "twitter:",
+  lower = asciiLower(html),
+): Record<string, string> {
   const out: Record<string, string> = {};
-  const re = /<meta\b[^>]*>/gi;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(html)) !== null) {
-    const tag = match[0];
-    const keyM = /\b(?:name|property)\s*=\s*["']([^"']+)["']/i.exec(tag) ?? null;
-    const valM = /\bcontent\s*=\s*["']([^"']*)["']/i.exec(tag);
-    if (!keyM || !valM) continue;
-    const key = keyM[1]!.trim();
+  for (const tag of scanTags(html, lower, "meta")) {
+    const key = (tag.attrs.get("name") ?? tag.attrs.get("property") ?? "").trim();
+    const content = tag.attrs.get("content");
+    if (!key || content === undefined) continue;
     if (key.toLowerCase().startsWith(prefix)) {
-      out[key.toLowerCase()] = decodeEntities(valM[1]!.trim());
+      out[key.toLowerCase()] = decodeEntities(content.trim());
     }
   }
   return out;
 }
 
-function extractJsonLdBlocks(html: string): string[] {
+function extractJsonLdBlocks(html: string, lower = asciiLower(html)): string[] {
   const blocks: string[] = [];
-  const re = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(html)) !== null) {
-    const attrs = match[1] ?? "";
-    if (!/type\s*=\s*["']application\/ld\+json["']/i.test(attrs)) continue;
-    const body = (match[2] ?? "").trim();
+  let pos = 0;
+  for (;;) {
+    const at = lower.indexOf("<script", pos);
+    if (at < 0) break;
+    if (!isTagBoundary(lower[at + 7])) {
+      pos = at + 7;
+      continue;
+    }
+    const tag = parseStartTag(html, at + 7);
+    if (!tag) break;
+    const close = lower.indexOf("</script", tag.end);
+    if (close < 0) break;
+    pos = close + 8;
+    if ((tag.attrs.get("type") ?? "").trim().toLowerCase() !== "application/ld+json") continue;
+    const body = html.slice(tag.end, close).trim();
     if (body) blocks.push(body);
   }
   return blocks;
 }
 
-function countImagesWithoutAlt(html: string): number {
-  const tags = html.match(/<img\b[^>]*>/gi) ?? [];
+function countImagesWithoutAlt(html: string, lower = asciiLower(html)): number {
   let count = 0;
-  for (const tag of tags) {
-    const alt = /\balt\s*=\s*(["'])(.*?)\1/i.exec(tag);
-    if (!alt || alt[2]!.trim() === "") count += 1;
+  for (const tag of scanTags(html, lower, "img")) {
+    const alt = tag.attrs.get("alt");
+    if (alt === undefined || alt.trim() === "") count += 1;
   }
   return count;
 }
 
-function extractInternalLinks(html: string, pageUrl: string, startUrl: string): string[] {
+function extractInternalLinks(
+  html: string,
+  pageUrl: string,
+  startUrl: string,
+  lower = asciiLower(html),
+): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
-  const re = /<a\b[^>]*>/gi;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(html)) !== null) {
-    const hrefM = /\bhref\s*=\s*["']([^"']+)["']/i.exec(match[0]);
-    if (!hrefM) continue;
-    const raw = decodeEntities(hrefM[1]!.trim());
+  for (const tag of scanTags(html, lower, "a")) {
+    const hrefRaw = tag.attrs.get("href");
+    if (!hrefRaw) continue;
+    const raw = decodeEntities(hrefRaw.trim());
     if (!raw || raw.startsWith("#")) continue;
-    const lower = raw.toLowerCase();
+    const low = raw.toLowerCase();
     if (
-      lower.startsWith("mailto:") ||
-      lower.startsWith("tel:") ||
-      lower.startsWith("javascript:") ||
-      lower.startsWith("data:")
+      low.startsWith("mailto:") ||
+      low.startsWith("tel:") ||
+      low.startsWith("javascript:") ||
+      low.startsWith("data:")
     ) {
       continue;
     }
@@ -382,11 +535,11 @@ function extractInternalLinks(html: string, pageUrl: string, startUrl: string): 
   return out;
 }
 
-function hasNoindex(html: string, headers: Headers): boolean {
+function hasNoindex(html: string, headers: Headers, lower = asciiLower(html)): boolean {
   const header = headers.get("x-robots-tag") ?? "";
   if (/\bnoindex\b/i.test(header)) return true;
   for (const name of ["robots", "googlebot"]) {
-    const content = extractMeta(html, name);
+    const content = extractMeta(html, name, lower);
     if (/\bnoindex\b/i.test(content)) return true;
   }
   return false;
@@ -399,6 +552,9 @@ async function readCappedBody(
 ): Promise<string> {
   const reader = res.body?.getReader();
   if (!reader) {
+    // No stream: refuse to buffer a body that declares itself over the cap.
+    const declared = Number(res.headers.get("content-length") ?? "0");
+    if (Number.isFinite(declared) && declared > maxBytes) return "";
     const text = await res.text();
     return text.length > maxBytes ? text.slice(0, maxBytes) : text;
   }
@@ -470,7 +626,9 @@ async function fetchDocument(
       },
       {
         fetchFn: trackedFetch,
-        resolver: options.resolver,
+        // Built from the untracked fetch so DoH lookups never overwrite
+        // lastUrl (the URL reported in findings).
+        resolver: options.resolver ?? createDohResolver(options.fetchFn ?? fetch),
         timeoutMs: options.timeoutMs,
       },
     );
@@ -572,7 +730,15 @@ async function discoverSitemaps(
       for (const loc of parsed.locs) {
         if (indexQueue.length + visitedSitemaps.size >= maxSitemaps) break;
         const abs = canonicalizeCrawlUrl(loc, result.url);
-        if (abs && !visitedSitemaps.has(abs)) indexQueue.push(abs);
+        if (
+          abs &&
+          isSameHost(abs, startUrl) &&
+          isSafePublicUrl(abs) &&
+          !visitedSitemaps.has(abs) &&
+          !indexQueue.includes(abs)
+        ) {
+          indexQueue.push(abs);
+        }
       }
     } else {
       for (const loc of parsed.locs) {
@@ -592,19 +758,20 @@ function auditPageHtml(
   headers: Headers,
   html: string,
 ): PageAudit {
-  const title = extractTitle(html);
-  const description = extractMeta(html, "description");
+  const lower = asciiLower(html);
+  const title = extractTitle(html, lower);
+  const description = extractMeta(html, "description", lower);
   const titlePixel = title ? textPixelWidth(title) : 0;
   const descPixel = description ? textPixelWidth(description) : 0;
-  const h1Count = countH1(html);
-  const canonicalRaw = extractCanonical(html);
+  const h1Count = countH1(html, lower);
+  const canonicalRaw = extractCanonical(html, lower);
   const canonical = canonicalRaw ? canonicalizeCrawlUrl(canonicalRaw, pageUrl) : null;
-  const noindex = hasNoindex(html, headers);
-  const hreflang = extractHreflang(html);
-  const og = extractNamedMetaPrefix(html, "og:");
-  const twitter = extractNamedMetaPrefix(html, "twitter:");
+  const noindex = hasNoindex(html, headers, lower);
+  const hreflang = extractHreflang(html, lower);
+  const og = extractNamedMetaPrefix(html, "og:", lower);
+  const twitter = extractNamedMetaPrefix(html, "twitter:", lower);
   const jsonLdErrors: string[] = [];
-  const blocks = extractJsonLdBlocks(html);
+  const blocks = extractJsonLdBlocks(html, lower);
   if (blocks.length === 0) {
     jsonLdErrors.push("Chýba JSON-LD.");
   } else {
@@ -617,8 +784,8 @@ function auditPageHtml(
       }
     }
   }
-  const imagesWithoutAlt = countImagesWithoutAlt(html);
-  const internalLinks = extractInternalLinks(html, pageUrl, startUrl);
+  const imagesWithoutAlt = countImagesWithoutAlt(html, lower);
+  const internalLinks = extractInternalLinks(html, pageUrl, startUrl, lower);
   const findings: CrawlFinding[] = [];
 
   if (status >= 400) {
@@ -894,9 +1061,31 @@ export async function crawlSite(
         );
         return { startUrl, host, pages, findings, stepStates, crawledCount: 0, discoveredCount: 0 };
       }
-      if (robotsResult.error === "TIMEOUT") {
-        addState(stepStates, "TIMEOUT");
-      }
+      // RFC 9309 2.3.1.4: robots.txt unreachable (network error / timeout)
+      // => assume complete disallow.
+      if (robotsResult.error === "TIMEOUT") addState(stepStates, "TIMEOUT");
+      addState(stepStates, "BLOCKED: ROBOTS");
+      findings.push(
+        finding(
+          robotsResult.url,
+          "critical",
+          "ROBOTS_UNAVAILABLE",
+          "robots.txt sa nepodarilo načítať, crawl sa zastavil (RFC 9309).",
+        ),
+      );
+      return { startUrl, host, pages, findings, stepStates, crawledCount: 0, discoveredCount: 0 };
+    } else if (robotsResult.status >= 500) {
+      // RFC 9309 2.3.1.4: server error => assume complete disallow.
+      addState(stepStates, "BLOCKED: ROBOTS");
+      findings.push(
+        finding(
+          robotsResult.url,
+          "critical",
+          "ROBOTS_UNAVAILABLE",
+          `robots.txt vrátil HTTP ${robotsResult.status}, crawl sa zastavil (RFC 9309).`,
+        ),
+      );
+      return { startUrl, host, pages, findings, stepStates, crawledCount: 0, discoveredCount: 0 };
     } else if (robotsResult.status < 400) {
       robots = parseRobotsTxt(robotsResult.body);
     }
@@ -996,7 +1185,19 @@ export async function crawlSite(
         continue;
       }
 
-      const pageUrl = isSameHost(result.url, startUrl) ? result.url : url;
+      if (!isSameHost(result.url, startUrl)) {
+        // Do not audit another host's content under this URL.
+        const off = emptyErrorPage(
+          url,
+          result.status,
+          `Presmerované na iný host (${result.url}); obsah sa neauditoval. Spusti crawl na cieľovej URL.`,
+          "REDIRECT_OFFSITE",
+        );
+        for (const f of off.findings) f.severity = "warning";
+        pages.push(off);
+        continue;
+      }
+      const pageUrl = result.url;
       if (!isSafePublicUrl(pageUrl)) {
         addState(stepStates, "BLOCKED: SSRF");
         pages.push(
@@ -1076,6 +1277,56 @@ const CrawlInputSchema = z.object({
   pageLimit: z.number().int().min(1).max(DEFAULT_PAGE_LIMIT).optional(),
 });
 
+export const CRAWL_RATE_LIMIT = { limit: 3, windowMs: 60_000 } as const;
+export const MAX_CONCURRENT_CRAWLS_PER_USER = 1;
+export const MAX_CONCURRENT_CRAWLS_GLOBAL = 4;
+
+const activeCrawlsByUser = new Map<string, number>();
+let activeCrawlsGlobal = 0;
+
+/** In-memory concurrency gate. Returns a release function, or null when full. */
+export function acquireCrawlSlot(userId: string): (() => void) | null {
+  const mine = activeCrawlsByUser.get(userId) ?? 0;
+  if (
+    mine >= MAX_CONCURRENT_CRAWLS_PER_USER ||
+    activeCrawlsGlobal >= MAX_CONCURRENT_CRAWLS_GLOBAL
+  ) {
+    return null;
+  }
+  activeCrawlsByUser.set(userId, mine + 1);
+  activeCrawlsGlobal += 1;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    activeCrawlsGlobal -= 1;
+    const left = (activeCrawlsByUser.get(userId) ?? 1) - 1;
+    if (left <= 0) activeCrawlsByUser.delete(userId);
+    else activeCrawlsByUser.set(userId, left);
+  };
+}
+
+/** Rate limit + concurrency limit around crawlSite for one authenticated user. */
+export async function runCrawlForUser(
+  userId: string,
+  input: { url: string; pageLimit?: number },
+  crawl: typeof crawlSite = crawlSite,
+): Promise<CrawlResult> {
+  const rl = checkRateLimit(`crawl:${userId}`, CRAWL_RATE_LIMIT);
+  if (!rl.ok) {
+    throw new Error(`Príliš veľa požiadaviek. Skús to o ${rl.retryAfterSec}s.`);
+  }
+  const release = acquireCrawlSlot(userId);
+  if (!release) {
+    throw new Error("Crawl už beží. Počkaj, kým skončí.");
+  }
+  try {
+    return await crawl(input.url, { pageLimit: input.pageLimit });
+  } finally {
+    release();
+  }
+}
+
 export const crawlSiteFn = createServerFn({ method: "POST" })
   .validator((input: unknown) => CrawlInputSchema.parse(input))
   .handler(async ({ data }) => {
@@ -1084,5 +1335,5 @@ export const crawlSiteFn = createServerFn({ method: "POST" })
     if (!auth.ok) {
       throw new Error("Vyžaduje sa prihlásenie.");
     }
-    return crawlSite(data.url, { pageLimit: data.pageLimit });
+    return runCrawlForUser(auth.userId, data);
   });
