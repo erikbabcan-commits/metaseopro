@@ -46,16 +46,23 @@ async function handleCron(request: Request): Promise<Response> {
   }
 
   // Security: the cron runs ONLY with a valid CRON_SECRET; everything else is 401.
+  // The secret is accepted ONLY in headers (`Authorization: Bearer <secret>` or `x-cron-secret`).
+  // A secret in the URL query string is never read (it would end up in access logs).
+  // Either header may authorize: a wrong/foreign Authorization header (e.g. injected by a proxy)
+  // does not override a correct x-cron-secret. Each candidate is compared in constant time;
+  // an unset or empty CRON_SECRET never authorizes.
   const expectedSecret = process.env.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
-  const xCronSecret = request.headers.get("x-cron-secret");
-  const url = new URL(request.url);
-  const querySecret = url.searchParams.get("secret");
+  const bearerSecret = request.headers
+    .get("authorization")
+    ?.replace(/^Bearer\s+/i, "")
+    .trim();
+  const headerSecret = request.headers.get("x-cron-secret")?.trim();
 
-  const providedSecret =
-    authHeader?.replace(/^Bearer\s+/i, "").trim() || xCronSecret?.trim() || querySecret?.trim();
+  const authorized = [bearerSecret, headerSecret]
+    .map((candidate) => secretsMatch(expectedSecret, candidate))
+    .some(Boolean);
 
-  if (!secretsMatch(expectedSecret, providedSecret)) {
+  if (!authorized) {
     return new Response(JSON.stringify({ error: "Unauthorized: Invalid or missing CRON_SECRET" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },

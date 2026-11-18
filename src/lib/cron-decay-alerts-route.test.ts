@@ -120,6 +120,57 @@ describe("/api/public/cron-decay-alerts authorization + log hygiene", () => {
     expect(state.createClientCalls).toBe(0);
   });
 
+  it("correct secret ONLY in ?secret= query is rejected with 401 and no sweep runs", async () => {
+    for (const query of [
+      "?secret=cron-secret-test",
+      "?SECRET=cron-secret-test&secret=cron-secret-test",
+    ]) {
+      const res = await GET({ request: req({}, query) });
+      expect(res.status).toBe(401);
+    }
+    expect(state.createClientCalls).toBe(0);
+    expect(logText()).not.toContain("Simulating alert");
+    expect(logText()).not.toContain("cron-secret-test");
+  });
+
+  it("query secret does not help a wrong header either", async () => {
+    const res = await GET({
+      request: req({ "x-cron-secret": "wrong" }, "?secret=cron-secret-test"),
+    });
+    expect(res.status).toBe(401);
+    expect(state.createClientCalls).toBe(0);
+  });
+
+  it("wrong Authorization does NOT override a correct x-cron-secret (either header may authorize)", async () => {
+    const res = await GET({
+      request: req({ authorization: "Bearer wrong-value", "x-cron-secret": "cron-secret-test" }),
+    });
+    expect(res.status).toBe(200);
+    expect(state.createClientCalls).toBe(1);
+    const text = await res.text();
+    for (const e of [EMAIL, OTHER_EMAIL]) {
+      expect(text).not.toContain(e);
+      expect(logText()).not.toContain(e);
+    }
+  });
+
+  it("correct Authorization still works when x-cron-secret is wrong", async () => {
+    const res = await GET({
+      request: req({ authorization: "Bearer cron-secret-test", "x-cron-secret": "wrong-value" }),
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("both headers wrong or empty -> 401", async () => {
+    for (const headers of [
+      { authorization: "Bearer wrong", "x-cron-secret": "wrong" },
+      { authorization: "Bearer ", "x-cron-secret": "" },
+    ]) {
+      expect((await GET({ request: req(headers) })).status).toBe(401);
+    }
+    expect(state.createClientCalls).toBe(0);
+  });
+
   it("a signed-in user JWT is NOT enough: only CRON_SECRET can trigger the sweep", async () => {
     const res = await GET({ request: req({ authorization: "Bearer some.user.jwt" }) });
     expect(res.status).toBe(401);
@@ -130,7 +181,6 @@ describe("/api/public/cron-decay-alerts authorization + log hygiene", () => {
   it.each([
     ["Authorization: Bearer", { authorization: "Bearer cron-secret-test" }, ""],
     ["x-cron-secret header", { "x-cron-secret": "cron-secret-test" }, ""],
-    ["?secret= query (legacy, still supported)", {}, "?secret=cron-secret-test"],
   ])(
     "valid CRON_SECRET via %s runs the sweep for all users without e-mails in logs/response",
     async (_n, headers, query) => {
