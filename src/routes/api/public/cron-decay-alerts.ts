@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { checkRateLimit } from "@/lib/rate-limit.server";
+import { getServerSupabaseUrl } from "@/lib/supabase-env.server";
 import { formatDomainDisplayName } from "@/lib/agency";
 import {
   detectDroppedPages,
@@ -10,7 +11,7 @@ import {
 } from "@/lib/decay-alerts.server";
 
 function getSupabaseAdmin() {
-  const url = process.env.SUPABASE_URL;
+  const url = getServerSupabaseUrl();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
   return createClient<Database>(url, key, {
