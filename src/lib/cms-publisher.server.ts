@@ -81,6 +81,50 @@ function assertResponseSize(res: Response): void {
   }
 }
 
+type SlugLookup = { ok: true; postId: number | null } | { ok: false; error: string };
+
+const SLUG_LOOKUP_FAILED_PREFIX =
+  "Nepodarilo sa overiť, či príspevok s týmto slugom už existuje, preto sa nič neodoslalo (aby nevznikol duplikát).";
+
+/**
+ * Looks up an existing post by slug. `postId: null` is returned only for a
+ * successful (2xx) response with a well-formed empty list.
+ */
+async function lookupPostIdBySlug(
+  endpoint: string,
+  slug: string,
+  headers: Record<string, string>,
+  fetchFn: typeof fetch | undefined,
+): Promise<SlugLookup> {
+  const queryUrl = `${endpoint}?slug=${encodeURIComponent(slug)}&status=any`;
+  let res: Response;
+  try {
+    res = await cmsFetch(queryUrl, { method: "GET", headers }, fetchFn);
+    assertResponseSize(res);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `${SLUG_LOOKUP_FAILED_PREFIX} ${msg}` };
+  }
+  if (!res.ok) {
+    return { ok: false, error: `${SLUG_LOOKUP_FAILED_PREFIX} WordPress vrátil kód ${res.status}.` };
+  }
+  let posts: unknown;
+  try {
+    posts = await res.json();
+  } catch {
+    return { ok: false, error: `${SLUG_LOOKUP_FAILED_PREFIX} Odpoveď nie je platný JSON.` };
+  }
+  if (!Array.isArray(posts)) {
+    return { ok: false, error: `${SLUG_LOOKUP_FAILED_PREFIX} Neočakávaný formát odpovede.` };
+  }
+  if (posts.length === 0) return { ok: true, postId: null };
+  const id = (posts[0] as { id?: unknown } | null)?.id;
+  if (typeof id !== "number" || !Number.isInteger(id) || id <= 0) {
+    return { ok: false, error: `${SLUG_LOOKUP_FAILED_PREFIX} Neočakávaný formát odpovede.` };
+  }
+  return { ok: true, postId: id };
+}
+
 /**
  * Extracts a clean post slug from a full URL or path.
  * e.g. "https://example.sk/blog/ako-zacat-behat/" -> "ako-zacat-behat"
@@ -248,21 +292,22 @@ export async function publishToWordPress(params: WordPressPublishParams): Promis
   }
 
   try {
-    // 1. If we have a slug but no ID, query WP REST API to check if post already exists
+    // 1. If we have a slug but no ID, look the post up first. Only a successful
+    //    lookup decides between update (match) and create (empty result). Any
+    //    other outcome (redirect, HTTP error, network error, unreadable body)
+    //    aborts the deploy: guessing "not found" would create a duplicate post.
     if (!targetPostId && targetSlug) {
-      try {
-        const queryUrl = `${endpoint}?slug=${encodeURIComponent(targetSlug)}&status=any`;
-        const searchRes = await cmsFetch(queryUrl, { method: "GET", headers }, fetchFn);
-        assertResponseSize(searchRes);
-        if (searchRes.ok) {
-          const posts = (await searchRes.json()) as Array<{ id: number }>;
-          if (Array.isArray(posts) && posts.length > 0 && posts[0]?.id) {
-            targetPostId = posts[0].id;
-          }
-        }
-      } catch (e) {
-        console.warn("[CMS Publisher] Failed to search post by slug, falling back to create:", e);
+      const lookup = await lookupPostIdBySlug(endpoint, targetSlug, headers, fetchFn);
+      if (!lookup.ok) {
+        return {
+          success: false,
+          action: "updated",
+          status: "error",
+          error: lookup.error,
+          details: { code: "SLUG_LOOKUP_FAILED" },
+        };
       }
+      targetPostId = lookup.postId;
     }
 
     // 2. Build payload

@@ -425,6 +425,8 @@ describe("CMS Publisher & WordPress Connector", () => {
               text: async () => "",
             }),
       );
+    const postsOf = (mock: ReturnType<typeof vi.fn>) =>
+      httpCallsOf(mock).filter((c) => (c[1] as RequestInit | undefined)?.method === "POST");
     const hostsHit = (mock: ReturnType<typeof vi.fn>) =>
       httpCallsOf(mock).map((c) => new URL(String(c[0])).host);
 
@@ -477,7 +479,7 @@ describe("CMS Publisher & WordPress Connector", () => {
       expect(hostsHit(mockFetch)).toEqual(["mojweb.sk"]);
     });
 
-    it("slug lookup: a redirect is not followed and the POST target is still the verified host", async () => {
+    it("slug lookup: a redirect is not followed and no post is created", async () => {
       const mockFetch = redirectingFetch(308);
       const result = await publishToWordPress({
         siteUrl: "https://mojweb.sk",
@@ -489,6 +491,135 @@ describe("CMS Publisher & WordPress Connector", () => {
       });
       expect(result.success).toBe(false);
       expect(new Set(hostsHit(mockFetch))).toEqual(new Set(["mojweb.sk"]));
+      expect(postsOf(mockFetch)).toHaveLength(0);
+    });
+  });
+
+  describe("Slug lookup never falls through to creating a duplicate post", () => {
+    const publishBySlug = (mockFetch: ReturnType<typeof vi.fn>) =>
+      publishToWordPress({
+        siteUrl: "https://mojweb.sk",
+        apiEndpoint: "https://mojweb.sk/wp-json/wp/v2/posts",
+        credentials: "admin:app-password-fixture",
+        postIdOrSlug: "moj-clanok",
+        title: "T",
+        content: "<p>obsah</p>",
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
+    const postsOf = (mock: ReturnType<typeof vi.fn>) =>
+      httpCallsOf(mock).filter((c) => (c[1] as RequestInit | undefined)?.method === "POST");
+    const lookupResponding = (res: unknown) => {
+      const m = vi.fn((url: unknown) =>
+        isDnsQuery(url) ? Promise.resolve(DNS_OK) : Promise.resolve(res),
+      );
+      return m;
+    };
+
+    const failing: Array<[string, () => ReturnType<typeof vi.fn>]> = [
+      [
+        "3xx redirect",
+        () =>
+          lookupResponding({
+            ok: false,
+            status: 307,
+            headers: new Headers({ location: "https://mojweb.sk/moved" }),
+            body: null,
+          }),
+      ],
+      ["404", () => lookupResponding({ ok: false, status: 404, json: async () => ({}) })],
+      ["401", () => lookupResponding({ ok: false, status: 401, json: async () => ({}) })],
+      ["403", () => lookupResponding({ ok: false, status: 403, json: async () => ({}) })],
+      ["500", () => lookupResponding({ ok: false, status: 500, json: async () => ({}) })],
+      [
+        "unparseable body",
+        () =>
+          lookupResponding({
+            ok: true,
+            status: 200,
+            json: async () => {
+              throw new SyntaxError("Unexpected token <");
+            },
+          }),
+      ],
+      [
+        "body is not an array",
+        () =>
+          lookupResponding({
+            ok: true,
+            status: 200,
+            json: async () => ({ code: "rest_no_route" }),
+          }),
+      ],
+      ["body is null", () => lookupResponding({ ok: true, status: 200, json: async () => null })],
+      [
+        "match without a numeric id",
+        () =>
+          lookupResponding({ ok: true, status: 200, json: async () => [{ slug: "moj-clanok" }] }),
+      ],
+      [
+        "network error",
+        () =>
+          vi.fn((url: unknown) =>
+            isDnsQuery(url)
+              ? Promise.resolve(DNS_OK)
+              : Promise.reject(new TypeError("fetch failed")),
+          ),
+      ],
+    ];
+
+    it.each(failing)("fails and sends no POST when the lookup hits: %s", async (_name, make) => {
+      const mockFetch = make();
+      const result = await publishBySlug(mockFetch);
+      expect(result.success).toBe(false);
+      expect(result.details).toMatchObject({ code: "SLUG_LOOKUP_FAILED" });
+      expect(result.error).toMatch(/duplik/i);
+      expect(httpCallsOf(mockFetch)).toHaveLength(1);
+      expect(httpCallsOf(mockFetch)[0]![0]).toContain("slug=moj-clanok");
+      expect(postsOf(mockFetch)).toHaveLength(0);
+    });
+
+    it("a successful lookup with an empty result creates exactly one post", async () => {
+      const mockFetch = dnsAwareQueue([
+        { ok: true, status: 200, json: async () => [] },
+        {
+          ok: true,
+          status: 201,
+          json: async () => ({ id: 7, link: "https://mojweb.sk/moj-clanok" }),
+        },
+      ]);
+      const result = await publishBySlug(mockFetch);
+      expect(result).toMatchObject({ success: true, action: "created" });
+      expect(postsOf(mockFetch)).toHaveLength(1);
+      expect(postsOf(mockFetch)[0]![0]).toBe("https://mojweb.sk/wp-json/wp/v2/posts");
+    });
+
+    it("a successful lookup with a match updates that post and does not create", async () => {
+      const mockFetch = dnsAwareQueue([
+        { ok: true, status: 200, json: async () => [{ id: 55, slug: "moj-clanok" }] },
+        {
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 55, link: "https://mojweb.sk/moj-clanok" }),
+        },
+      ]);
+      const result = await publishBySlug(mockFetch);
+      expect(result).toMatchObject({ success: true, action: "updated", postId: 55 });
+      expect(postsOf(mockFetch)).toHaveLength(1);
+      expect(postsOf(mockFetch)[0]![0]).toBe("https://mojweb.sk/wp-json/wp/v2/posts/55");
+    });
+
+    it("a numeric post id skips the lookup entirely", async () => {
+      const mockFetch = dnsAwareResolved({ ok: true, status: 200, json: async () => ({ id: 9 }) });
+      await publishToWordPress({
+        siteUrl: "https://mojweb.sk",
+        apiEndpoint: "https://mojweb.sk/wp-json/wp/v2/posts",
+        credentials: "admin:app-password-fixture",
+        postIdOrSlug: 9,
+        title: "T",
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
+      expect(httpCallsOf(mockFetch)).toHaveLength(1);
+      expect(httpCallsOf(mockFetch)[0]![0]).toBe("https://mojweb.sk/wp-json/wp/v2/posts/9");
     });
   });
 });
