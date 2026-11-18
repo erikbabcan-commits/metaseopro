@@ -7,6 +7,8 @@ import {
   CRAWL_RATE_LIMIT,
   DEFAULT_PAGE_LIMIT,
   MAX_QUEUED_URLS,
+  MAX_ROBOTS_RULES,
+  ROBOTS_SKIP_YIELD_EVERY,
   MAX_RESULT_LINKS_PER_PAGE,
   isPathAllowed,
   parseRobotsTxt,
@@ -778,9 +780,10 @@ describe("review fixes: ReDoS inputs finish quickly (P2-2)", () => {
   });
 
   it("caps robots.txt rule count and pattern length", () => {
-    const many = Array.from({ length: 5_000 }, (_, i) => `Disallow: /p${i}`).join("\n");
+    const many = Array.from({ length: 8_000 }, (_, i) => `Disallow: /p${i}`).join("\n");
     const robots = parseRobotsTxt(`User-agent: *\n${many}\nDisallow: /${"a".repeat(5_000)}\n`);
-    expect(robots.groups[0]!.rules.length).toBeLessThanOrEqual(1_000);
+    expect(robots.truncated).toBe(true);
+    expect(robots.groups[0]!.rules.length).toBeLessThanOrEqual(MAX_ROBOTS_RULES);
     expect(robots.groups[0]!.rules.every((r) => r.pattern.length <= 512)).toBe(true);
   });
 
@@ -1073,7 +1076,7 @@ describe("review fixes round 2: robots caps fail closed, 429, percent-encoding (
   }
 
   it("blocks when robots.txt has more rules than the cap", async () => {
-    const rules = Array.from({ length: 1_500 }, (_, i) => `Disallow: /p${i}`).join("\n");
+    const rules = Array.from({ length: 6_000 }, (_, i) => `Disallow: /p${i}`).join("\n");
     const result = await blockedBy(`User-agent: *\n${rules}\n`);
     expect(result.stepStates).toContain("BLOCKED: ROBOTS");
     expect(result.findings.some((f) => f.code === "ROBOTS_TOO_LARGE")).toBe(true);
@@ -1167,5 +1170,105 @@ describe("review fixes round 2: concurrency messages and rate token (P3-e)", () 
       "Server je vyťažený",
     );
     for (const r of held) r!();
+  });
+});
+
+describe("review fixes round 3: robots caps per applicable group (P3-i)", () => {
+  const bigOther = Array.from({ length: 6_000 }, (_, i) => `Disallow: /other/${i}`).join("\n");
+
+  it("does not count rules of other user-agent groups against the cap", async () => {
+    const robots = `User-agent: Googlebot\n${bigOther}\n\nUser-agent: AhrefsBot\nDisallow: /\n\nUser-agent: *\nDisallow: /admin\n`;
+    const parsed = parseRobotsTxt(robots);
+    expect(parsed.truncated).toBe(false);
+    const result = await crawl("https://mojweb.sk/", {
+      "https://mojweb.sk/robots.txt": ok(robots, "text/plain"),
+      ...noSitemaps,
+      "https://mojweb.sk/": ok(html()),
+    });
+    expect(result.stepStates).not.toContain("BLOCKED: ROBOTS");
+    expect(result.crawledCount).toBe(1);
+    // Rules of other groups still work for those bots.
+    expect(isPathAllowed(parsed, "/other/5", "Googlebot")).toBe(false);
+    expect(isPathAllowed(parsed, "/", "AhrefsBot")).toBe(false);
+  });
+
+  it("still fails closed when our own group exceeds the cap", () => {
+    expect(parseRobotsTxt(`User-agent: SEO4WEBBot\n${bigOther}\n`).truncated).toBe(true);
+    expect(
+      parseRobotsTxt(`User-agent: Googlebot\nUser-agent: SEO4WEBBot\n${bigOther}\n`).truncated,
+    ).toBe(true);
+  });
+
+  it("caps the summed pattern length of applicable rules, not of other groups", () => {
+    const heavy = Array.from({ length: 200 }, (_, i) => `Disallow: /${i}${"a".repeat(480)}`).join(
+      "\n",
+    );
+    expect(parseRobotsTxt(`User-agent: *\n${heavy}\n`).truncated).toBe(true);
+    expect(parseRobotsTxt(`User-agent: Googlebot\n${heavy}\n`).truncated).toBe(false);
+  });
+
+  it("ignores over-long patterns in other groups but not in ours", () => {
+    const long = `Disallow: /${"a".repeat(600)}`;
+    expect(parseRobotsTxt(`User-agent: Googlebot\n${long}\n`).truncated).toBe(false);
+    expect(parseRobotsTxt(`User-agent: *\n${long}\n`).truncated).toBe(true);
+  });
+});
+
+describe("review fixes round 3: robots-disallowed frontier yields (P2-A')", () => {
+  it("yields to the event loop while skipping a huge disallowed frontier", async () => {
+    const heavyRules = Array.from(
+      { length: 120 },
+      (_, i) => `Disallow: /secret/*a*a*a*a*a*a*a*b${i}`,
+    ).join("\n");
+    const robots = `User-agent: *\n${heavyRules}\nDisallow: /secret\n`;
+    const longTail = "a".repeat(600);
+    const urls = Array.from(
+      { length: 1_000 },
+      (_, i) => `https://mojweb.sk/secret/${i}/${longTail}`,
+    );
+    const timeoutSpy = vi.spyOn(globalThis, "setTimeout");
+    let crawlDone = false;
+    let timerFiredDuringCrawl = false;
+    setTimeout(() => {
+      timerFiredDuringCrawl = !crawlDone;
+    }, 0);
+    const t = performance.now();
+    const result = await crawl(
+      "https://mojweb.sk/",
+      {
+        "https://mojweb.sk/robots.txt": ok(robots, "text/plain"),
+        "https://mojweb.sk/sitemap.xml": ok(xmlSitemap(urls), "application/xml"),
+        "https://mojweb.sk/sitemap_index.xml": ok("no", "text/html", 404),
+        "https://mojweb.sk/": ok(html()),
+      },
+      { pageLimit: 5 },
+    );
+    crawlDone = true;
+    const ms = performance.now() - t;
+    const yields = timeoutSpy.mock.calls.filter((c) => c[1] === 0).length;
+    timeoutSpy.mockRestore();
+
+    expect(result.crawledCount).toBe(1);
+    // Nearly the whole frontier was skipped, with a yield every N skips.
+    expect(yields).toBeGreaterThanOrEqual(Math.floor(900 / ROBOTS_SKIP_YIELD_EVERY));
+    // A timer scheduled before the crawl fired while the crawl was still running.
+    expect(timerFiredDuringCrawl).toBe(true);
+    expect(ms).toBeLessThan(3_000);
+  });
+
+  it("stops skipping when the overall timeout fires", async () => {
+    const urls = Array.from({ length: 1_000 }, (_, i) => `https://mojweb.sk/secret/${i}`);
+    const result = await crawl(
+      "https://mojweb.sk/",
+      {
+        "https://mojweb.sk/robots.txt": ok("User-agent: *\nDisallow: /secret\n", "text/plain"),
+        "https://mojweb.sk/sitemap.xml": ok(xmlSitemap(urls), "application/xml"),
+        "https://mojweb.sk/sitemap_index.xml": ok("no", "text/html", 404),
+        "https://mojweb.sk/": ok(html()),
+      },
+      { timeoutMs: 5_000 },
+    );
+    expect(result.crawledCount).toBe(1);
+    expect(result.stepStates).not.toContain("BLOCKED: ROBOTS");
   });
 });

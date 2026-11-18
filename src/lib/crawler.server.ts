@@ -21,7 +21,12 @@ export const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 export const DEFAULT_MAX_BYTES = 1_000_000;
 /** Hard caps so that no parser ever works on unbounded attacker-controlled input. */
 export const MAX_ROBOTS_BYTES = 512 * 1024;
-export const MAX_ROBOTS_RULES = 1_000;
+/** Cap on rules in groups that apply to our user agent (`*` and our product token). */
+export const MAX_ROBOTS_RULES = 5_000;
+/** Cap on the summed pattern length of applicable rules, bounds matching cost per URL. */
+export const MAX_ROBOTS_PATTERN_CHARS = 64 * 1024;
+/** Disallowed URLs skipped at dequeue between two yields to the event loop. */
+export const ROBOTS_SKIP_YIELD_EVERY = 10;
 export const MAX_ROBOTS_PATTERN_LENGTH = 512;
 const MAX_ROBOTS_PATH_LENGTH = 2_048;
 const MAX_TITLE_SCAN = 2_000;
@@ -291,7 +296,8 @@ function addState(states: CrawlStepState[], state: CrawlStepState): void {
   if (!states.includes(state)) states.push(state);
 }
 
-export function parseRobotsTxt(text: string): ParsedRobots {
+export function parseRobotsTxt(text: string, userAgent = "SEO4WEBBot"): ParsedRobots {
+  const token = robotsProductToken(userAgent);
   const groups: RobotsGroup[] = [];
   const sitemaps: string[] = [];
   let current: RobotsGroup | null = null;
@@ -299,6 +305,7 @@ export function parseRobotsTxt(text: string): ParsedRobots {
   // after any rule starts a new group. Blank lines carry no meaning.
   let lastWasAgent = false;
   let ruleCount = 0;
+  let patternChars = 0;
   let truncated = false;
 
   if (text.length > MAX_ROBOTS_BYTES) truncated = true;
@@ -328,11 +335,26 @@ export function parseRobotsTxt(text: string): ParsedRobots {
     }
     if ((field === "disallow" || field === "allow") && current) {
       lastWasAgent = false;
-      if (ruleCount >= MAX_ROBOTS_RULES || value.length > MAX_ROBOTS_PATTERN_LENGTH) {
+      // Only groups that apply to us count against the caps (a big file with
+      // many rules for other bots must not block the crawl). Caps on groups
+      // that DO apply stay fail-closed.
+      const applies = current.agents.some((a) => a === "*" || robotsProductToken(a) === token);
+      if (!applies) {
+        if (value.length <= MAX_ROBOTS_PATTERN_LENGTH) {
+          current.rules.push({ allow: field === "allow", pattern: value });
+        }
+        continue;
+      }
+      if (
+        ruleCount >= MAX_ROBOTS_RULES ||
+        value.length > MAX_ROBOTS_PATTERN_LENGTH ||
+        patternChars + value.length > MAX_ROBOTS_PATTERN_CHARS
+      ) {
         truncated = true;
         continue;
       }
       ruleCount += 1;
+      patternChars += value.length;
       current.rules.push({ allow: field === "allow", pattern: value });
     }
   }
@@ -1196,7 +1218,7 @@ async function crawlSiteInner(
       );
       return { startUrl, host, pages, findings, stepStates, crawledCount: 0, discoveredCount: 0 };
     } else if (robotsResult.status < 400) {
-      robots = parseRobotsTxt(robotsResult.body);
+      robots = parseRobotsTxt(robotsResult.body, botName);
     }
 
     if (!isPathAllowed(robots, pathAndQuery(startUrl), botName)) {
@@ -1250,6 +1272,7 @@ async function crawlSiteInner(
     for (const url of sitemapUrls) enqueue(url);
     discoveredCount = queued.size;
 
+    let skippedByRobots = 0;
     const statusByUrl = new Map<string, number>();
     const inbound = new Map<string, Set<string>>();
     const rememberLink = (from: string, to: string) => {
@@ -1273,7 +1296,15 @@ async function crawlSiteInner(
       }
 
       const url = queue.shift()!;
-      if (!isPathAllowed(robots, pathAndQuery(url), botName)) continue;
+      if (!isPathAllowed(robots, pathAndQuery(url), botName)) {
+        // Skipping disallowed URLs is synchronous CPU work: yield regularly so
+        // a hostile frontier cannot block the event loop (timers, other crawls).
+        skippedByRobots += 1;
+        if (skippedByRobots % ROBOTS_SKIP_YIELD_EVERY === 0) {
+          await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        }
+        continue;
+      }
       const result = await fetchDocument(url, pageOpts);
       if (crawlController.signal.aborted && result.ok === false && result.error === "TIMEOUT") {
         addState(stepStates, "TIMEOUT");
