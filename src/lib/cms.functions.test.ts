@@ -64,8 +64,12 @@ const mocks = vi.hoisted(() => {
     if (state.gscFails) throw new Error("GSC_NOT_CONNECTED");
     return state.verifiedSites;
   });
+  const setResponseStatus = vi.fn((_code?: number) => undefined);
+  const setResponseHeader = vi.fn((_name: string, _value: string) => undefined);
   return {
     state,
+    setResponseStatus,
+    setResponseHeader,
     requireSupabaseAuth,
     publishToWordPress,
     publishToCustomWebhook,
@@ -101,6 +105,10 @@ vi.mock("@tanstack/react-start", () => ({
     };
     return builder;
   },
+}));
+vi.mock("@tanstack/react-start/server", () => ({
+  setResponseStatus: mocks.setResponseStatus,
+  setResponseHeader: mocks.setResponseHeader,
 }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({
   requireSupabaseAuth: mocks.requireSupabaseAuth,
@@ -142,7 +150,11 @@ beforeEach(() => {
   mocks.publishToCustomWebhook.mockClear();
   mocks.testWordPressConnection.mockClear();
   mocks.listUserVerifiedProperties.mockClear();
+  mocks.setResponseStatus.mockClear();
+  mocks.setResponseHeader.mockClear();
 });
+
+const lastStatus = () => mocks.setResponseStatus.mock.calls.at(-1)?.[0];
 
 describe("deployContentToCms destination guard", () => {
   it("rejects unauthenticated callers and sends nothing", async () => {
@@ -218,6 +230,34 @@ describe("deployContentToCms destination guard", () => {
       code: "VERIFICATION_UNAVAILABLE",
     });
     expect(sent()).toBe(0);
+    expect(lastStatus()).toBe(503);
+  });
+
+  it("maps destination errors to the HTTP status of the response", async () => {
+    signIn();
+    mocks.state.rows = [
+      { ...VERIFIED_WP, platform: "custom_webhook", api_endpoint: "https://evil.example/hook" },
+    ];
+    await expect(deploy({ data: { connectionId: crypto.randomUUID() } })).rejects.toMatchObject({
+      code: "DESTINATION_NOT_VERIFIED",
+    });
+    expect(lastStatus()).toBe(403);
+
+    mocks.state.rows = [
+      { ...VERIFIED_WP, platform: "custom_webhook", api_endpoint: "http://127.0.0.1/hook" },
+    ];
+    await expect(deploy({ data: { connectionId: crypto.randomUUID() } })).rejects.toMatchObject({
+      code: "UNSAFE_URL",
+    });
+    expect(lastStatus()).toBe(400);
+    expect(sent()).toBe(0);
+  });
+
+  it("does not set an error status on a successful deploy", async () => {
+    signIn();
+    mocks.state.rows = [VERIFIED_WP];
+    await deploy({ data: { connectionId: crypto.randomUUID() } });
+    expect(mocks.setResponseStatus).not.toHaveBeenCalled();
   });
 
   it("rate limits deploys per user", async () => {
@@ -231,6 +271,11 @@ describe("deployContentToCms destination guard", () => {
       status: 429,
     });
     expect(sent()).toBe(10);
+    expect(lastStatus()).toBe(429);
+    expect(mocks.setResponseHeader).toHaveBeenCalledWith(
+      "Retry-After",
+      expect.stringMatching(/^\d+$/),
+    );
   });
 });
 
@@ -269,6 +314,34 @@ describe("saveUserCmsConnection destination guard", () => {
       }),
     ).rejects.toMatchObject({ code: "DESTINATION_NOT_VERIFIED" });
     expect(mocks.state.writes).toHaveLength(0);
+    expect(lastStatus()).toBe(403);
+  });
+
+  it("maps save errors to 400 / 503 HTTP statuses", async () => {
+    signIn();
+    await expect(
+      save({ data: { ...base, apiEndpoint: "http://169.254.169.254/latest/meta-data/" } }),
+    ).rejects.toMatchObject({ code: "UNSAFE_URL" });
+    expect(lastStatus()).toBe(400);
+    mocks.state.gscFails = true;
+    await expect(
+      save({ data: { ...base, apiEndpoint: "https://moj-web.sk/hook" } }),
+    ).rejects.toMatchObject({ code: "VERIFICATION_UNAVAILABLE" });
+    expect(lastStatus()).toBe(503);
+    expect(mocks.state.writes).toHaveLength(0);
+  });
+
+  it("rate limits saves per user (429) and writes nothing past the limit", async () => {
+    signIn();
+    for (let i = 0; i < 10; i++) {
+      await save({ data: { ...base, apiEndpoint: "https://moj-web.sk/hook" } });
+    }
+    expect(mocks.state.writes).toHaveLength(10);
+    await expect(
+      save({ data: { ...base, apiEndpoint: "https://moj-web.sk/hook" } }),
+    ).rejects.toMatchObject({ code: "RATE_LIMITED", status: 429 });
+    expect(mocks.state.writes).toHaveLength(10);
+    expect(lastStatus()).toBe(429);
   });
 
   it("rejects unauthenticated callers", async () => {
@@ -291,6 +364,33 @@ describe("testConnectionBeforeSave destination guard", () => {
       ).resolves.toMatchObject({ ok: false });
     }
     expect(mocks.testWordPressConnection).not.toHaveBeenCalled();
+    expect(lastStatus()).toBe(400);
+  });
+
+  it("answers 403 for an unverified endpoint and 503 when verification is down", async () => {
+    signIn();
+    await testBeforeSave({
+      data: { apiEndpoint: "https://attacker.example/wp-json/wp/v2/posts", credentials: "u:p" },
+    });
+    expect(lastStatus()).toBe(403);
+    mocks.state.gscFails = true;
+    await testBeforeSave({
+      data: { apiEndpoint: "https://moj-web.sk/wp-json/wp/v2/posts", credentials: "u:p" },
+    });
+    expect(lastStatus()).toBe(503);
+    expect(mocks.testWordPressConnection).not.toHaveBeenCalled();
+  });
+
+  it("rate limits connection tests per user (429)", async () => {
+    signIn();
+    const input = {
+      data: { apiEndpoint: "https://moj-web.sk/wp-json/wp/v2/posts", credentials: "u:p" },
+    };
+    for (let i = 0; i < 10; i++) await testBeforeSave(input);
+    expect(mocks.testWordPressConnection).toHaveBeenCalledTimes(10);
+    await expect(testBeforeSave(input)).resolves.toMatchObject({ ok: false });
+    expect(mocks.testWordPressConnection).toHaveBeenCalledTimes(10);
+    expect(lastStatus()).toBe(429);
   });
 
   it("tests a verified endpoint", async () => {

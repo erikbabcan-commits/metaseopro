@@ -41,11 +41,38 @@ export interface PublishResult {
   details?: Record<string, string | number | boolean | null>;
 }
 
-import { assertSafePublicUrl, safeFetch } from "./safe-url";
+import { assertSafePublicUrl, safeFetch, TooManyRedirectsError } from "./safe-url";
 export { assertSafePublicUrl, safeFetch };
 
 const CMS_FETCH_TIMEOUT_MS = 15_000;
 const MAX_RESPONSE_BYTES = 5_000_000; // 5MB cap on CMS API responses
+
+/**
+ * Every CMS request goes through here. Redirects are never followed: the
+ * destination was verified (Search Console) for the exact URL we call, and a
+ * 307/308 would otherwise replay the POST body (content) on a host nobody
+ * verified. A 3xx is reported as an error instead.
+ */
+async function cmsFetch(
+  input: string,
+  init: RequestInit,
+  fetchFn: typeof fetch | undefined,
+): Promise<Response> {
+  try {
+    return await safeFetch(input, init, {
+      fetchFn,
+      timeoutMs: CMS_FETCH_TIMEOUT_MS,
+      maxRedirects: 0,
+    });
+  } catch (err) {
+    if (err instanceof TooManyRedirectsError) {
+      throw new Error(
+        "CMS server odpovedal presmerovaním. Presmerovania sa z bezpečnostných dôvodov nenasledujú; nastavte priamu (finálnu) adresu endpointu.",
+      );
+    }
+    throw err;
+  }
+}
 
 function assertResponseSize(res: Response): void {
   const len = Number(res.headers?.get?.("content-length") ?? "0");
@@ -225,11 +252,7 @@ export async function publishToWordPress(params: WordPressPublishParams): Promis
     if (!targetPostId && targetSlug) {
       try {
         const queryUrl = `${endpoint}?slug=${encodeURIComponent(targetSlug)}&status=any`;
-        const searchRes = await safeFetch(
-          queryUrl,
-          { method: "GET", headers },
-          { fetchFn, timeoutMs: CMS_FETCH_TIMEOUT_MS },
-        );
+        const searchRes = await cmsFetch(queryUrl, { method: "GET", headers }, fetchFn);
         assertResponseSize(searchRes);
         if (searchRes.ok) {
           const posts = (await searchRes.json()) as Array<{ id: number }>;
@@ -256,14 +279,14 @@ export async function publishToWordPress(params: WordPressPublishParams): Promis
     const requestUrl = targetPostId ? `${endpoint}/${targetPostId}` : endpoint;
     const action: "created" | "updated" = targetPostId ? "updated" : "created";
 
-    const response = await safeFetch(
+    const response = await cmsFetch(
       requestUrl,
       {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
       },
-      { fetchFn, timeoutMs: CMS_FETCH_TIMEOUT_MS },
+      fetchFn,
     );
     assertResponseSize(response);
 
@@ -394,14 +417,14 @@ export async function publishToCustomWebhook(params: WebhookPublishParams): Prom
   };
 
   try {
-    const res = await safeFetch(
+    const res = await cmsFetch(
       webhookUrl,
       {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
       },
-      { fetchFn, timeoutMs: CMS_FETCH_TIMEOUT_MS },
+      fetchFn,
     );
     assertResponseSize(res);
 
@@ -456,7 +479,7 @@ export async function testWordPressConnection(params: {
   try {
     // Try requesting /wp/v2/users/me which verifies both REST API and auth credentials
     const meUrl = `${baseWpJson}/wp/v2/users/me`;
-    const res = await safeFetch(
+    const res = await cmsFetch(
       meUrl,
       {
         headers: {
@@ -464,7 +487,7 @@ export async function testWordPressConnection(params: {
           Accept: "application/json",
         },
       },
-      { fetchFn, timeoutMs: CMS_FETCH_TIMEOUT_MS },
+      fetchFn,
     );
     assertResponseSize(res);
 
@@ -487,12 +510,12 @@ export async function testWordPressConnection(params: {
     }
 
     // Fallback: check if public posts endpoint is at least reachable
-    const testPostsRes = await safeFetch(
+    const testPostsRes = await cmsFetch(
       `${endpoint}?per_page=1`,
       {
         headers: { Authorization: authHeader },
       },
-      { fetchFn, timeoutMs: CMS_FETCH_TIMEOUT_MS },
+      fetchFn,
     );
     assertResponseSize(testPostsRes);
     if (testPostsRes.ok) {

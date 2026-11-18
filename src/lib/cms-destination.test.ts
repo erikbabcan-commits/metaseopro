@@ -60,16 +60,51 @@ describe("destinationHost (isSafePublicUrl)", () => {
 describe("verified host matching", () => {
   const domains = verifiedDomains(PROPS);
 
-  it("collects domain and URL-prefix properties", () => {
-    expect(domains.sort()).toEqual(["druhy-web.sk", "moj-web.sk"]);
+  it("collects domain properties (with subdomains) and URL-prefix properties (exact host)", () => {
+    expect([...domains].sort((a, b) => a.host.localeCompare(b.host))).toEqual([
+      { host: "druhy-web.sk", subdomains: false },
+      { host: "moj-web.sk", subdomains: true },
+    ]);
   });
 
-  it("accepts the verified host and its subdomains only", () => {
+  it("sc-domain property covers the host and its subdomains only", () => {
     expect(isHostVerified("moj-web.sk", domains)).toBe(true);
     expect(isHostVerified("blog.moj-web.sk", domains)).toBe(true);
     expect(isHostVerified("evil-moj-web.sk", domains)).toBe(false);
     expect(isHostVerified("moj-web.sk.evil.net", domains)).toBe(false);
     expect(isHostVerified("attacker.example", domains)).toBe(false);
+  });
+
+  it("URL-prefix property verifies exactly that host, never other subdomains", () => {
+    expect(isHostVerified("druhy-web.sk", domains)).toBe(true);
+    expect(isHostVerified("evil.druhy-web.sk", domains)).toBe(false);
+    expect(isHostVerified("a.b.druhy-web.sk", domains)).toBe(false);
+    expect(isHostVerified("druhy-web.sk.evil.net", domains)).toBe(false);
+    const prefix = verifiedDomains([
+      { siteUrl: "https://shop.example.com/blog/", permissionLevel: "siteOwner" },
+    ]);
+    expect(isHostVerified("shop.example.com", prefix)).toBe(true);
+    expect(isHostVerified("example.com", prefix)).toBe(false);
+    expect(isHostVerified("x.shop.example.com", prefix)).toBe(false);
+  });
+
+  it("an sc-domain property wins when the same host is also a URL-prefix property", () => {
+    const both = verifiedDomains([
+      { siteUrl: "https://example.com/", permissionLevel: "siteOwner" },
+      { siteUrl: "sc-domain:example.com", permissionLevel: "siteOwner" },
+    ]);
+    expect(isHostVerified("blog.example.com", both)).toBe(true);
+  });
+
+  it("assertAllowedCmsDestination refuses a sibling subdomain of a URL-prefix property", async () => {
+    expect(
+      await codeOf(
+        assertAllowedCmsDestination(USER, ["https://evil.druhy-web.sk/hook"], async () => PROPS),
+      ),
+    ).toBe("DESTINATION_NOT_VERIFIED");
+    await expect(
+      assertAllowedCmsDestination(USER, ["https://www.druhy-web.sk/hook"], async () => PROPS),
+    ).resolves.toBeUndefined();
   });
 });
 

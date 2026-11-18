@@ -74,13 +74,25 @@ export function destinationHost(rawUrl: string): string {
   return stripWww(url.hostname);
 }
 
-/** Domains a user has verified: "sc-domain:x" and URL-prefix properties. */
-export function verifiedDomains(props: VerifiedProperty[]): string[] {
-  const out = new Set<string>();
+/**
+ * A verified host. Only a Search Console "sc-domain:" property covers its
+ * subdomains; a URL-prefix property verifies exactly that host (www and the
+ * bare domain are treated as one), never other subdomains.
+ */
+export interface VerifiedHost {
+  host: string;
+  subdomains: boolean;
+}
+
+/** Hosts a user has verified: "sc-domain:x" (with subdomains) and URL-prefix properties (exact host). */
+export function verifiedDomains(props: VerifiedProperty[]): VerifiedHost[] {
+  const out = new Map<string, boolean>();
   for (const p of props) {
     let host = "";
+    let subdomains = false;
     if (p.siteUrl.startsWith("sc-domain:")) {
       host = p.siteUrl.slice("sc-domain:".length);
+      subdomains = true;
     } else {
       try {
         host = new URL(p.siteUrl).hostname;
@@ -89,13 +101,13 @@ export function verifiedDomains(props: VerifiedProperty[]): string[] {
       }
     }
     const d = stripWww(host.trim());
-    if (d) out.add(d);
+    if (d) out.set(d, (out.get(d) ?? false) || subdomains);
   }
-  return [...out];
+  return [...out].map(([host, subdomains]) => ({ host, subdomains }));
 }
 
-export function isHostVerified(host: string, domains: string[]): boolean {
-  return domains.some((d) => host === d || host.endsWith(`.${d}`));
+export function isHostVerified(host: string, domains: VerifiedHost[]): boolean {
+  return domains.some((d) => host === d.host || (d.subdomains && host.endsWith(`.${d.host}`)));
 }
 
 type ListProps = (userId: string) => Promise<VerifiedProperty[]>;

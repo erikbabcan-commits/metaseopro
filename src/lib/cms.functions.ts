@@ -16,6 +16,7 @@ import {
   CmsDestinationError,
   destinationHost,
 } from "./cms-destination.server";
+import { applyCmsErrorHttpStatus, withCmsHttpStatus } from "./cms-http-status.server";
 
 const CmsConnectionSchema = z.object({
   id: z.string().uuid().optional(),
@@ -110,8 +111,10 @@ export const saveUserCmsConnection = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
 
     // The stored endpoint later receives content and credentials: only verified hosts.
-    assertCmsSendRateLimit("save", userId);
-    await assertAllowedCmsDestination(userId, [data.siteUrl, data.apiEndpoint]);
+    await withCmsHttpStatus(async () => {
+      assertCmsSendRateLimit("save", userId);
+      await assertAllowedCmsDestination(userId, [data.siteUrl, data.apiEndpoint]);
+    });
 
     const payload = {
       user_id: userId,
@@ -182,7 +185,10 @@ export const testConnectionBeforeSave = createServerFn({ method: "POST" })
       assertCmsSendRateLimit("test", context.userId);
       await assertAllowedCmsDestination(context.userId, [data.apiEndpoint]);
     } catch (err) {
-      if (err instanceof CmsDestinationError) return { ok: false, message: err.message };
+      if (err instanceof CmsDestinationError) {
+        applyCmsErrorHttpStatus(err);
+        return { ok: false, message: err.message };
+      }
       throw err;
     }
     return await testWordPressConnection({
@@ -199,7 +205,7 @@ export const deployContentToCms = createServerFn({ method: "POST" })
   .validator((input: unknown) => DeployInputSchema.parse(input))
   .handler(async ({ data, context }): Promise<PublishResult> => {
     const { supabase, userId } = context;
-    assertCmsSendRateLimit("deploy", userId);
+    await withCmsHttpStatus(() => assertCmsSendRateLimit("deploy", userId));
 
     let connection: ConnectionRecord | null = null;
 
@@ -248,7 +254,10 @@ export const deployContentToCms = createServerFn({ method: "POST" })
 
     // Re-verify at send time: cms_connections rows are user-writable through RLS,
     // so a stored endpoint is not proof that the destination belongs to this user.
-    await assertAllowedCmsDestination(userId, [connection.site_url, connection.api_endpoint]);
+    const sendTo = connection;
+    await withCmsHttpStatus(() =>
+      assertAllowedCmsDestination(userId, [sendTo.site_url, sendTo.api_endpoint]),
+    );
 
     if (connection.platform === "wordpress") {
       const target = data.postIdOrSlug || data.targetUrl || "";

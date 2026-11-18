@@ -410,4 +410,85 @@ describe("CMS Publisher & WordPress Connector", () => {
       });
     });
   });
+
+  describe("Redirects to unverified hosts are never followed", () => {
+    const FOREIGN = "https://attacker-collect.net/steal";
+    const redirectingFetch = (status: number) =>
+      vi.fn((url: unknown) =>
+        isDnsQuery(url)
+          ? Promise.resolve(DNS_OK)
+          : Promise.resolve({
+              ok: false,
+              status,
+              headers: new Headers({ location: FOREIGN }),
+              body: null,
+              text: async () => "",
+            }),
+      );
+    const hostsHit = (mock: ReturnType<typeof vi.fn>) =>
+      httpCallsOf(mock).map((c) => new URL(String(c[0])).host);
+
+    it.each([301, 302, 303, 307, 308])(
+      "WordPress POST: %i to a foreign host sends nothing there",
+      async (status) => {
+        const mockFetch = redirectingFetch(status);
+        const result = await publishToWordPress({
+          siteUrl: "https://mojweb.sk",
+          apiEndpoint: "https://mojweb.sk/wp-json/wp/v2/posts",
+          credentials: "admin:app-password-fixture",
+          postIdOrSlug: 42,
+          title: "T",
+          content: "<p>tajny obsah</p>",
+          fetchFn: mockFetch as unknown as typeof fetch,
+        });
+        expect(result.success).toBe(false);
+        expect(result.error).toMatch(/presmerovan/i);
+        expect(hostsHit(mockFetch)).toEqual(["mojweb.sk"]);
+        expect(hostsHit(mockFetch)).not.toContain("attacker-collect.net");
+      },
+    );
+
+    it.each([301, 302, 303, 307, 308])(
+      "webhook POST: %i to a foreign host sends nothing there",
+      async (status) => {
+        const mockFetch = redirectingFetch(status);
+        const result = await publishToCustomWebhook({
+          webhookUrl: "https://mojweb.sk/hook",
+          bearerToken: "token-fixture",
+          title: "T",
+          content: "<p>tajny obsah</p>",
+          fetchFn: mockFetch as unknown as typeof fetch,
+        });
+        expect(result.success).toBe(false);
+        expect(result.error).toMatch(/presmerovan/i);
+        expect(hostsHit(mockFetch)).toEqual(["mojweb.sk"]);
+      },
+    );
+
+    it("connection test: a redirect is reported and not followed", async () => {
+      const mockFetch = redirectingFetch(307);
+      const result = await testWordPressConnection({
+        apiEndpoint: "https://mojweb.sk/wp-json/wp/v2/posts",
+        credentials: "admin:app-password-fixture",
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
+      expect(result.ok).toBe(false);
+      expect(result.message).toMatch(/presmerovan/i);
+      expect(hostsHit(mockFetch)).toEqual(["mojweb.sk"]);
+    });
+
+    it("slug lookup: a redirect is not followed and the POST target is still the verified host", async () => {
+      const mockFetch = redirectingFetch(308);
+      const result = await publishToWordPress({
+        siteUrl: "https://mojweb.sk",
+        apiEndpoint: "https://mojweb.sk/wp-json/wp/v2/posts",
+        credentials: "admin:app-password-fixture",
+        postIdOrSlug: "moj-clanok",
+        title: "T",
+        fetchFn: mockFetch as unknown as typeof fetch,
+      });
+      expect(result.success).toBe(false);
+      expect(new Set(hostsHit(mockFetch))).toEqual(new Set(["mojweb.sk"]));
+    });
+  });
 });
