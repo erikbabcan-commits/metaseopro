@@ -1658,3 +1658,143 @@ describe("review fixes round 6: robotsFilteredCount on every result (P3-o)", () 
     expect(result.robotsFilteredCountIsLowerBound).toBe(false);
   });
 });
+
+describe("review fixes round 7: URLs are fetched and robots-checked as written (P3-p)", () => {
+  const page = (title: string) => () => ok(html({ title }));
+
+  it("crawls a /dir/ link under `Disallow: /dir` + `Allow: /dir/` and keeps the slash", async () => {
+    const fetchFn = mockFetch({
+      "https://mojweb.sk/robots.txt": ok(
+        "User-agent: *\nDisallow: /dir\nAllow: /dir/\n",
+        "text/plain",
+      ),
+      ...noSitemaps,
+      "https://mojweb.sk/": ok(html({ extras: '<a href="/dir/">a</a><a href="/dir">b</a>' })),
+      "https://mojweb.sk/dir/": page("Povolený adresár s lomítkom na konci"),
+      "https://mojweb.sk/dir": page("Zakázaná forma bez lomítka v robots"),
+    });
+    const result = await crawlSite("https://mojweb.sk/", {
+      fetchFn,
+      resolver: publicResolver,
+      timeoutMs: 5_000,
+    });
+    const fetched = fetchedUrls(fetchFn);
+    expect(fetched).toContain("https://mojweb.sk/dir/");
+    // The slash-less form was seen second: deduplicated, and never fetched.
+    expect(fetched).not.toContain("https://mojweb.sk/dir");
+    expect(result.pages.some((p) => p.title.startsWith("Povolený adresár"))).toBe(true);
+  });
+
+  it("crawls a /dir/ link under `Disallow: /dir$` but not /dir", async () => {
+    const fetchFn = mockFetch({
+      "https://mojweb.sk/robots.txt": ok("User-agent: *\nDisallow: /dir$\n", "text/plain"),
+      ...noSitemaps,
+      "https://mojweb.sk/": ok(html({ extras: '<a href="/dir/">a</a>' })),
+      "https://mojweb.sk/dir/": page("Adresár s lomítkom povolený cez dolár"),
+      "https://mojweb.sk/dir": page("Zakázaná forma bez lomítka cez dolár"),
+    });
+    await crawlSite("https://mojweb.sk/", { fetchFn, resolver: publicResolver, timeoutMs: 5_000 });
+    expect(fetchedUrls(fetchFn)).toContain("https://mojweb.sk/dir/");
+    expect(fetchedUrls(fetchFn)).not.toContain("https://mojweb.sk/dir");
+
+    const only = mockFetch({
+      "https://mojweb.sk/robots.txt": ok("User-agent: *\nDisallow: /dir$\n", "text/plain"),
+      ...noSitemaps,
+      "https://mojweb.sk/": ok(html({ extras: '<a href="/dir">a</a>' })),
+      "https://mojweb.sk/dir": page("Zakázaná forma bez lomítka cez dolár"),
+    });
+    const blocked = await crawlSite("https://mojweb.sk/", {
+      fetchFn: only,
+      resolver: publicResolver,
+      timeoutMs: 5_000,
+    });
+    expect(fetchedUrls(only)).not.toContain("https://mojweb.sk/dir");
+    expect(blocked.robotsFilteredCount).toBe(1);
+  });
+
+  it("fetches sitemap URLs and a seed as written", async () => {
+    const fetchFn = mockFetch({
+      "https://mojweb.sk/robots.txt": ok("User-agent: *\nDisallow: /dir$\n", "text/plain"),
+      "https://mojweb.sk/sitemap.xml": ok(
+        xmlSitemap(["https://mojweb.sk/dir/", "https://mojweb.sk/dir"]),
+        "application/xml",
+      ),
+      "https://mojweb.sk/sitemap_index.xml": () => ok("no", "text/html", 404),
+      "https://mojweb.sk/": ok(html()),
+      "https://mojweb.sk/dir/": page("Adresár zo sitemapy s lomítkom"),
+    });
+    await crawlSite("https://mojweb.sk/", { fetchFn, resolver: publicResolver, timeoutMs: 5_000 });
+    expect(fetchedUrls(fetchFn)).toContain("https://mojweb.sk/dir/");
+
+    const seedFetch = mockFetch({
+      "https://mojweb.sk/robots.txt": ok("User-agent: *\nDisallow: /dir$\n", "text/plain"),
+      ...noSitemaps,
+      "https://mojweb.sk/dir/": page("Seed adresár s lomítkom na konci"),
+    });
+    const seeded = await crawlSite("https://mojweb.sk/dir/", {
+      fetchFn: seedFetch,
+      resolver: publicResolver,
+      timeoutMs: 5_000,
+    });
+    expect(seeded.stepStates).not.toContain("BLOCKED: ROBOTS");
+    expect(fetchedUrls(seedFetch)).toContain("https://mojweb.sk/dir/");
+    expect(seeded.pages[0]!.title).toContain("Seed adresár");
+  });
+
+  it("does not block a redirect whose final URL is allowed as written", async () => {
+    const result = await crawl("https://mojweb.sk/", {
+      "https://mojweb.sk/robots.txt": ok("User-agent: *\nDisallow: /dir$\n", "text/plain"),
+      ...noSitemaps,
+      "https://mojweb.sk/": ok(html({ extras: '<a href="/old">o</a>' })),
+      "https://mojweb.sk/old": () => redirect("/dir/", 301),
+      "https://mojweb.sk/dir/": page("Cieľ presmerovania s lomítkom povolený"),
+    });
+    expect(result.findings.some((f) => f.code === "REDIRECT_DISALLOWED")).toBe(false);
+    expect(result.pages.some((p) => p.title.startsWith("Cieľ presmerovania"))).toBe(true);
+  });
+});
+
+describe("review fixes round 7: redirect loops are not reported as SSRF (P3-q)", () => {
+  it("reports a same-host redirect loop as REDIRECT_LOOP, not BLOCKED: SSRF", async () => {
+    const result = await crawl("https://mojweb.sk/", {
+      "https://mojweb.sk/robots.txt": robotsOk,
+      ...noSitemaps,
+      "https://mojweb.sk/": ok(
+        html({ extras: '<a href="/loop-a">a</a><a href="/self">s</a><a href="/ok">k</a>' }),
+      ),
+      "https://mojweb.sk/loop-a": () => redirect("/loop-b"),
+      "https://mojweb.sk/loop-b": () => redirect("/loop-a"),
+      "https://mojweb.sk/self": () => redirect("/self"),
+      "https://mojweb.sk/ok": ok(html({ title: "Bežná stránka za slučkami presmerovaní" })),
+    });
+    const loops = result.findings.filter((f) => f.code === "REDIRECT_LOOP");
+    expect(loops.map((f) => f.url).sort()).toEqual([
+      "https://mojweb.sk/loop-a",
+      "https://mojweb.sk/self",
+    ]);
+    expect(loops[0]!.message).toContain("presmerovan");
+    expect(result.stepStates).not.toContain("BLOCKED: SSRF");
+    expect(result.findings.some((f) => f.code === "SSRF_BLOCKED")).toBe(false);
+    // The crawl continues with the remaining pages.
+    expect(result.pages.some((p) => p.title.startsWith("Bežná stránka"))).toBe(true);
+  });
+
+  it("still reports a redirect to a private address as SSRF", async () => {
+    const result = await crawl("https://mojweb.sk/", {
+      "https://mojweb.sk/robots.txt": robotsOk,
+      ...noSitemaps,
+      "https://mojweb.sk/": () => redirect("http://127.0.0.1/admin"),
+    });
+    expect(result.stepStates).toContain("BLOCKED: SSRF");
+    expect(result.findings.some((f) => f.code === "REDIRECT_LOOP")).toBe(false);
+  });
+
+  it("treats a robots.txt redirect loop as unavailable, not as SSRF", async () => {
+    const result = await crawl("https://mojweb.sk/", {
+      "https://mojweb.sk/robots.txt": () => redirect("/robots.txt"),
+    });
+    expect(result.stepStates).toContain("BLOCKED: ROBOTS");
+    expect(result.stepStates).not.toContain("BLOCKED: SSRF");
+    expect(result.findings.some((f) => f.code === "ROBOTS_UNAVAILABLE")).toBe(true);
+  });
+});

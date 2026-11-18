@@ -188,12 +188,20 @@ function isWwwSwap(a: string, b: string): boolean {
   }
 }
 
-type FetchOk = { ok: true; url: string; status: number; headers: Headers; body: string };
+type FetchOk = {
+  ok: true;
+  url: string;
+  /** Final URL as reported by the response (trailing slash kept), for robots checks. */
+  finalRaw: string;
+  status: number;
+  headers: Headers;
+  body: string;
+};
 type FetchErr = {
   ok: false;
   url: string;
   status?: number;
-  error: "SSRF" | "TIMEOUT" | "NETWORK" | "OFFSITE" | "ROBOTS_REDIRECT";
+  error: "SSRF" | "TIMEOUT" | "NETWORK" | "OFFSITE" | "ROBOTS_REDIRECT" | "REDIRECT_LOOP";
 };
 type FetchOutcome = FetchOk | FetchErr;
 
@@ -310,16 +318,21 @@ function isSameHost(a: string, b: string): boolean {
 }
 
 /**
- * Canonical form used for dedup: no fragment, no trailing slash. `slashSink`
- * receives the canonical URLs whose original form had a trailing slash, so
- * robots.txt can still be evaluated on the path as it was written (RFC 9309
- * matches `/dir/` and `/dir` differently).
+ * Canonical form used for dedup: no fragment, no trailing slash. The URL that is
+ * actually requested and checked against robots.txt is the form as written
+ * (see `writtenCrawlUrl`), because RFC 9309 matches `/dir/` and `/dir`
+ * differently.
  */
-export function canonicalizeCrawlUrl(
-  raw: string,
-  base?: string,
-  slashSink?: Set<string>,
-): string | null {
+export function canonicalizeCrawlUrl(raw: string, base?: string): string | null {
+  const url = parseCrawlUrl(raw, base);
+  if (!url) return null;
+  if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
+    url.pathname = url.pathname.slice(0, -1);
+  }
+  return url.toString();
+}
+
+function parseCrawlUrl(raw: string, base?: string): URL | null {
   let url: URL;
   try {
     url = base ? new URL(raw, base) : new URL(raw);
@@ -329,11 +342,27 @@ export function canonicalizeCrawlUrl(
   if (url.protocol !== "http:" && url.protocol !== "https:") return null;
   url.hash = "";
   if (!url.pathname) url.pathname = "/";
-  if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
-    url.pathname = url.pathname.slice(0, -1);
-    slashSink?.add(url.toString());
-  }
-  return url.toString();
+  return url;
+}
+
+/** The URL as written (fragment dropped, trailing slash kept). */
+function writtenCrawlUrl(raw: string, base?: string): string | null {
+  return parseCrawlUrl(raw, base)?.toString() ?? null;
+}
+
+/**
+ * Remembers, per canonical URL, the form it was first written in. The crawler
+ * requests and robots-checks that form, so a link to `/dir/` is never turned
+ * into `/dir` (which robots.txt may treat differently).
+ */
+function noteWritten(
+  writtenForms: Map<string, string> | undefined,
+  canonical: string,
+  raw: string,
+  base?: string,
+): void {
+  if (!writtenForms || writtenForms.has(canonical)) return;
+  writtenForms.set(canonical, writtenCrawlUrl(raw, base) ?? canonical);
 }
 
 function pathAndQuery(raw: string): string {
@@ -676,7 +705,7 @@ function extractInternalLinks(
   pageUrl: string,
   startUrl: string,
   lower = asciiLower(html),
-  slashSink?: Set<string>,
+  writtenForms?: Map<string, string>,
 ): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -696,10 +725,11 @@ function extractInternalLinks(
     ) {
       continue;
     }
-    const abs = canonicalizeCrawlUrl(raw, pageUrl, slashSink);
+    const abs = canonicalizeCrawlUrl(raw, pageUrl);
     if (!abs || !isSameHost(abs, startUrl) || !isSafePublicUrl(abs)) continue;
     if (seen.has(abs)) continue;
     seen.add(abs);
+    noteWritten(writtenForms, abs, raw, pageUrl);
     out.push(abs);
   }
   return out;
@@ -772,7 +802,8 @@ async function fetchDocument(
     allowRedirectTo?: (url: string, rawUrl: string) => true | "OFFSITE" | "ROBOTS";
   },
 ): Promise<FetchOutcome> {
-  const url = canonicalizeCrawlUrl(rawUrl) ?? rawUrl;
+  // Requested as written (trailing slash kept); only the fragment is dropped.
+  const url = writtenCrawlUrl(rawUrl) ?? rawUrl;
   if (!isSafePublicUrl(url)) {
     return { ok: false, url, error: "SSRF" };
   }
@@ -822,7 +853,14 @@ async function fetchDocument(
     }
 
     const body = await readCappedBody(res, options.maxBytes, options.signal);
-    return { ok: true, url: finalUrl, status: res.status, headers: res.headers, body };
+    return {
+      ok: true,
+      url: finalUrl,
+      finalRaw: res.url || lastUrl,
+      status: res.status,
+      headers: res.headers,
+      body,
+    };
   } catch (err) {
     if (err instanceof OffsiteRedirectError) {
       return {
@@ -831,7 +869,10 @@ async function fetchDocument(
         error: err.reason === "ROBOTS" ? "ROBOTS_REDIRECT" : "OFFSITE",
       };
     }
-    if (err instanceof SsrfBlockedError || err instanceof TooManyRedirectsError) {
+    if (err instanceof TooManyRedirectsError) {
+      return { ok: false, url: lastUrl, error: "REDIRECT_LOOP" };
+    }
+    if (err instanceof SsrfBlockedError) {
       return { ok: false, url: lastUrl, error: "SSRF" };
     }
     const aborted =
@@ -860,7 +901,7 @@ async function discoverSitemaps(
   signal: AbortSignal,
   stepStates: CrawlStepState[],
   findings: CrawlFinding[],
-  slashSink?: Set<string>,
+  writtenForms?: Map<string, string>,
 ): Promise<string[]> {
   const origin = new URL(startUrl).origin;
   const candidates: string[] = [];
@@ -880,10 +921,11 @@ async function discoverSitemaps(
   const pageUrls: string[] = [];
   const pageSeen = new Set<string>();
   const collectPage = (raw: string) => {
-    const abs = canonicalizeCrawlUrl(raw, startUrl, slashSink);
+    const abs = canonicalizeCrawlUrl(raw, startUrl);
     if (!abs || pageSeen.has(abs)) return;
     if (!isSameHost(abs, startUrl) || !isSafePublicUrl(abs)) return;
     pageSeen.add(abs);
+    noteWritten(writtenForms, abs, raw, startUrl);
     pageUrls.push(abs);
   };
 
@@ -948,7 +990,7 @@ function auditPageHtml(
   status: number,
   headers: Headers,
   html: string,
-  slashSink?: Set<string>,
+  writtenForms?: Map<string, string>,
 ): PageAudit {
   const lower = asciiLower(html);
   const title = extractTitle(html, lower);
@@ -977,7 +1019,7 @@ function auditPageHtml(
     }
   }
   const imagesWithoutAlt = countImagesWithoutAlt(html, lower);
-  const internalLinks = extractInternalLinks(html, pageUrl, startUrl, lower, slashSink);
+  const internalLinks = extractInternalLinks(html, pageUrl, startUrl, lower, writtenForms);
   const findings: CrawlFinding[] = [];
 
   if (status >= 400) {
@@ -1228,9 +1270,10 @@ async function crawlSiteInner(
     };
   }
 
-  // URLs that were written with a trailing slash (robots is evaluated on that form).
-  const slashSink = new Set<string>();
-  const startUrl = canonicalizeCrawlUrl(normalized, undefined, slashSink) ?? normalized;
+  // Canonical URL -> the form it was written in (fetched and robots-checked as written).
+  const writtenForms = new Map<string, string>();
+  const startUrl = canonicalizeCrawlUrl(normalized) ?? normalized;
+  noteWritten(writtenForms, startUrl, normalized);
   const host = normalizeHost(new URL(startUrl).hostname);
   const origin = new URL(startUrl).origin;
 
@@ -1361,15 +1404,11 @@ async function crawlSiteInner(
     }
     robotsRef = robots;
 
-    // Robots is evaluated on the path as written: a URL that was seen with a
-    // trailing slash is checked in that form too (canonical URLs have none).
-    const pathAllowed = (url: string): boolean => {
-      const path = pathAndQuery(url);
-      if (!isPathAllowed(robots, path, botName)) return false;
-      if (!slashSink.has(url)) return true;
-      const u = new URL(url);
-      return isPathAllowed(robots, `${u.pathname}/${u.search}`, botName);
-    };
+    // Robots is evaluated on the URL exactly as written (including a trailing
+    // slash), which is also the form that is requested.
+    const requestUrl = (url: string): string => writtenForms.get(url) ?? url;
+    const pathAllowed = (url: string): boolean =>
+      isPathAllowed(robots, pathAndQuery(requestUrl(url)), botName);
 
     if (!pathAllowed(startUrl)) {
       addState(stepStates, "BLOCKED: ROBOTS");
@@ -1407,7 +1446,7 @@ async function crawlSiteInner(
       crawlController.signal,
       stepStates,
       findings,
-      slashSink,
+      writtenForms,
     );
     if (sitemapUrls.length === 0) {
       addState(stepStates, "NO_SITEMAP");
@@ -1516,7 +1555,7 @@ async function crawlSiteInner(
         await yieldIfBusy();
         continue;
       }
-      const result = await fetchDocument(url, pageOpts);
+      const result = await fetchDocument(requestUrl(url), pageOpts);
       if (crawlController.signal.aborted && result.ok === false && result.error === "TIMEOUT") {
         addState(stepStates, "TIMEOUT");
         enqueueFront(queue, url);
@@ -1537,6 +1576,17 @@ async function crawlSiteInner(
           );
           for (const f of off.findings) f.severity = "warning";
           pages.push(off);
+          continue;
+        }
+        if (result.error === "REDIRECT_LOOP") {
+          const loop = emptyErrorPage(
+            url,
+            0,
+            "Príliš veľa presmerovaní (možná slučka presmerovaní); stránka nebola načítaná.",
+            "REDIRECT_LOOP",
+          );
+          pages.push(loop);
+          statusByUrl.set(url, 0);
           continue;
         }
         if (result.error === "ROBOTS_REDIRECT") {
@@ -1591,7 +1641,7 @@ async function crawlSiteInner(
       const pageUrl = result.url;
       // Defense in depth: the final URL must be allowed too (hops were checked
       // on their raw form before they were requested).
-      if (pageUrl !== url && !pathAllowed(pageUrl)) {
+      if (pageUrl !== url && !isPathAllowed(robots, pathAndQuery(result.finalRaw), botName)) {
         if (url === startUrl) addState(stepStates, "BLOCKED: ROBOTS");
         const blocked = emptyErrorPage(
           url,
@@ -1617,7 +1667,7 @@ async function crawlSiteInner(
         result.status,
         result.headers,
         result.body,
-        slashSink,
+        writtenForms,
       );
       pages.push(audit);
       statusByUrl.set(url, result.status);
