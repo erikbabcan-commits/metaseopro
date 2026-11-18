@@ -399,14 +399,19 @@ describe("CMS Publisher & WordPress Connector", () => {
       });
 
       it("rejects publishToWordPress when target URL is private", async () => {
+        const fetchFn = vi.fn();
         const res = await publishToWordPress({
           siteUrl: "http://127.0.0.1",
           apiEndpoint: "http://127.0.0.1/wp-json",
           credentials: "user:pass",
           title: "Test",
+          fetchFn: fetchFn as unknown as typeof fetch,
         });
         expect(res.success).toBe(false);
         expect(res.error).toMatch(/Nepovolená sieťová adresa/);
+        // Same fail-closed shape as SLUG_LOOKUP_FAILED: nothing was created or updated.
+        expect(res.action).toBe("none");
+        expect(fetchFn).not.toHaveBeenCalled();
       });
     });
   });

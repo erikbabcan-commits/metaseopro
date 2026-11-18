@@ -262,7 +262,7 @@ export async function publishToWordPress(params: WordPressPublishParams): Promis
   } catch (err) {
     return {
       success: false,
-      action: "updated",
+      action: "none",
       status: "error",
       error: err instanceof Error ? err.message : "Neplatná alebo nepovolená URL adresa.",
     };
