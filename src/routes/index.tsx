@@ -22,7 +22,7 @@ import { streamSSE } from "@/lib/stream-sse";
 import { AppHeader } from "@/components/AppHeader";
 import { SidebarTips } from "@/components/SidebarTips";
 import { useAuth } from "@/hooks/use-auth";
-import { saveAuthRedirect } from "@/lib/safe-auth-redirect";
+import { startAuditEntry } from "@/lib/audit-entry";
 import { domainInputError, parseDomainInput } from "@/lib/domain-input";
 import { SerpLab } from "@/components/SerpLab";
 import { saveOutput } from "@/lib/outputs.functions";
@@ -194,15 +194,12 @@ function Index() {
       return;
     }
     setDomainError(null);
-    const auditPath = `/audit?domain=${encodeURIComponent(normalized)}`;
-    saveAuthRedirect(auditPath);
-    if (user) {
-      void navigate({ href: auditPath });
-      return;
-    }
-    if (!loading) {
-      void navigate({ href: "/login?mode=signup" });
-    }
+    const href = startAuditEntry({
+      normalizedDomain: normalized,
+      signedIn: Boolean(user),
+      loading,
+    });
+    if (href) void navigate({ href });
   };
 
   const showOutput = status !== "idle" || article.length > 0;
