@@ -3,10 +3,6 @@
  * Every fetch goes through isSafePublicUrl and safeFetch (manual redirects,
  * re-checked after each hop). Robots Disallow is respected.
  */
-import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
-import { z } from "zod";
-import { requireUser } from "@/lib/api-auth.server";
 import { checkRateLimit } from "@/lib/rate-limit.server";
 import { SERP_LIMITS, textPixelWidth, validateJsonLd } from "@/lib/opportunity";
 import { normalizeUrl } from "@/lib/raketa-schema";
@@ -29,6 +25,11 @@ export const MAX_ROBOTS_RULES = 1_000;
 export const MAX_ROBOTS_PATTERN_LENGTH = 512;
 const MAX_ROBOTS_PATH_LENGTH = 2_048;
 const MAX_TITLE_SCAN = 2_000;
+/** Frontier / link caps so one hostile page cannot blow up CPU or memory. */
+export const MAX_LINKS_PER_PAGE = 500;
+export const MAX_ANCHORS_SCANNED = 5_000;
+export const MAX_QUEUED_URLS = 1_000;
+export const MAX_RESULT_LINKS_PER_PAGE = 100;
 export const CRAWLER_USER_AGENT = "Mozilla/5.0 (compatible; SEO4WEBBot/1.0)";
 
 export type FindingSeverity = "critical" | "warning" | "info";
@@ -94,14 +95,49 @@ type RobotsGroup = { agents: string[]; rules: RobotsRule[] };
 export type ParsedRobots = {
   groups: RobotsGroup[];
   sitemaps: string[];
+  /**
+   * True when a cap (file size, rule count, pattern length) cut the file.
+   * Fail-closed: isPathAllowed then denies everything.
+   */
+  truncated?: boolean;
 };
+
+class OffsiteRedirectError extends Error {
+  constructor(readonly target: string) {
+    super("Redirect target is not allowed");
+    this.name = "OffsiteRedirectError";
+  }
+}
+
+/** Thrown inside crawlSite to restart on the www/apex counterpart of the seed. */
+class SeedRestart extends Error {
+  constructor(readonly target: string) {
+    super("Seed host switch");
+    this.name = "SeedRestart";
+  }
+}
+
+function stripWww(host: string): string {
+  return normalizeHost(host).replace(/^www\./, "");
+}
+
+/** True when the hosts differ only by a leading "www." (apex <-> www). */
+function isWwwSwap(a: string, b: string): boolean {
+  try {
+    const ha = normalizeHost(new URL(a).hostname);
+    const hb = normalizeHost(new URL(b).hostname);
+    return ha !== hb && stripWww(ha) === stripWww(hb);
+  } catch {
+    return false;
+  }
+}
 
 type FetchOk = { ok: true; url: string; status: number; headers: Headers; body: string };
 type FetchErr = {
   ok: false;
   url: string;
   status?: number;
-  error: "SSRF" | "TIMEOUT" | "NETWORK";
+  error: "SSRF" | "TIMEOUT" | "NETWORK" | "OFFSITE";
 };
 type FetchOutcome = FetchOk | FetchErr;
 
@@ -263,7 +299,9 @@ export function parseRobotsTxt(text: string): ParsedRobots {
   // after any rule starts a new group. Blank lines carry no meaning.
   let lastWasAgent = false;
   let ruleCount = 0;
+  let truncated = false;
 
+  if (text.length > MAX_ROBOTS_BYTES) truncated = true;
   const capped = text.length > MAX_ROBOTS_BYTES ? text.slice(0, MAX_ROBOTS_BYTES) : text;
   for (const rawLine of capped.split(/\r?\n/)) {
     const hash = rawLine.indexOf("#");
@@ -290,12 +328,35 @@ export function parseRobotsTxt(text: string): ParsedRobots {
     }
     if ((field === "disallow" || field === "allow") && current) {
       lastWasAgent = false;
-      if (ruleCount >= MAX_ROBOTS_RULES || value.length > MAX_ROBOTS_PATTERN_LENGTH) continue;
+      if (ruleCount >= MAX_ROBOTS_RULES || value.length > MAX_ROBOTS_PATTERN_LENGTH) {
+        truncated = true;
+        continue;
+      }
       ruleCount += 1;
       current.rules.push({ allow: field === "allow", pattern: value });
     }
   }
-  return { groups, sitemaps };
+  return { groups, sitemaps, truncated };
+}
+
+/**
+ * Normalizes percent-encoding as RFC 9309 2.2.2 asks: unreserved characters are
+ * decoded, other escapes upper-cased, non-ASCII characters UTF-8 encoded.
+ */
+function normalizePercent(input: string): string {
+  let out = input;
+  if (/[\u0080-\uffff]/.test(out)) {
+    try {
+      out = out.replace(/[\u0080-\uffff]+/g, (m) => encodeURIComponent(m));
+    } catch {
+      // lone surrogate: leave as is
+    }
+  }
+  return out.replace(/%([0-9a-fA-F]{2})/g, (_m, hex: string) => {
+    const code = parseInt(hex, 16);
+    const ch = String.fromCharCode(code);
+    return /[A-Za-z0-9\-._~]/.test(ch) ? ch : `%${hex.toUpperCase()}`;
+  });
 }
 
 /**
@@ -306,10 +367,12 @@ export function parseRobotsTxt(text: string): ParsedRobots {
  */
 export function robotsPatternMatches(pattern: string, path: string): boolean {
   if (pattern.length > MAX_ROBOTS_PATTERN_LENGTH) return false;
-  const target =
-    path.length > MAX_ROBOTS_PATH_LENGTH ? path.slice(0, MAX_ROBOTS_PATH_LENGTH) : path;
-  const anchored = pattern.endsWith("$");
-  const body = anchored ? pattern.slice(0, -1) : pattern;
+  const target = normalizePercent(
+    path.length > MAX_ROBOTS_PATH_LENGTH ? path.slice(0, MAX_ROBOTS_PATH_LENGTH) : path,
+  );
+  const normalizedPattern = normalizePercent(pattern);
+  const anchored = normalizedPattern.endsWith("$");
+  const body = anchored ? normalizedPattern.slice(0, -1) : normalizedPattern;
   const parts = body.split("*");
   const first = parts[0]!;
   if (!target.startsWith(first)) return false;
@@ -336,6 +399,8 @@ function robotsProductToken(value: string): string {
 }
 
 export function isPathAllowed(robots: ParsedRobots, path: string, userAgent: string): boolean {
+  // Fail-closed on capped robots files and on absurdly long paths.
+  if (robots.truncated || path.length > MAX_ROBOTS_PATH_LENGTH) return false;
   const token = robotsProductToken(userAgent);
   const exact = robots.groups.filter((g) => g.agents.some((a) => robotsProductToken(a) === token));
   const wildcard = robots.groups.filter((g) => g.agents.includes("*"));
@@ -512,7 +577,9 @@ function extractInternalLinks(
 ): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
+  let scanned = 0;
   for (const tag of scanTags(html, lower, "a")) {
+    if (out.length >= MAX_LINKS_PER_PAGE || ++scanned > MAX_ANCHORS_SCANNED) break;
     const hrefRaw = tag.attrs.get("href");
     if (!hrefRaw) continue;
     const raw = decodeEntities(hrefRaw.trim());
@@ -552,11 +619,9 @@ async function readCappedBody(
 ): Promise<string> {
   const reader = res.body?.getReader();
   if (!reader) {
-    // No stream: refuse to buffer a body that declares itself over the cap.
-    const declared = Number(res.headers.get("content-length") ?? "0");
-    if (Number.isFinite(declared) && declared > maxBytes) return "";
-    const text = await res.text();
-    return text.length > maxBytes ? text.slice(0, maxBytes) : text;
+    // A Response without a stream has no body to read; never buffer it with
+    // res.text() (unbounded).
+    return "";
   }
   const decoder = new TextDecoder();
   let body = "";
@@ -595,6 +660,11 @@ async function fetchDocument(
     maxBytes: number;
     userAgent: string;
     accept: string;
+    /**
+     * Checked BEFORE every redirect hop is requested. When it returns false the
+     * request is never sent and the outcome is { error: "OFFSITE" }.
+     */
+    allowRedirectTo?: (url: string) => boolean;
   },
 ): Promise<FetchOutcome> {
   const url = canonicalizeCrawlUrl(rawUrl) ?? rawUrl;
@@ -603,9 +673,16 @@ async function fetchDocument(
   }
 
   let lastUrl = url;
+  let requestCount = 0;
   const trackedFetch: typeof fetch = (input, init) => {
-    lastUrl =
+    const requested =
       typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    requestCount += 1;
+    if (requestCount > 1 && options.allowRedirectTo) {
+      const canonical = canonicalizeCrawlUrl(requested) ?? requested;
+      if (!options.allowRedirectTo(canonical)) throw new OffsiteRedirectError(canonical);
+    }
+    lastUrl = requested;
     const fetchFn = options.fetchFn ?? fetch;
     return fetchFn(input, init);
   };
@@ -641,6 +718,9 @@ async function fetchDocument(
     const body = await readCappedBody(res, options.maxBytes, options.signal);
     return { ok: true, url: finalUrl, status: res.status, headers: res.headers, body };
   } catch (err) {
+    if (err instanceof OffsiteRedirectError) {
+      return { ok: false, url: err.target, error: "OFFSITE" };
+    }
     if (err instanceof SsrfBlockedError || err instanceof TooManyRedirectsError) {
       return { ok: false, url: lastUrl, error: "SSRF" };
     }
@@ -977,6 +1057,16 @@ export async function crawlSite(
   rawStartUrl: string,
   options: CrawlOptions = {},
 ): Promise<CrawlResult> {
+  return crawlSiteInner(rawStartUrl, options, true);
+}
+
+async function crawlSiteInner(
+  rawStartUrl: string,
+  options: CrawlOptions,
+  allowSeedSwap: boolean,
+): Promise<CrawlResult> {
+  const startedAt = Date.now();
+  let restartTarget: string | null = null;
   const pageLimit = Math.min(
     Math.max(options.pageLimit ?? DEFAULT_PAGE_LIMIT, 1),
     DEFAULT_PAGE_LIMIT,
@@ -1037,6 +1127,13 @@ export async function crawlSite(
     userAgent,
     accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
   };
+  // Pages and sitemaps: a redirect hop is requested only if it stays on the
+  // start host (checked before the request is sent). robots.txt may follow
+  // redirects like RFC 9309 allows.
+  const pageOpts = {
+    ...fetchOpts,
+    allowRedirectTo: (target: string) => isSameHost(target, startUrl),
+  };
 
   const botName = userAgent.includes("SEO4WEBBot") ? "SEO4WEBBot" : userAgent;
   let discoveredCount = 0;
@@ -1046,6 +1143,17 @@ export async function crawlSite(
       ...fetchOpts,
       accept: "text/plain,text/*;q=0.8,*/*;q=0.1",
     });
+
+    // apex <-> www switch of the seed host: restart there (robots.txt of the
+    // final host is then fetched first, nothing else was requested yet).
+    if (
+      allowSeedSwap &&
+      robotsResult.ok &&
+      isWwwSwap(robotsResult.url, startUrl) &&
+      isSafePublicUrl(robotsResult.url)
+    ) {
+      throw new SeedRestart(`${new URL(robotsResult.url).origin}${pathAndQuery(startUrl)}`);
+    }
 
     let robots: ParsedRobots = { groups: [], sitemaps: [] };
     if (!robotsResult.ok) {
@@ -1074,8 +1182,9 @@ export async function crawlSite(
         ),
       );
       return { startUrl, host, pages, findings, stepStates, crawledCount: 0, discoveredCount: 0 };
-    } else if (robotsResult.status >= 500) {
-      // RFC 9309 2.3.1.4: server error => assume complete disallow.
+    } else if (robotsResult.status >= 500 || robotsResult.status === 429) {
+      // RFC 9309 2.3.1.4: server error => assume complete disallow. 429 is
+      // treated like 5xx (fail-closed, as major crawlers do).
       addState(stepStates, "BLOCKED: ROBOTS");
       findings.push(
         finding(
@@ -1093,12 +1202,19 @@ export async function crawlSite(
     if (!isPathAllowed(robots, pathAndQuery(startUrl), botName)) {
       addState(stepStates, "BLOCKED: ROBOTS");
       findings.push(
-        finding(
-          startUrl,
-          "critical",
-          "ROBOTS_DISALLOW",
-          "robots.txt zakazuje prehľadávanie tejto URL.",
-        ),
+        robots.truncated
+          ? finding(
+              startUrl,
+              "critical",
+              "ROBOTS_TOO_LARGE",
+              "robots.txt presahuje limity parsera, crawl sa zastavil (fail-closed).",
+            )
+          : finding(
+              startUrl,
+              "critical",
+              "ROBOTS_DISALLOW",
+              "robots.txt zakazuje prehľadávanie tejto URL.",
+            ),
       );
       return { startUrl, host, pages, findings, stepStates, crawledCount: 0, discoveredCount: 0 };
     }
@@ -1106,7 +1222,7 @@ export async function crawlSite(
     const sitemapUrls = await discoverSitemaps(
       startUrl,
       robots.sitemaps,
-      fetchOpts,
+      pageOpts,
       crawlController.signal,
       stepStates,
       findings,
@@ -1120,7 +1236,12 @@ export async function crawlSite(
     const enqueue = (url: string) => {
       if (queued.has(url)) return;
       if (!isSameHost(url, startUrl) || !isSafePublicUrl(url)) return;
-      if (!isPathAllowed(robots, pathAndQuery(url), botName)) return;
+      // robots.txt is evaluated when a URL is dequeued (at most pageLimit
+      // times), not for every discovered link.
+      if (queued.size >= MAX_QUEUED_URLS) {
+        addState(stepStates, "PARTIAL_CRAWL");
+        return;
+      }
       queued.add(url);
       queue.push(url);
     };
@@ -1152,7 +1273,8 @@ export async function crawlSite(
       }
 
       const url = queue.shift()!;
-      const result = await fetchDocument(url, fetchOpts);
+      if (!isPathAllowed(robots, pathAndQuery(url), botName)) continue;
+      const result = await fetchDocument(url, pageOpts);
       if (crawlController.signal.aborted && result.ok === false && result.error === "TIMEOUT") {
         addState(stepStates, "TIMEOUT");
         enqueueFront(queue, url);
@@ -1161,6 +1283,20 @@ export async function crawlSite(
       }
 
       if (!result.ok) {
+        if (result.error === "OFFSITE") {
+          if (allowSeedSwap && url === startUrl && isWwwSwap(result.url, startUrl)) {
+            throw new SeedRestart(result.url);
+          }
+          const off = emptyErrorPage(
+            url,
+            0,
+            `Presmerované na iný host (${result.url}); nebolo nasledované ani auditované.`,
+            "REDIRECT_OFFSITE",
+          );
+          for (const f of off.findings) f.severity = "warning";
+          pages.push(off);
+          continue;
+        }
         if (result.error === "SSRF") {
           addState(stepStates, "BLOCKED: SSRF");
           const page = emptyErrorPage(
@@ -1227,12 +1363,38 @@ export async function crawlSite(
     }
 
     attachBrokenLinks(pages, statusByUrl, inbound);
+  } catch (err) {
+    if (err instanceof SeedRestart) restartTarget = err.target;
+    else throw err;
   } finally {
     clearTimeout(timer);
     options.signal?.removeEventListener("abort", onParentAbort);
   }
 
-  for (const page of pages) findings.push(...page.findings);
+  if (restartTarget) {
+    // The seed lives on its www/apex counterpart: crawl there, once.
+    const remaining = Math.max(1_000, timeoutMs - (Date.now() - startedAt));
+    const restarted = await crawlSiteInner(
+      restartTarget,
+      { ...options, timeoutMs: remaining },
+      false,
+    );
+    restarted.findings.unshift(
+      finding(
+        startUrl,
+        "info",
+        "SEED_HOST_CHANGED",
+        `Štartovacia adresa presmerovala na ${restarted.host || restartTarget}; crawl pokračuje tam.`,
+      ),
+    );
+    return restarted;
+  }
+
+  for (const page of pages) {
+    // Keep the response small: the full list is only needed during the crawl.
+    page.internalLinks = page.internalLinks.slice(0, MAX_RESULT_LINKS_PER_PAGE);
+    findings.push(...page.findings);
+  }
 
   return {
     startUrl,
@@ -1272,11 +1434,6 @@ function attachBrokenLinks(
   }
 }
 
-const CrawlInputSchema = z.object({
-  url: z.string().min(1).max(2048),
-  pageLimit: z.number().int().min(1).max(DEFAULT_PAGE_LIMIT).optional(),
-});
-
 export const CRAWL_RATE_LIMIT = { limit: 3, windowMs: 60_000 } as const;
 export const MAX_CONCURRENT_CRAWLS_PER_USER = 1;
 export const MAX_CONCURRENT_CRAWLS_GLOBAL = 4;
@@ -1284,26 +1441,34 @@ export const MAX_CONCURRENT_CRAWLS_GLOBAL = 4;
 const activeCrawlsByUser = new Map<string, number>();
 let activeCrawlsGlobal = 0;
 
-/** In-memory concurrency gate. Returns a release function, or null when full. */
-export function acquireCrawlSlot(userId: string): (() => void) | null {
+export type CrawlSlot =
+  { ok: true; release: () => void } | { ok: false; reason: "user" | "global" };
+
+/** In-memory concurrency gate with the reason for a refusal. */
+export function tryAcquireCrawlSlot(userId: string): CrawlSlot {
   const mine = activeCrawlsByUser.get(userId) ?? 0;
-  if (
-    mine >= MAX_CONCURRENT_CRAWLS_PER_USER ||
-    activeCrawlsGlobal >= MAX_CONCURRENT_CRAWLS_GLOBAL
-  ) {
-    return null;
-  }
+  if (mine >= MAX_CONCURRENT_CRAWLS_PER_USER) return { ok: false, reason: "user" };
+  if (activeCrawlsGlobal >= MAX_CONCURRENT_CRAWLS_GLOBAL) return { ok: false, reason: "global" };
   activeCrawlsByUser.set(userId, mine + 1);
   activeCrawlsGlobal += 1;
   let released = false;
-  return () => {
-    if (released) return;
-    released = true;
-    activeCrawlsGlobal -= 1;
-    const left = (activeCrawlsByUser.get(userId) ?? 1) - 1;
-    if (left <= 0) activeCrawlsByUser.delete(userId);
-    else activeCrawlsByUser.set(userId, left);
+  return {
+    ok: true,
+    release: () => {
+      if (released) return;
+      released = true;
+      activeCrawlsGlobal -= 1;
+      const left = (activeCrawlsByUser.get(userId) ?? 1) - 1;
+      if (left <= 0) activeCrawlsByUser.delete(userId);
+      else activeCrawlsByUser.set(userId, left);
+    },
   };
+}
+
+/** In-memory concurrency gate. Returns a release function, or null when full. */
+export function acquireCrawlSlot(userId: string): (() => void) | null {
+  const slot = tryAcquireCrawlSlot(userId);
+  return slot.ok ? slot.release : null;
 }
 
 /** Rate limit + concurrency limit around crawlSite for one authenticated user. */
@@ -1312,28 +1477,22 @@ export async function runCrawlForUser(
   input: { url: string; pageLimit?: number },
   crawl: typeof crawlSite = crawlSite,
 ): Promise<CrawlResult> {
-  const rl = checkRateLimit(`crawl:${userId}`, CRAWL_RATE_LIMIT);
-  if (!rl.ok) {
-    throw new Error(`Príliš veľa požiadaviek. Skús to o ${rl.retryAfterSec}s.`);
-  }
-  const release = acquireCrawlSlot(userId);
-  if (!release) {
-    throw new Error("Crawl už beží. Počkaj, kým skončí.");
+  // Slot first: a refused concurrent attempt must not burn a rate-limit token.
+  const slot = tryAcquireCrawlSlot(userId);
+  if (!slot.ok) {
+    throw new Error(
+      slot.reason === "user"
+        ? "Crawl už beží. Počkaj, kým skončí."
+        : "Server je vyťažený. Skús to o chvíľu.",
+    );
   }
   try {
+    const rl = checkRateLimit(`crawl:${userId}`, CRAWL_RATE_LIMIT);
+    if (!rl.ok) {
+      throw new Error(`Príliš veľa požiadaviek. Skús to o ${rl.retryAfterSec}s.`);
+    }
     return await crawl(input.url, { pageLimit: input.pageLimit });
   } finally {
-    release();
+    slot.release();
   }
 }
-
-export const crawlSiteFn = createServerFn({ method: "POST" })
-  .validator((input: unknown) => CrawlInputSchema.parse(input))
-  .handler(async ({ data }) => {
-    const request = getRequest();
-    const auth = await requireUser(request);
-    if (!auth.ok) {
-      throw new Error("Vyžaduje sa prihlásenie.");
-    }
-    return runCrawlForUser(auth.userId, data);
-  });

@@ -6,6 +6,8 @@ import {
   crawlSite,
   CRAWL_RATE_LIMIT,
   DEFAULT_PAGE_LIMIT,
+  MAX_QUEUED_URLS,
+  MAX_RESULT_LINKS_PER_PAGE,
   isPathAllowed,
   parseRobotsTxt,
   parseSitemapLocs,
@@ -896,5 +898,274 @@ describe("review fixes: crawlSiteFn rate and concurrency limits (P2-3)", () => {
     const again = acquireCrawlSlot(`${user}-g5`);
     expect(again).not.toBeNull();
     again!();
+  });
+});
+
+describe("review fixes round 2: link and frontier caps (P2-A)", () => {
+  it("keeps a 1 MB page with 60k links and 1000 robots rules fast and bounded", async () => {
+    const rules = Array.from({ length: 1_000 }, () => "Disallow: /*a*a*a*a*b").join("\n");
+    const links = Array.from({ length: 60_000 }, (_, i) => `<a href="/p${i}">x</a>`).join("");
+    const t = performance.now();
+    const result = await crawl(
+      "https://mojweb.sk/",
+      {
+        "https://mojweb.sk/robots.txt": ok(`User-agent: *\n${rules}\n`, "text/plain"),
+        ...noSitemaps,
+        "https://mojweb.sk/": ok(
+          `<html><head><title>Veľa odkazov na stránke</title></head><body>${links}</body></html>`,
+        ),
+      },
+      { maxBytes: 1_000_000, pageLimit: 3 },
+    );
+    const ms = performance.now() - t;
+    expect(ms).toBeLessThan(1_500);
+    expect(result.discoveredCount).toBeLessThanOrEqual(MAX_QUEUED_URLS);
+    expect(result.pages[0]!.internalLinks.length).toBeLessThanOrEqual(MAX_RESULT_LINKS_PER_PAGE);
+    expect(result.stepStates).toContain("PARTIAL_CRAWL");
+  });
+
+  it("caps the frontier at MAX_QUEUED_URLS", async () => {
+    const fetchFn = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/robots.txt")) return robotsOk.clone();
+      if (url.includes("sitemap")) return ok("no", "text/html", 404);
+      const base = new URL(url).pathname.replace(/\W/g, "") || "h";
+      const links = Array.from({ length: 500 }, (_, i) => `<a href="/${base}-${i}">x</a>`).join("");
+      return ok(html({ extras: links }));
+    }) as unknown as typeof fetch;
+    const result = await crawlSite("https://mojweb.sk/", {
+      fetchFn,
+      resolver: publicResolver,
+      timeoutMs: 5_000,
+      pageLimit: 10,
+    });
+    expect(result.discoveredCount).toBe(MAX_QUEUED_URLS);
+    expect(result.stepStates).toContain("PARTIAL_CRAWL");
+  });
+
+  it("checks robots when a URL is dequeued, so disallowed links are never fetched", async () => {
+    const fetchFn = mockFetch({
+      "https://mojweb.sk/robots.txt": ok("User-agent: *\nDisallow: /tajne\n", "text/plain"),
+      ...noSitemaps,
+      "https://mojweb.sk/": ok(
+        html({ extras: '<a href="/tajne/a">a</a><a href="/verejne">b</a>' }),
+      ),
+      "https://mojweb.sk/verejne": ok(html()),
+    });
+    await crawlSite("https://mojweb.sk/", { fetchFn, resolver: publicResolver, timeoutMs: 5_000 });
+    const urls = fetchedUrls(fetchFn);
+    expect(urls.some((u) => u.includes("/tajne"))).toBe(false);
+    expect(urls).toContain("https://mojweb.sk/verejne");
+  });
+});
+
+describe("review fixes round 2: redirects never reach foreign hosts (P2-B)", () => {
+  it("sends 0 requests to a foreign host when pages redirect there", async () => {
+    const links = Array.from({ length: 30 }, (_, i) => `<a href="/r${i}">r</a>`).join("");
+    const routes: Record<string, Response | MockHandler> = {
+      "https://mojweb.sk/robots.txt": robotsOk,
+      "https://mojweb.sk/sitemap.xml": () => redirect("https://victim.example.com/api/x?s=1"),
+      "https://mojweb.sk/sitemap_index.xml": () => redirect("https://victim.example.com/api/x?s=2"),
+      "https://mojweb.sk/": ok(html({ extras: links })),
+    };
+    for (let i = 0; i < 30; i++) {
+      routes[`https://mojweb.sk/r${i}`] = () => redirect(`https://victim.example.com/api/x?i=${i}`);
+    }
+    const fetchFn = mockFetch(routes);
+    const result = await crawlSite("https://mojweb.sk/", {
+      fetchFn,
+      resolver: publicResolver,
+      timeoutMs: 5_000,
+      pageLimit: 25,
+    });
+    expect(fetchedUrls(fetchFn).filter((u) => u.includes("victim.example.com"))).toHaveLength(0);
+    expect(result.findings.some((f) => f.code === "REDIRECT_OFFSITE")).toBe(true);
+  });
+
+  it("still follows same-host redirects (http->https, path moves)", async () => {
+    const result = await crawl("https://mojweb.sk/", {
+      "https://mojweb.sk/robots.txt": robotsOk,
+      ...noSitemaps,
+      "https://mojweb.sk/": ok(html({ extras: '<a href="/stare">s</a>' })),
+      "https://mojweb.sk/stare": () => redirect("https://mojweb.sk/nove", 301),
+      "https://mojweb.sk/nove": ok(html()),
+    });
+    expect(result.pages.map((p) => p.url)).toContain("https://mojweb.sk/nove");
+    expect(result.findings.some((f) => f.code === "REDIRECT_OFFSITE")).toBe(false);
+  });
+});
+
+describe("review fixes round 2: apex <-> www seed (P2-C)", () => {
+  const wwwRoutes = (extra: Record<string, Response | MockHandler> = {}) => ({
+    "https://www.mojweb.sk/robots.txt": ok(
+      "User-agent: *\nAllow: /\nSitemap: https://www.mojweb.sk/sitemap.xml\n",
+      "text/plain",
+    ),
+    "https://www.mojweb.sk/sitemap.xml": ok(
+      xmlSitemap(["https://www.mojweb.sk/", "https://www.mojweb.sk/o-nas"]),
+      "application/xml",
+    ),
+    "https://www.mojweb.sk/": ok(html()),
+    "https://www.mojweb.sk/o-nas": ok(html()),
+    ...extra,
+  });
+
+  it("accepts apex -> www (robots.txt also redirected) as the new start host", async () => {
+    const result = await crawl("https://mojweb.sk/", {
+      "https://mojweb.sk/robots.txt": () => redirect("https://www.mojweb.sk/robots.txt", 301),
+      ...wwwRoutes(),
+    });
+    expect(result.host).toBe("www.mojweb.sk");
+    expect(result.startUrl).toBe("https://www.mojweb.sk/");
+    expect(result.crawledCount).toBeGreaterThanOrEqual(2);
+    expect(result.stepStates).not.toContain("NO_SITEMAP");
+    expect(result.findings.some((f) => f.code === "REDIRECT_OFFSITE")).toBe(false);
+    expect(result.findings.some((f) => f.code === "SEED_HOST_CHANGED")).toBe(true);
+  });
+
+  it("accepts apex -> www when only the seed page redirects", async () => {
+    const result = await crawl("https://mojweb.sk/", {
+      "https://mojweb.sk/robots.txt": ok("nope", "text/plain", 404),
+      ...noSitemaps,
+      "https://mojweb.sk/": () => redirect("https://www.mojweb.sk/", 301),
+      ...wwwRoutes(),
+    });
+    expect(result.host).toBe("www.mojweb.sk");
+    expect(result.crawledCount).toBeGreaterThanOrEqual(2);
+    expect(result.findings.some((f) => f.code === "REDIRECT_OFFSITE")).toBe(false);
+  });
+
+  it("accepts www -> apex too, but only once (no redirect loop)", async () => {
+    const fetchFn = mockFetch({
+      "https://www.mojweb.sk/robots.txt": () => redirect("https://mojweb.sk/robots.txt", 301),
+      "https://mojweb.sk/robots.txt": () => redirect("https://www.mojweb.sk/robots.txt", 301),
+    });
+    const result = await crawlSite("https://www.mojweb.sk/", {
+      fetchFn,
+      resolver: publicResolver,
+      timeoutMs: 5_000,
+    });
+    expect(result).toBeDefined();
+    expect(fetchedUrls(fetchFn).length).toBeLessThan(40);
+  });
+
+  it("keeps other offsite redirects as REDIRECT_OFFSITE", async () => {
+    const result = await crawl("https://mojweb.sk/", {
+      "https://mojweb.sk/robots.txt": robotsOk,
+      ...noSitemaps,
+      "https://mojweb.sk/": () => redirect("https://mojweb.example.org/"),
+      "https://mojweb.example.org/": ok(html()),
+    });
+    expect(result.host).toBe("mojweb.sk");
+    expect(result.findings.some((f) => f.code === "REDIRECT_OFFSITE")).toBe(true);
+    expect(result.findings.some((f) => f.code === "SEED_HOST_CHANGED")).toBe(false);
+  });
+});
+
+describe("review fixes round 2: robots caps fail closed, 429, percent-encoding (P3)", () => {
+  async function blockedBy(robotsBody: string | Response) {
+    const result = await crawl("https://mojweb.sk/", {
+      "https://mojweb.sk/robots.txt":
+        typeof robotsBody === "string" ? ok(robotsBody, "text/plain") : robotsBody,
+      "https://mojweb.sk/": ok(html()),
+    });
+    return result;
+  }
+
+  it("blocks when robots.txt has more rules than the cap", async () => {
+    const rules = Array.from({ length: 1_500 }, (_, i) => `Disallow: /p${i}`).join("\n");
+    const result = await blockedBy(`User-agent: *\n${rules}\n`);
+    expect(result.stepStates).toContain("BLOCKED: ROBOTS");
+    expect(result.findings.some((f) => f.code === "ROBOTS_TOO_LARGE")).toBe(true);
+    expect(result.crawledCount).toBe(0);
+  });
+
+  it("blocks when a pattern is longer than the cap or the file is oversized", async () => {
+    expect(parseRobotsTxt(`User-agent: *\nDisallow: /${"a".repeat(600)}\n`).truncated).toBe(true);
+    expect(parseRobotsTxt(`User-agent: *\n${"#".repeat(600_000)}\n`).truncated).toBe(true);
+    expect(parseRobotsTxt("User-agent: *\nDisallow: /x\n").truncated).toBe(false);
+    const robots = parseRobotsTxt(`User-agent: *\nDisallow: /${"a".repeat(600)}\n`);
+    expect(isPathAllowed(robots, "/ok", "SEO4WEBBot")).toBe(false);
+  });
+
+  it("denies paths longer than the matcher cap", () => {
+    const robots = parseRobotsTxt("User-agent: *\nDisallow: /*.pdf$\n");
+    expect(isPathAllowed(robots, `/${"a".repeat(3_000)}.pdf`, "SEO4WEBBot")).toBe(false);
+    expect(isPathAllowed(robots, "/a.html", "SEO4WEBBot")).toBe(true);
+  });
+
+  it("treats robots.txt 429 like 5xx (full disallow)", async () => {
+    const result = await blockedBy(ok("slow down", "text/plain", 429));
+    expect(result.stepStates).toContain("BLOCKED: ROBOTS");
+    expect(result.crawledCount).toBe(0);
+  });
+
+  it("normalizes percent-encoding on both sides (RFC 9309 2.2.2)", () => {
+    expect(robotsPatternMatches("/%7Euser", "/~user")).toBe(true);
+    expect(robotsPatternMatches("/~user", "/%7euser")).toBe(true);
+    expect(robotsPatternMatches("/%e2%82%ac", "/%E2%82%AC")).toBe(true);
+    expect(robotsPatternMatches("/€", "/%E2%82%AC")).toBe(true);
+    expect(robotsPatternMatches("/a%2Fb", "/a/b")).toBe(false);
+  });
+});
+
+describe("review fixes round 2: body without stream (P3-a)", () => {
+  it("never calls res.text() on a streamless response", async () => {
+    const res = new Response(null, { status: 200, headers: { "content-type": "text/html" } });
+    const text = vi.fn(async () => "<title>x</title>");
+    (res as unknown as { text: typeof text }).text = text;
+    const result = await crawl("https://mojweb.sk/", {
+      "https://mojweb.sk/robots.txt": robotsOk,
+      ...noSitemaps,
+      "https://mojweb.sk/": () => res,
+    });
+    expect(text).not.toHaveBeenCalled();
+    expect(result.pages[0]!.findings.some((f) => f.code === "TITLE_MISSING")).toBe(true);
+  });
+});
+
+describe("review fixes round 2: concurrency messages and rate token (P3-e)", () => {
+  const fake: CrawlResult = {
+    startUrl: "https://mojweb.sk/",
+    host: "mojweb.sk",
+    pages: [],
+    findings: [],
+    stepStates: [],
+    crawledCount: 0,
+    discoveredCount: 0,
+  };
+
+  it("refused concurrent attempts do not burn rate-limit tokens", async () => {
+    const user = `tok-user-${Math.random()}`;
+    let finish!: (r: CrawlResult) => void;
+    const slow = vi.fn(
+      () => new Promise<CrawlResult>((r) => (finish = r)),
+    ) as unknown as typeof crawlSite;
+    const first = runCrawlForUser(user, { url: "https://mojweb.sk/" }, slow);
+    for (let i = 0; i < 5; i++) {
+      await expect(runCrawlForUser(user, { url: "https://mojweb.sk/" }, slow)).rejects.toThrow(
+        "Crawl už beží",
+      );
+    }
+    finish(fake);
+    await first;
+    const quick = vi.fn(async () => fake) as unknown as typeof crawlSite;
+    // 1 token used so far; the remaining ones must still be available.
+    for (let i = 0; i < CRAWL_RATE_LIMIT.limit - 1; i++) {
+      await runCrawlForUser(user, { url: "https://mojweb.sk/" }, quick);
+    }
+    await expect(runCrawlForUser(user, { url: "https://mojweb.sk/" }, quick)).rejects.toThrow(
+      /Príliš veľa požiadaviek/,
+    );
+  });
+
+  it("uses a different message when the global capacity is full", async () => {
+    const user = `glob-user-${Math.random()}`;
+    const held = ["a", "b", "c", "d"].map((x) => acquireCrawlSlot(`${user}-${x}`));
+    const quick = vi.fn(async () => fake) as unknown as typeof crawlSite;
+    await expect(runCrawlForUser(user, { url: "https://mojweb.sk/" }, quick)).rejects.toThrow(
+      "Server je vyťažený",
+    );
+    for (const r of held) r!();
   });
 });
