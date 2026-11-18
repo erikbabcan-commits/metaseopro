@@ -1188,9 +1188,8 @@ describe("review fixes round 3: robots caps per applicable group (P3-i)", () => 
     });
     expect(result.stepStates).not.toContain("BLOCKED: ROBOTS");
     expect(result.crawledCount).toBe(1);
-    // Rules of other groups still work for those bots.
-    expect(isPathAllowed(parsed, "/other/5", "Googlebot")).toBe(false);
-    expect(isPathAllowed(parsed, "/", "AhrefsBot")).toBe(false);
+    // Rules of groups that do not apply to us are dropped at parse time.
+    expect(parsed.groups.flatMap((g) => g.rules)).toHaveLength(1);
   });
 
   it("still fails closed when our own group exceeds the cap", () => {
@@ -1256,13 +1255,14 @@ describe("review fixes round 3+4: robots-disallowed frontier (P2-A', P2-A'')", (
       const ms = performance.now() - t;
       expect(ms).toBeLessThan(500);
       expect(result.crawledCount).toBe(1);
-      // Skipping is bounded: the budget stops the crawl as PARTIAL_CRAWL.
-      expect(result.stepStates).toContain("PARTIAL_CRAWL");
-      expect(result.findings.some((f) => f.code === "ROBOTS_SKIP_LIMIT")).toBe(true);
+      // Disallowed URLs are filtered at enqueue: counted, never queued or fetched.
+      expect(result.robotsFilteredCount).toBeGreaterThan(900);
+      expect(result.discoveredCount).toBe(1);
+      expect(fetchedUrls(fetchFn).some((u) => u.includes("/z/"))).toBe(false);
     });
   }
 
-  it("stops after MAX_ROBOTS_SKIPS skipped URLs with PARTIAL_CRAWL", async () => {
+  it("filters disallowed URLs at enqueue: no skips, no PARTIAL_CRAWL, nothing fetched", async () => {
     const fetchFn = mockFetch(frontierRoutes("User-agent: *\nDisallow: /z\n", 600));
     const result = await crawlSite("https://mojweb.sk/", {
       fetchFn,
@@ -1270,9 +1270,9 @@ describe("review fixes round 3+4: robots-disallowed frontier (P2-A', P2-A'')", (
       timeoutMs: 5_000,
       pageLimit: 5,
     });
-    expect(result.stepStates).toContain("PARTIAL_CRAWL");
-    expect(result.stepStates).not.toContain("BLOCKED: ROBOTS");
-    // Nothing disallowed was ever fetched.
+    expect(result.stepStates).not.toContain("PARTIAL_CRAWL");
+    expect(result.findings.some((f) => f.code === "ROBOTS_SKIP_LIMIT")).toBe(false);
+    expect(result.robotsFilteredCount).toBeGreaterThanOrEqual(600 - 1);
     expect(fetchedUrls(fetchFn).some((u) => u.includes("/z/"))).toBe(false);
     expect(MAX_ROBOTS_SKIPS).toBeLessThanOrEqual(200);
   });
@@ -1331,6 +1331,10 @@ describe("review fixes round 3+4: robots-disallowed frontier (P2-A', P2-A'')", (
     expect(ms).toBeLessThan(500);
     expect(MAX_ROBOTS_MATCH_MS).toBeLessThanOrEqual(200);
     expect(result.stepStates).toContain("PARTIAL_CRAWL");
+    // Safety net: after the budget is used up, the dequeue check still never fetches a disallowed URL.
+    expect(fetchedUrls(fetchFn).some((u) => u.includes("/z/"))).toBe(false);
+    const limit = result.findings.find((f) => f.code === "ROBOTS_SKIP_LIMIT");
+    expect(limit?.message).toContain("Doteraz auditované stránky zostávajú platné");
   });
 });
 
@@ -1382,3 +1386,46 @@ describe("review fixes round 4: robots patterns normalized once at parse time (P
 function rulesOf254(): string {
   return `Disallow: /*${"ž".repeat(254)}`;
 }
+
+describe("review fixes round 5: faceted e-shop (P3-l)", () => {
+  // Each page links to 5 allowed product/category pages and 100 facet URLs
+  // that robots.txt disallows (?color= / ?sort=).
+  function facetedShop() {
+    const fetchFn = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/robots.txt") {
+        return ok("User-agent: *\nDisallow: /*?color=\nDisallow: /*?sort=\n", "text/plain");
+      }
+      if (url.pathname.includes("sitemap")) return ok("no", "text/html", 404);
+      const id = url.pathname === "/" ? 0 : Number(url.pathname.split("/").pop());
+      const children = [1, 2, 3, 4, 5].map((k) => `/produkt/${id * 5 + k}`);
+      const facets = Array.from(
+        { length: 100 },
+        (_, j) => `${url.pathname}?color=c${j}&sort=s${j}`,
+      );
+      const links = [...facets, ...children].map((h) => `<a href="${h}">l</a>`).join("");
+      return ok(html({ extras: links }));
+    }) as unknown as typeof fetch;
+    return fetchFn;
+  }
+
+  it("reaches the 25-page limit instead of stopping on the skip cap", async () => {
+    const fetchFn = facetedShop();
+    const t = performance.now();
+    const result = await crawlSite("https://mojweb.sk/", {
+      fetchFn,
+      resolver: publicResolver,
+      timeoutMs: 10_000,
+      pageLimit: 25,
+    });
+    const ms = performance.now() - t;
+    expect(result.crawledCount).toBe(25);
+    expect(result.findings.some((f) => f.code === "ROBOTS_SKIP_LIMIT")).toBe(false);
+    // 100 facet URLs per page were counted, never queued or fetched.
+    expect(result.robotsFilteredCount).toBeGreaterThan(1_000);
+    expect(fetchedUrls(fetchFn).some((u) => u.includes("?color=") || u.includes("?sort="))).toBe(
+      false,
+    );
+    expect(ms).toBeLessThan(2_000);
+  });
+});

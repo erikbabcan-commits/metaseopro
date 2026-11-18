@@ -85,6 +85,8 @@ export type CrawlResult = {
   stepStates: CrawlStepState[];
   crawledCount: number;
   discoveredCount: number;
+  /** URLs found but not queued because robots.txt disallows them. */
+  robotsFilteredCount?: number;
 };
 
 export type CrawlOptions = {
@@ -324,6 +326,11 @@ function addState(states: CrawlStepState[], state: CrawlStepState): void {
   if (!states.includes(state)) states.push(state);
 }
 
+/**
+ * Parses robots.txt for `userAgent`: only rules of groups that apply to that
+ * agent (`*` or its product token) are kept, so query the result with the same
+ * agent.
+ */
 export function parseRobotsTxt(text: string, userAgent = "SEO4WEBBot"): ParsedRobots {
   const token = robotsProductToken(userAgent);
   const groups: RobotsGroup[] = [];
@@ -367,18 +374,16 @@ export function parseRobotsTxt(text: string, userAgent = "SEO4WEBBot"): ParsedRo
       // many rules for other bots must not block the crawl). Caps on groups
       // that DO apply stay fail-closed.
       const applies = current.agents.some((a) => a === "*" || robotsProductToken(a) === token);
+      // Rules of groups that do not apply to us are never used by the crawler:
+      // drop them without normalizing (no CPU spent on hostile non-ASCII
+      // content in other bots' groups).
+      if (!applies) continue;
       // Raw length first (bounds the work of normalizing), then the length
       // AFTER percent-normalization, which is what matching actually costs:
       // a non-ASCII character expands to 6 characters ("ž" -> "%C5%BE").
       const tooLong = value.length > MAX_ROBOTS_PATTERN_LENGTH;
       const normalized = tooLong ? "" : normalizePercent(value);
       const normalizedTooLong = normalized.length > MAX_ROBOTS_PATTERN_LENGTH;
-      if (!applies) {
-        if (!tooLong && !normalizedTooLong) {
-          current.rules.push(compileRobotsRule(field === "allow", normalized));
-        }
-        continue;
-      }
       if (
         ruleCount >= MAX_ROBOTS_RULES ||
         tooLong ||
@@ -1202,6 +1207,7 @@ async function crawlSiteInner(
 
   const botName = userAgent.includes("SEO4WEBBot") ? "SEO4WEBBot" : userAgent;
   let discoveredCount = 0;
+  let robotsFilteredCount = 0;
 
   try {
     const robotsResult = await fetchDocument(`${origin}/robots.txt`, {
@@ -1296,13 +1302,40 @@ async function crawlSiteInner(
       addState(stepStates, "NO_SITEMAP");
     }
 
+    let skippedByRobots = 0;
+    let robotsMatchMs = 0;
+    let lastYieldAt = performance.now();
+    /** Time-based yield: hand the event loop back every ~ROBOTS_SKIP_YIELD_MS of sync work. */
+    const yieldIfBusy = async (): Promise<void> => {
+      if (performance.now() - lastYieldAt >= ROBOTS_SKIP_YIELD_MS) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        lastYieldAt = performance.now();
+      }
+    };
+    const disallowedSeen = new Set<string>();
+    /** robots.txt check with the shared matching-time budget (see MAX_ROBOTS_MATCH_MS). */
+    const robotsAllows = (url: string): boolean => {
+      // Budget used up: stop matching here, the dequeue check decides.
+      if (robotsMatchMs >= MAX_ROBOTS_MATCH_MS) return true;
+      const t0 = performance.now();
+      const allowed = isPathAllowed(robots, pathAndQuery(url), botName);
+      robotsMatchMs += performance.now() - t0;
+      return allowed;
+    };
     const queue: string[] = [];
     const queued = new Set<string>();
     const enqueue = (url: string) => {
       if (queued.has(url)) return;
       if (!isSameHost(url, startUrl) || !isSafePublicUrl(url)) return;
-      // robots.txt is evaluated when a URL is dequeued (at most pageLimit
-      // times), not for every discovered link.
+      // Disallowed URLs never enter the frontier (so they cannot crowd out
+      // allowed ones); they are only counted. The dequeue check stays as a
+      // safety net for URLs queued once the matching-time budget is used up.
+      if (disallowedSeen.has(url)) return;
+      if (!robotsAllows(url)) {
+        disallowedSeen.add(url);
+        robotsFilteredCount += 1;
+        return;
+      }
       if (queued.size >= MAX_QUEUED_URLS) {
         addState(stepStates, "PARTIAL_CRAWL");
         return;
@@ -1312,12 +1345,12 @@ async function crawlSiteInner(
     };
 
     enqueue(startUrl);
-    for (const url of sitemapUrls) enqueue(url);
+    for (const url of sitemapUrls) {
+      enqueue(url);
+      await yieldIfBusy();
+    }
     discoveredCount = queued.size;
 
-    let skippedByRobots = 0;
-    let robotsMatchMs = 0;
-    let lastYieldAt = performance.now();
     const statusByUrl = new Map<string, number>();
     const inbound = new Map<string, Set<string>>();
     const rememberLink = (from: string, to: string) => {
@@ -1341,6 +1374,7 @@ async function crawlSiteInner(
       }
 
       const url = queue.shift()!;
+      // Safety net (not budget-limited): never fetch a disallowed URL.
       const matchStart = performance.now();
       const allowedByRobots = isPathAllowed(robots, pathAndQuery(url), botName);
       robotsMatchMs += performance.now() - matchStart;
@@ -1356,17 +1390,14 @@ async function crawlSiteInner(
               startUrl,
               "info",
               "ROBOTS_SKIP_LIMIT",
-              `Príliš veľa URL zakázaných v robots.txt (limit ${MAX_ROBOTS_SKIPS} preskočení alebo ${MAX_ROBOTS_MATCH_MS} ms); crawl sa zastavil.`,
+              `Príliš veľa URL zakázaných v robots.txt (limit ${MAX_ROBOTS_SKIPS} preskočení alebo ${MAX_ROBOTS_MATCH_MS} ms); crawl sa zastavil. Doteraz auditované stránky zostávajú platné.`,
             ),
           );
           break;
         }
         // Time-based yield: give the event loop back at least every ~10 ms of
         // synchronous matching work.
-        if (performance.now() - lastYieldAt >= ROBOTS_SKIP_YIELD_MS) {
-          await new Promise<void>((resolve) => setTimeout(resolve, 0));
-          lastYieldAt = performance.now();
-        }
+        await yieldIfBusy();
         continue;
       }
       const result = await fetchDocument(url, pageOpts);
@@ -1447,6 +1478,7 @@ async function crawlSiteInner(
           rememberLink(pageUrl, link);
           if (!queued.has(link)) {
             enqueue(link);
+            await yieldIfBusy();
             discoveredCount = queued.size;
           }
         }
@@ -1499,6 +1531,7 @@ async function crawlSiteInner(
     stepStates,
     crawledCount: pages.length,
     discoveredCount,
+    robotsFilteredCount,
   };
 }
 
