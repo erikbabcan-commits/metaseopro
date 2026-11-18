@@ -29,7 +29,12 @@ export const MAX_ROBOTS_PATTERN_CHARS = 64 * 1024;
 export const ROBOTS_SKIP_YIELD_MS = 10;
 /** Max robots-disallowed URLs skipped at dequeue per crawl, then PARTIAL_CRAWL. */
 export const MAX_ROBOTS_SKIPS = 200;
-/** Max total time spent matching robots rules at dequeue per crawl (ms). */
+/**
+ * Max total time spent matching robots rules (enqueue + dequeue) per crawl (ms).
+ * Wall-clock, so a slow or busy machine reaches it sooner; the crawler then
+ * stops matching at enqueue and the dequeue check stays the safety net. The
+ * clock is injectable (`CrawlOptions.now`) so tests do not depend on speed.
+ */
 export const MAX_ROBOTS_MATCH_MS = 150;
 export const MAX_ROBOTS_PATTERN_LENGTH = 512;
 const MAX_ROBOTS_PATH_LENGTH = 2_048;
@@ -85,8 +90,16 @@ export type CrawlResult = {
   stepStates: CrawlStepState[];
   crawledCount: number;
   discoveredCount: number;
-  /** URLs found but not queued because robots.txt disallows them. */
-  robotsFilteredCount?: number;
+  /**
+   * URLs found but not queued because robots.txt disallows them. Always
+   * present (0 on early returns). A lower bound when
+   * `robotsFilteredCountIsLowerBound` is true: once the matching budget is used
+   * up, further URLs are no longer matched at enqueue (the dequeue check still
+   * never fetches a disallowed URL).
+   */
+  robotsFilteredCount: number;
+  /** True when the matching budget was exhausted, so robotsFilteredCount is "at least". */
+  robotsFilteredCountIsLowerBound: boolean;
 };
 
 export type CrawlOptions = {
@@ -98,6 +111,11 @@ export type CrawlOptions = {
   resolver?: DnsResolver;
   signal?: AbortSignal;
   userAgent?: string;
+  /**
+   * Clock (ms) that meters robots matching time. Tests inject a fake clock so
+   * the MAX_ROBOTS_MATCH_MS budget is deterministic; defaults to performance.now.
+   */
+  now?: () => number;
 };
 
 /**
@@ -138,7 +156,10 @@ export type ParsedRobots = {
 };
 
 class OffsiteRedirectError extends Error {
-  constructor(readonly target: string) {
+  constructor(
+    readonly target: string,
+    readonly reason: "OFFSITE" | "ROBOTS" = "OFFSITE",
+  ) {
     super("Redirect target is not allowed");
     this.name = "OffsiteRedirectError";
   }
@@ -172,7 +193,7 @@ type FetchErr = {
   ok: false;
   url: string;
   status?: number;
-  error: "SSRF" | "TIMEOUT" | "NETWORK" | "OFFSITE";
+  error: "SSRF" | "TIMEOUT" | "NETWORK" | "OFFSITE" | "ROBOTS_REDIRECT";
 };
 type FetchOutcome = FetchOk | FetchErr;
 
@@ -288,7 +309,17 @@ function isSameHost(a: string, b: string): boolean {
   }
 }
 
-export function canonicalizeCrawlUrl(raw: string, base?: string): string | null {
+/**
+ * Canonical form used for dedup: no fragment, no trailing slash. `slashSink`
+ * receives the canonical URLs whose original form had a trailing slash, so
+ * robots.txt can still be evaluated on the path as it was written (RFC 9309
+ * matches `/dir/` and `/dir` differently).
+ */
+export function canonicalizeCrawlUrl(
+  raw: string,
+  base?: string,
+  slashSink?: Set<string>,
+): string | null {
   let url: URL;
   try {
     url = base ? new URL(raw, base) : new URL(raw);
@@ -300,6 +331,7 @@ export function canonicalizeCrawlUrl(raw: string, base?: string): string | null 
   if (!url.pathname) url.pathname = "/";
   if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
     url.pathname = url.pathname.slice(0, -1);
+    slashSink?.add(url.toString());
   }
   return url.toString();
 }
@@ -644,6 +676,7 @@ function extractInternalLinks(
   pageUrl: string,
   startUrl: string,
   lower = asciiLower(html),
+  slashSink?: Set<string>,
 ): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -663,7 +696,7 @@ function extractInternalLinks(
     ) {
       continue;
     }
-    const abs = canonicalizeCrawlUrl(raw, pageUrl);
+    const abs = canonicalizeCrawlUrl(raw, pageUrl, slashSink);
     if (!abs || !isSameHost(abs, startUrl) || !isSafePublicUrl(abs)) continue;
     if (seen.has(abs)) continue;
     seen.add(abs);
@@ -732,9 +765,11 @@ async function fetchDocument(
     accept: string;
     /**
      * Checked BEFORE every redirect hop is requested. When it returns false the
-     * request is never sent and the outcome is { error: "OFFSITE" }.
+     * request is never sent and the outcome is { error: "OFFSITE" } or
+     * { error: "ROBOTS_REDIRECT" }. `rawUrl` keeps the path as requested
+     * (with its trailing slash), `url` is the canonical form.
      */
-    allowRedirectTo?: (url: string) => boolean;
+    allowRedirectTo?: (url: string, rawUrl: string) => true | "OFFSITE" | "ROBOTS";
   },
 ): Promise<FetchOutcome> {
   const url = canonicalizeCrawlUrl(rawUrl) ?? rawUrl;
@@ -750,7 +785,8 @@ async function fetchDocument(
     requestCount += 1;
     if (requestCount > 1 && options.allowRedirectTo) {
       const canonical = canonicalizeCrawlUrl(requested) ?? requested;
-      if (!options.allowRedirectTo(canonical)) throw new OffsiteRedirectError(canonical);
+      const verdict = options.allowRedirectTo(canonical, requested);
+      if (verdict !== true) throw new OffsiteRedirectError(canonical, verdict);
     }
     lastUrl = requested;
     const fetchFn = options.fetchFn ?? fetch;
@@ -789,7 +825,11 @@ async function fetchDocument(
     return { ok: true, url: finalUrl, status: res.status, headers: res.headers, body };
   } catch (err) {
     if (err instanceof OffsiteRedirectError) {
-      return { ok: false, url: err.target, error: "OFFSITE" };
+      return {
+        ok: false,
+        url: err.target,
+        error: err.reason === "ROBOTS" ? "ROBOTS_REDIRECT" : "OFFSITE",
+      };
     }
     if (err instanceof SsrfBlockedError || err instanceof TooManyRedirectsError) {
       return { ok: false, url: lastUrl, error: "SSRF" };
@@ -820,6 +860,7 @@ async function discoverSitemaps(
   signal: AbortSignal,
   stepStates: CrawlStepState[],
   findings: CrawlFinding[],
+  slashSink?: Set<string>,
 ): Promise<string[]> {
   const origin = new URL(startUrl).origin;
   const candidates: string[] = [];
@@ -839,7 +880,7 @@ async function discoverSitemaps(
   const pageUrls: string[] = [];
   const pageSeen = new Set<string>();
   const collectPage = (raw: string) => {
-    const abs = canonicalizeCrawlUrl(raw, startUrl);
+    const abs = canonicalizeCrawlUrl(raw, startUrl, slashSink);
     if (!abs || pageSeen.has(abs)) return;
     if (!isSameHost(abs, startUrl) || !isSafePublicUrl(abs)) return;
     pageSeen.add(abs);
@@ -907,6 +948,7 @@ function auditPageHtml(
   status: number,
   headers: Headers,
   html: string,
+  slashSink?: Set<string>,
 ): PageAudit {
   const lower = asciiLower(html);
   const title = extractTitle(html, lower);
@@ -935,7 +977,7 @@ function auditPageHtml(
     }
   }
   const imagesWithoutAlt = countImagesWithoutAlt(html, lower);
-  const internalLinks = extractInternalLinks(html, pageUrl, startUrl, lower);
+  const internalLinks = extractInternalLinks(html, pageUrl, startUrl, lower, slashSink);
   const findings: CrawlFinding[] = [];
 
   if (status >= 400) {
@@ -1123,6 +1165,8 @@ function emptyErrorPage(url: string, status: number, message: string, code: stri
   };
 }
 
+const NO_ROBOTS_FILTER = { robotsFilteredCount: 0, robotsFilteredCountIsLowerBound: false };
+
 export async function crawlSite(
   rawStartUrl: string,
   options: CrawlOptions = {},
@@ -1137,6 +1181,9 @@ async function crawlSiteInner(
 ): Promise<CrawlResult> {
   const startedAt = Date.now();
   let restartTarget: string | null = null;
+  const botName = (options.userAgent ?? CRAWLER_USER_AGENT).includes("SEO4WEBBot")
+    ? "SEO4WEBBot"
+    : (options.userAgent ?? CRAWLER_USER_AGENT);
   const pageLimit = Math.min(
     Math.max(options.pageLimit ?? DEFAULT_PAGE_LIMIT, 1),
     DEFAULT_PAGE_LIMIT,
@@ -1160,6 +1207,7 @@ async function crawlSiteInner(
       stepStates: [],
       crawledCount: 0,
       discoveredCount: 0,
+      ...NO_ROBOTS_FILTER,
     };
   }
 
@@ -1176,10 +1224,13 @@ async function crawlSiteInner(
       stepStates,
       crawledCount: 0,
       discoveredCount: 0,
+      ...NO_ROBOTS_FILTER,
     };
   }
 
-  const startUrl = canonicalizeCrawlUrl(normalized) ?? normalized;
+  // URLs that were written with a trailing slash (robots is evaluated on that form).
+  const slashSink = new Set<string>();
+  const startUrl = canonicalizeCrawlUrl(normalized, undefined, slashSink) ?? normalized;
   const host = normalizeHost(new URL(startUrl).hostname);
   const origin = new URL(startUrl).origin;
 
@@ -1200,14 +1251,26 @@ async function crawlSiteInner(
   // Pages and sitemaps: a redirect hop is requested only if it stays on the
   // start host (checked before the request is sent). robots.txt may follow
   // redirects like RFC 9309 allows.
+  const sitemapOpts = {
+    ...fetchOpts,
+    allowRedirectTo: (target: string) =>
+      (isSameHost(target, startUrl) ? true : "OFFSITE") as true | "OFFSITE",
+  };
+  // Pages additionally need robots.txt to allow every redirect hop (the rules
+  // are known once robots.txt is parsed, see `robotsRef`).
+  let robotsRef: ParsedRobots | null = null;
   const pageOpts = {
     ...fetchOpts,
-    allowRedirectTo: (target: string) => isSameHost(target, startUrl),
+    allowRedirectTo: (target: string, rawUrl: string): true | "OFFSITE" | "ROBOTS" => {
+      if (!isSameHost(target, startUrl)) return "OFFSITE";
+      if (robotsRef && !isPathAllowed(robotsRef, pathAndQuery(rawUrl), botName)) return "ROBOTS";
+      return true;
+    },
   };
 
-  const botName = userAgent.includes("SEO4WEBBot") ? "SEO4WEBBot" : userAgent;
   let discoveredCount = 0;
   let robotsFilteredCount = 0;
+  let robotsFilteredCountIsLowerBound = false;
 
   try {
     const robotsResult = await fetchDocument(`${origin}/robots.txt`, {
@@ -1238,7 +1301,16 @@ async function crawlSiteInner(
             "robots.txt nie je povolený (SSRF ochrana).",
           ),
         );
-        return { startUrl, host, pages, findings, stepStates, crawledCount: 0, discoveredCount: 0 };
+        return {
+          startUrl,
+          host,
+          pages,
+          findings,
+          stepStates,
+          crawledCount: 0,
+          discoveredCount: 0,
+          ...NO_ROBOTS_FILTER,
+        };
       }
       // RFC 9309 2.3.1.4: robots.txt unreachable (network error / timeout)
       // => assume complete disallow.
@@ -1252,7 +1324,16 @@ async function crawlSiteInner(
           "robots.txt sa nepodarilo načítať, crawl sa zastavil (RFC 9309).",
         ),
       );
-      return { startUrl, host, pages, findings, stepStates, crawledCount: 0, discoveredCount: 0 };
+      return {
+        startUrl,
+        host,
+        pages,
+        findings,
+        stepStates,
+        crawledCount: 0,
+        discoveredCount: 0,
+        ...NO_ROBOTS_FILTER,
+      };
     } else if (robotsResult.status >= 500 || robotsResult.status === 429) {
       // RFC 9309 2.3.1.4: server error => assume complete disallow. 429 is
       // treated like 5xx (fail-closed, as major crawlers do).
@@ -1265,12 +1346,32 @@ async function crawlSiteInner(
           `robots.txt vrátil HTTP ${robotsResult.status}, crawl sa zastavil (RFC 9309).`,
         ),
       );
-      return { startUrl, host, pages, findings, stepStates, crawledCount: 0, discoveredCount: 0 };
+      return {
+        startUrl,
+        host,
+        pages,
+        findings,
+        stepStates,
+        crawledCount: 0,
+        discoveredCount: 0,
+        ...NO_ROBOTS_FILTER,
+      };
     } else if (robotsResult.status < 400) {
       robots = parseRobotsTxt(robotsResult.body, botName);
     }
+    robotsRef = robots;
 
-    if (!isPathAllowed(robots, pathAndQuery(startUrl), botName)) {
+    // Robots is evaluated on the path as written: a URL that was seen with a
+    // trailing slash is checked in that form too (canonical URLs have none).
+    const pathAllowed = (url: string): boolean => {
+      const path = pathAndQuery(url);
+      if (!isPathAllowed(robots, path, botName)) return false;
+      if (!slashSink.has(url)) return true;
+      const u = new URL(url);
+      return isPathAllowed(robots, `${u.pathname}/${u.search}`, botName);
+    };
+
+    if (!pathAllowed(startUrl)) {
       addState(stepStates, "BLOCKED: ROBOTS");
       findings.push(
         robots.truncated
@@ -1287,16 +1388,26 @@ async function crawlSiteInner(
               "robots.txt zakazuje prehľadávanie tejto URL.",
             ),
       );
-      return { startUrl, host, pages, findings, stepStates, crawledCount: 0, discoveredCount: 0 };
+      return {
+        startUrl,
+        host,
+        pages,
+        findings,
+        stepStates,
+        crawledCount: 0,
+        discoveredCount: 0,
+        ...NO_ROBOTS_FILTER,
+      };
     }
 
     const sitemapUrls = await discoverSitemaps(
       startUrl,
       robots.sitemaps,
-      pageOpts,
+      sitemapOpts,
       crawlController.signal,
       stepStates,
       findings,
+      slashSink,
     );
     if (sitemapUrls.length === 0) {
       addState(stepStates, "NO_SITEMAP");
@@ -1304,23 +1415,31 @@ async function crawlSiteInner(
 
     let skippedByRobots = 0;
     let robotsMatchMs = 0;
-    let lastYieldAt = performance.now();
+    const clock = options.now ?? (() => performance.now());
+    let lastYieldAt = clock();
     /** Time-based yield: hand the event loop back every ~ROBOTS_SKIP_YIELD_MS of sync work. */
     const yieldIfBusy = async (): Promise<void> => {
-      if (performance.now() - lastYieldAt >= ROBOTS_SKIP_YIELD_MS) {
+      if (clock() - lastYieldAt >= ROBOTS_SKIP_YIELD_MS) {
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
-        lastYieldAt = performance.now();
+        lastYieldAt = clock();
       }
     };
     const disallowedSeen = new Set<string>();
+    /** Runs a robots check and adds its time to the shared matching budget. */
+    const timedPathAllowed = (url: string): boolean => {
+      const t0 = clock();
+      const allowed = pathAllowed(url);
+      robotsMatchMs += clock() - t0;
+      return allowed;
+    };
     /** robots.txt check with the shared matching-time budget (see MAX_ROBOTS_MATCH_MS). */
     const robotsAllows = (url: string): boolean => {
       // Budget used up: stop matching here, the dequeue check decides.
-      if (robotsMatchMs >= MAX_ROBOTS_MATCH_MS) return true;
-      const t0 = performance.now();
-      const allowed = isPathAllowed(robots, pathAndQuery(url), botName);
-      robotsMatchMs += performance.now() - t0;
-      return allowed;
+      if (robotsMatchMs >= MAX_ROBOTS_MATCH_MS) {
+        robotsFilteredCountIsLowerBound = true;
+        return true;
+      }
+      return timedPathAllowed(url);
     };
     const queue: string[] = [];
     const queued = new Set<string>();
@@ -1375,10 +1494,7 @@ async function crawlSiteInner(
 
       const url = queue.shift()!;
       // Safety net (not budget-limited): never fetch a disallowed URL.
-      const matchStart = performance.now();
-      const allowedByRobots = isPathAllowed(robots, pathAndQuery(url), botName);
-      robotsMatchMs += performance.now() - matchStart;
-      if (!allowedByRobots) {
+      if (!timedPathAllowed(url)) {
         // Skipping disallowed URLs is synchronous CPU work: yield regularly so
         // a hostile frontier cannot block the event loop (timers, other crawls).
         skippedByRobots += 1;
@@ -1390,7 +1506,7 @@ async function crawlSiteInner(
               startUrl,
               "info",
               "ROBOTS_SKIP_LIMIT",
-              `Príliš veľa URL zakázaných v robots.txt (limit ${MAX_ROBOTS_SKIPS} preskočení alebo ${MAX_ROBOTS_MATCH_MS} ms); crawl sa zastavil. Doteraz auditované stránky zostávajú platné.`,
+              `Príliš veľa URL zakázaných v robots.txt (limit ${MAX_ROBOTS_SKIPS} preskočení alebo ${MAX_ROBOTS_MATCH_MS} ms porovnávania pravidiel); crawl sa zastavil. Doteraz auditované stránky zostávajú platné.`,
             ),
           );
           break;
@@ -1421,6 +1537,19 @@ async function crawlSiteInner(
           );
           for (const f of off.findings) f.severity = "warning";
           pages.push(off);
+          continue;
+        }
+        if (result.error === "ROBOTS_REDIRECT") {
+          // A redirect hop leads to a URL robots.txt disallows: it was never requested.
+          if (url === startUrl) addState(stepStates, "BLOCKED: ROBOTS");
+          const blocked = emptyErrorPage(
+            url,
+            0,
+            `Presmerovanie vedie na URL zakázanú v robots.txt (${result.url}); nebola stiahnutá ani auditovaná.`,
+            "REDIRECT_DISALLOWED",
+          );
+          for (const f of blocked.findings) f.severity = "info";
+          pages.push(blocked);
           continue;
         }
         if (result.error === "SSRF") {
@@ -1460,6 +1589,20 @@ async function crawlSiteInner(
         continue;
       }
       const pageUrl = result.url;
+      // Defense in depth: the final URL must be allowed too (hops were checked
+      // on their raw form before they were requested).
+      if (pageUrl !== url && !pathAllowed(pageUrl)) {
+        if (url === startUrl) addState(stepStates, "BLOCKED: ROBOTS");
+        const blocked = emptyErrorPage(
+          url,
+          result.status,
+          `Presmerovanie vedie na URL zakázanú v robots.txt (${pageUrl}); obsah sa neauditoval.`,
+          "REDIRECT_DISALLOWED",
+        );
+        for (const f of blocked.findings) f.severity = "info";
+        pages.push(blocked);
+        continue;
+      }
       if (!isSafePublicUrl(pageUrl)) {
         addState(stepStates, "BLOCKED: SSRF");
         pages.push(
@@ -1468,7 +1611,14 @@ async function crawlSiteInner(
         continue;
       }
 
-      const audit = auditPageHtml(pageUrl, startUrl, result.status, result.headers, result.body);
+      const audit = auditPageHtml(
+        pageUrl,
+        startUrl,
+        result.status,
+        result.headers,
+        result.body,
+        slashSink,
+      );
       pages.push(audit);
       statusByUrl.set(url, result.status);
       statusByUrl.set(pageUrl, result.status);
@@ -1532,6 +1682,7 @@ async function crawlSiteInner(
     crawledCount: pages.length,
     discoveredCount,
     robotsFilteredCount,
+    robotsFilteredCountIsLowerBound,
   };
 }
 
