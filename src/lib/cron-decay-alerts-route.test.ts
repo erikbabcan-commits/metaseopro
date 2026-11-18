@@ -53,6 +53,20 @@ vi.mock("@supabase/supabase-js", () => ({
         };
         return b;
       },
+      // Recipients come from the confirmed auth e-mail (never from profiles).
+      auth: {
+        admin: {
+          getUserById: async (id: string) => {
+            const p = profiles.find((x) => x.user_id === id);
+            return {
+              data: {
+                user: p ? { email: p.email, email_confirmed_at: "2026-01-01T00:00:00Z" } : null,
+              },
+              error: null,
+            };
+          },
+        },
+      },
     };
   },
 }));

@@ -1,8 +1,9 @@
 // Wiring test for the decay-alert cron route: who actually receives an e-mail.
 // Recipients must be the confirmed auth e-mail; unconfirmed / missing / failed
 // lookups are skipped, and public.profiles (user-editable) is never read.
-// NOTE: when #21 moves the sweep into a library function this test must keep
-// covering the same behaviour through the new call path.
+// The route delegates to runDecayAlertSweep (#21); the outgoing Resend request is
+// captured through a stubbed global fetch, and the sweep is also driven directly
+// with an injected sendEmail.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type AuthUser = { email?: string | null; email_confirmed_at?: string | null } | Error | null;
@@ -13,9 +14,11 @@ const mocks = vi.hoisted(() => {
     users: {} as Record<string, unknown>,
     tablesRead: [] as string[],
   };
-  const sendDecayAlertEmail = vi.fn(async (_p: { toEmail: string }) => ({
+  // Stands in for the global fetch used by sendDecayAlertEmail (Resend API call).
+  const resendFetch = vi.fn(async (_url: unknown, _init?: { body?: string }) => ({
     ok: true,
-    simulated: false,
+    json: async () => ({ id: "msg-1" }),
+    text: async () => "",
   }));
   const client = {
     from(table: string) {
@@ -47,16 +50,19 @@ const mocks = vi.hoisted(() => {
       },
     },
   };
-  return { state, sendDecayAlertEmail, createClient: vi.fn(() => client) };
+  return { state, resendFetch, client, createClient: vi.fn(() => client) };
 });
 
 vi.mock("@supabase/supabase-js", () => ({ createClient: mocks.createClient }));
-vi.mock("@/lib/decay-alerts.server", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./decay-alerts.server")>()),
-  sendDecayAlertEmail: mocks.sendDecayAlertEmail,
-}));
 
 import { Route } from "@/routes/api/public/cron-decay-alerts";
+import { runDecayAlertSweep } from "@/lib/decay-alerts.server";
+
+/** Recipients of every Resend request captured so far. */
+const sentTo = () =>
+  mocks.resendFetch.mock.calls.flatMap(
+    (c) => (JSON.parse(c[1]?.body ?? "{}").to ?? []) as string[],
+  );
 
 type Handler = (args: { request: Request }) => Promise<Response>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,9 +91,17 @@ beforeEach(() => {
   vi.stubEnv("SUPABASE_URL", "https://supabase.example");
   vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "service-role-fixture");
   mocks.state.tablesRead = [];
-  mocks.sendDecayAlertEmail.mockClear();
+  mocks.resendFetch.mockClear();
+  vi.stubEnv("RESEND_API_KEY", "resend-fixture");
+  vi.stubGlobal("fetch", mocks.resendFetch);
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  vi.spyOn(console, "error").mockImplementation(() => {});
 });
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 describe("cron-decay-alerts recipient selection", () => {
   it("e-mails only the confirmed auth address and never reads profiles", async () => {
@@ -105,9 +119,9 @@ describe("cron-decay-alerts recipient selection", () => {
     expect(body.evaluated).toBe(5);
     expect(body.alertsSent).toBe(1);
 
-    expect(mocks.sendDecayAlertEmail).toHaveBeenCalledTimes(1);
-    expect(mocks.sendDecayAlertEmail.mock.calls[0]![0].toEmail).toBe("owner@example.com");
-    const recipients = mocks.sendDecayAlertEmail.mock.calls.map((c) => c[0].toEmail);
+    expect(mocks.resendFetch).toHaveBeenCalledTimes(1);
+    const recipients = sentTo();
+    expect(recipients).toEqual(["owner@example.com"]);
     expect(recipients).not.toContain("unconfirmed@example.com");
     expect(recipients).not.toContain("profile-edit@attacker.example");
     expect(mocks.state.tablesRead).not.toContain("profiles");
@@ -120,8 +134,30 @@ describe("cron-decay-alerts recipient selection", () => {
     };
     const res = await call();
     expect(res.status).toBe(200);
-    expect(mocks.sendDecayAlertEmail).not.toHaveBeenCalled();
+    expect(mocks.resendFetch).not.toHaveBeenCalled();
     expect(mocks.state.tablesRead).not.toContain("profiles");
+  });
+
+  it("runDecayAlertSweep sends only to the confirmed auth address and never reads profiles", async () => {
+    mocks.state.snapshots = ["u-conf", "u-unconf", "u-missing"].map(snapshot);
+    mocks.state.users = {
+      "u-conf": { email: "owner@example.com", email_confirmed_at: "2026-01-01T00:00:00Z" },
+      "u-unconf": { email: "unconfirmed@example.com", email_confirmed_at: null },
+    };
+    const sendEmail = vi.fn(async (_p: { toEmail: string }) => ({ ok: true, simulated: false }));
+    const result = await runDecayAlertSweep({
+      supabase: mocks.client as never,
+      sendEmail: sendEmail as never,
+    });
+    expect(result.status).toBe(200);
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(sendEmail.mock.calls[0]![0].toEmail).toBe("owner@example.com");
+    expect(mocks.state.tablesRead).not.toContain("profiles");
+    const evaluations = (result.body as { evaluations: Array<{ reason?: string }> }).evaluations;
+    expect(evaluations.filter((e) => e.reason === "Verified account email not found")).toHaveLength(
+      2,
+    );
+    expect(JSON.stringify(result.body)).not.toContain("owner@example.com");
   });
 
   it("rejects a request without the cron secret before touching any data", async () => {
@@ -132,6 +168,6 @@ describe("cron-decay-alerts recipient selection", () => {
     });
     expect(res.status).toBe(401);
     expect(mocks.createClient).not.toHaveBeenCalled();
-    expect(mocks.sendDecayAlertEmail).not.toHaveBeenCalled();
+    expect(mocks.resendFetch).not.toHaveBeenCalled();
   });
 });

@@ -49,6 +49,22 @@ function fakeSupabase(data: { snapshots: unknown[]; profiles: unknown[] }) {
       b.then = (res: (v: unknown) => unknown) => Promise.resolve(result()).then(res);
       return b;
     },
+    // Recipients come from the confirmed auth e-mail (never from profiles).
+    auth: {
+      admin: {
+        getUserById: async (id: string) => {
+          const p = (data.profiles as Array<{ user_id: string; email: string }>).find(
+            (x) => x.user_id === id,
+          );
+          return {
+            data: {
+              user: p ? { email: p.email, email_confirmed_at: "2026-01-01T00:00:00Z" } : null,
+            },
+            error: null,
+          };
+        },
+      },
+    },
   };
   return { client: client as unknown as SupabaseClient<Database>, calls };
 }

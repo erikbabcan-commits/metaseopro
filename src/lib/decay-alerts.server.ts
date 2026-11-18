@@ -282,14 +282,9 @@ export async function runDecayAlertSweep(opts: {
   });
 
   const userIds = Array.from(new Set(latestPerSite.map((s) => s.user_id)));
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("user_id, email")
-    .in("user_id", userIds);
-  const emailMap = new Map<string, string>();
-  profiles?.forEach((p) => {
-    if (p.email) emailMap.set(p.user_id, p.email);
-  });
+  // Recipients: verified auth e-mail only. public.profiles.email is user-editable
+  // through RLS and must never decide where the server sends content.
+  const emailMap = await resolveVerifiedAlertRecipients(supabase, userIds);
 
   const evaluations: SiteAlertEvaluation[] = [];
   for (const snap of latestPerSite) {
@@ -307,7 +302,7 @@ export async function runDecayAlertSweep(opts: {
         ...base,
         droppedPages: [],
         alertSent: false,
-        reason: "User email not found in profile",
+        reason: "Verified account email not found",
       });
       continue;
     }
