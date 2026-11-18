@@ -42,7 +42,17 @@ export async function requireUser(request: Request): Promise<AuthResult> {
   const supabase = createClient(url, key, {
     auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
   });
-  const { data, error } = await supabase.auth.getClaims(token);
+  // getClaims can throw (not just return `error`) on malformed, JWT-shaped tokens.
+  // Fail closed: any exception means "not authenticated" -> 401, never a 500.
+  // Log only a static message; the error detail may contain token material.
+  let claimsResult: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
+  try {
+    claimsResult = await supabase.auth.getClaims(token);
+  } catch {
+    console.warn("[api-auth] token verification threw; responding 401");
+    return { ok: false, response: unauthorized() };
+  }
+  const { data, error } = claimsResult;
   if (error || !data?.claims?.sub) {
     return { ok: false, response: unauthorized() };
   }
