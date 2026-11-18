@@ -8,13 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/use-auth";
 import { translateAuthError } from "@/lib/auth-errors";
-import { parseLoginSearch, type LoginMode } from "@/lib/login-search";
-import {
-  authCallbackUrl,
-  consumeAuthRedirect,
-  hasAuthErrorInUrl,
-  saveAuthRedirect,
-} from "@/lib/safe-auth-redirect";
+import { parseLoginSearch, rememberLoginRedirect, type LoginMode } from "@/lib/login-search";
+import { authCallbackUrl, consumeAuthRedirect, hasAuthErrorInUrl } from "@/lib/safe-auth-redirect";
 
 export const Route = createFileRoute("/login")({
   validateSearch: parseLoginSearch,
@@ -62,12 +57,13 @@ function LoginPage() {
 
   // An explicit ?redirect= always wins; a landing-saved target is kept when none is given.
   useEffect(() => {
-    if (redirect) saveAuthRedirect(redirect);
+    rememberLoginRedirect(redirect);
   }, [redirect]);
 
   useEffect(() => {
     if (!loading && user) {
-      navigate({ to: consumeAuthRedirect() });
+      // href (not `to`): a stored /audit?domain=… must keep its query in `search`, not in the pathname.
+      navigate({ href: consumeAuthRedirect() });
     }
   }, [user, loading, navigate]);
 
@@ -100,7 +96,7 @@ function LoginPage() {
     try {
       // Persist the post-login target in sessionStorage (survives the OAuth broker
       // round-trip); the callback URL stays on the current app origin, clean of params.
-      if (redirect) saveAuthRedirect(redirect);
+      rememberLoginRedirect(redirect);
       const result = await lovable.auth.signInWithOAuth(provider, {
         redirect_uri: authCallbackUrl(),
       });
