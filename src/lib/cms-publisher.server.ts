@@ -32,7 +32,8 @@ export interface WebhookPublishParams {
 
 export interface PublishResult {
   success: boolean;
-  action: "created" | "updated" | "webhook_delivered";
+  /** "none": nothing was sent to the CMS (e.g. the slug lookup failed). */
+  action: "created" | "updated" | "webhook_delivered" | "none";
   postId?: number;
   postUrl?: string;
   editUrl?: string;
@@ -301,7 +302,7 @@ export async function publishToWordPress(params: WordPressPublishParams): Promis
       if (!lookup.ok) {
         return {
           success: false,
-          action: "updated",
+          action: "none",
           status: "error",
           error: lookup.error,
           details: { code: "SLUG_LOOKUP_FAILED" },

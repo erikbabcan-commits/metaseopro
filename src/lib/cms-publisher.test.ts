@@ -516,6 +516,36 @@ describe("CMS Publisher & WordPress Connector", () => {
     };
 
     const failing: Array<[string, () => ReturnType<typeof vi.fn>]> = [
+      ...[
+        ["string id", "55"],
+        ["zero id", 0],
+        ["negative id", -3],
+        ["fractional id", 1.5],
+        ["null id", null],
+        ["NaN-like id", Number.NaN],
+        ["object id", { rendered: 1 }],
+      ].map(
+        ([name, id]) =>
+          [
+            `match with invalid ${name as string}`,
+            () =>
+              lookupResponding({
+                ok: true,
+                status: 200,
+                json: async () => [{ id, slug: "moj-clanok" }],
+              }),
+          ] as [string, () => ReturnType<typeof vi.fn>],
+      ),
+      [
+        "declared body over the size limit (6 MB content-length)",
+        () =>
+          lookupResponding({
+            ok: true,
+            status: 200,
+            headers: new Headers({ "content-length": "6000000" }),
+            json: async () => [{ id: 55, slug: "moj-clanok" }],
+          }),
+      ],
       [
         "3xx redirect",
         () =>
@@ -571,6 +601,8 @@ describe("CMS Publisher & WordPress Connector", () => {
       const mockFetch = make();
       const result = await publishBySlug(mockFetch);
       expect(result.success).toBe(false);
+      // Nothing happened on the CMS: never report "updated" (or "created").
+      expect(result.action).toBe("none");
       expect(result.details).toMatchObject({ code: "SLUG_LOOKUP_FAILED" });
       expect(result.error).toMatch(/duplik/i);
       expect(httpCallsOf(mockFetch)).toHaveLength(1);
