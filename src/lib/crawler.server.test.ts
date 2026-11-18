@@ -8,7 +8,8 @@ import {
   DEFAULT_PAGE_LIMIT,
   MAX_QUEUED_URLS,
   MAX_ROBOTS_RULES,
-  ROBOTS_SKIP_YIELD_EVERY,
+  MAX_ROBOTS_MATCH_MS,
+  MAX_ROBOTS_SKIPS,
   MAX_RESULT_LINKS_PER_PAGE,
   isPathAllowed,
   parseRobotsTxt,
@@ -1214,61 +1215,170 @@ describe("review fixes round 3: robots caps per applicable group (P3-i)", () => 
   });
 });
 
-describe("review fixes round 3: robots-disallowed frontier yields (P2-A')", () => {
-  it("yields to the event loop while skipping a huge disallowed frontier", async () => {
-    const heavyRules = Array.from(
-      { length: 120 },
-      (_, i) => `Disallow: /secret/*a*a*a*a*a*a*a*b${i}`,
-    ).join("\n");
-    const robots = `User-agent: *\n${heavyRules}\nDisallow: /secret\n`;
-    const longTail = "a".repeat(600);
-    const urls = Array.from(
-      { length: 1_000 },
-      (_, i) => `https://mojweb.sk/secret/${i}/${longTail}`,
-    );
+describe("review fixes round 3+4: robots-disallowed frontier (P2-A', P2-A'')", () => {
+  /** Routes for a crawl whose sitemap lists `count` long URLs that robots disallows. */
+  function frontierRoutes(robots: string, count: number, prefix = "/z/") {
+    const tail = "a".repeat(900);
+    const urls = Array.from({ length: count }, (_, i) => `https://mojweb.sk${prefix}${i}/${tail}`);
+    return {
+      "https://mojweb.sk/robots.txt": ok(robots, "text/plain"),
+      "https://mojweb.sk/sitemap.xml": ok(xmlSitemap(urls), "application/xml"),
+      "https://mojweb.sk/sitemap_index.xml": ok("no", "text/html", 404),
+      "https://mojweb.sk/": ok(html()),
+    } as Record<string, Response | MockHandler>;
+  }
+
+  const rulesOf = (n: number, shape: (i: number) => string) =>
+    Array.from({ length: n }, (_, i) => `Disallow: ${shape(i)}`).join("\n");
+
+  // Shapes with 1000 applicable rules (ASCII, Slovak diacritics, percent-encoded)
+  // plus a rule that really disallows the frontier.
+  const shapes: Array<[string, (i: number) => string]> = [
+    ["ASCII wildcard rules", (i) => `/*a*a*a*a*a*b${i}`],
+    ["Slovak diacritics prefix rules", (i) => `/ľščťžýáíé-${i}-xyz`],
+    ["Slovak diacritics wildcard rules", (i) => `/*ž*š*č*ť*ľ*ž*b${i}`],
+    ["percent-encoded rules", (i) => `/%C4%BE%C5%A1%C4%8D-${i}-*%C5%BE*b`],
+  ];
+
+  for (const [name, shape] of shapes) {
+    it(`1000 disallowed URLs + 1000 ${name} finish in < 500 ms (crawler work only)`, async () => {
+      const robots = `User-agent: *\n${rulesOf(1_000, shape)}\nDisallow: /z\n`;
+      expect(parseRobotsTxt(robots).truncated).toBe(false);
+      const routes = frontierRoutes(robots, 1_000);
+      const fetchFn = mockFetch(routes);
+      const t = performance.now();
+      const result = await crawlSite("https://mojweb.sk/", {
+        fetchFn,
+        resolver: publicResolver,
+        timeoutMs: 5_000,
+        pageLimit: 5,
+      });
+      const ms = performance.now() - t;
+      expect(ms).toBeLessThan(500);
+      expect(result.crawledCount).toBe(1);
+      // Skipping is bounded: the budget stops the crawl as PARTIAL_CRAWL.
+      expect(result.stepStates).toContain("PARTIAL_CRAWL");
+      expect(result.findings.some((f) => f.code === "ROBOTS_SKIP_LIMIT")).toBe(true);
+    });
+  }
+
+  it("stops after MAX_ROBOTS_SKIPS skipped URLs with PARTIAL_CRAWL", async () => {
+    const fetchFn = mockFetch(frontierRoutes("User-agent: *\nDisallow: /z\n", 600));
+    const result = await crawlSite("https://mojweb.sk/", {
+      fetchFn,
+      resolver: publicResolver,
+      timeoutMs: 5_000,
+      pageLimit: 5,
+    });
+    expect(result.stepStates).toContain("PARTIAL_CRAWL");
+    expect(result.stepStates).not.toContain("BLOCKED: ROBOTS");
+    // Nothing disallowed was ever fetched.
+    expect(fetchedUrls(fetchFn).some((u) => u.includes("/z/"))).toBe(false);
+    expect(MAX_ROBOTS_SKIPS).toBeLessThanOrEqual(200);
+  });
+
+  it("does not stop for a few disallowed URLs", async () => {
+    const result = await crawl("https://mojweb.sk/", {
+      "https://mojweb.sk/robots.txt": ok("User-agent: *\nDisallow: /tajne\n", "text/plain"),
+      ...noSitemaps,
+      "https://mojweb.sk/": ok(
+        html({ extras: '<a href="/tajne/1">a</a><a href="/tajne/2">b</a><a href="/ok">c</a>' }),
+      ),
+      "https://mojweb.sk/ok": ok(html()),
+    });
+    expect(result.pages.map((p) => p.url)).toContain("https://mojweb.sk/ok");
+    expect(result.findings.some((f) => f.code === "ROBOTS_SKIP_LIMIT")).toBe(false);
+  });
+
+  it("yields to the event loop (time-based) while matching heavy rules", async () => {
+    const heavy = rulesOf(120, (i) => `/z/*${"a*".repeat(250)}b${i}`);
+    const robots = `User-agent: *\n${heavy}\nDisallow: /z\n`;
+    const routes = frontierRoutes(robots, 1_000);
     const timeoutSpy = vi.spyOn(globalThis, "setTimeout");
     let crawlDone = false;
     let timerFiredDuringCrawl = false;
     setTimeout(() => {
       timerFiredDuringCrawl = !crawlDone;
     }, 0);
-    const t = performance.now();
-    const result = await crawl(
-      "https://mojweb.sk/",
-      {
-        "https://mojweb.sk/robots.txt": ok(robots, "text/plain"),
-        "https://mojweb.sk/sitemap.xml": ok(xmlSitemap(urls), "application/xml"),
-        "https://mojweb.sk/sitemap_index.xml": ok("no", "text/html", 404),
-        "https://mojweb.sk/": ok(html()),
-      },
-      { pageLimit: 5 },
-    );
+    await crawl("https://mojweb.sk/", routes, { pageLimit: 5 });
     crawlDone = true;
-    const ms = performance.now() - t;
     const yields = timeoutSpy.mock.calls.filter((c) => c[1] === 0).length;
     timeoutSpy.mockRestore();
-
-    expect(result.crawledCount).toBe(1);
-    // Nearly the whole frontier was skipped, with a yield every N skips.
-    expect(yields).toBeGreaterThanOrEqual(Math.floor(900 / ROBOTS_SKIP_YIELD_EVERY));
-    // A timer scheduled before the crawl fired while the crawl was still running.
+    expect(yields).toBeGreaterThanOrEqual(2);
     expect(timerFiredDuringCrawl).toBe(true);
-    expect(ms).toBeLessThan(3_000);
   });
 
-  it("stops skipping when the overall timeout fires", async () => {
-    const urls = Array.from({ length: 1_000 }, (_, i) => `https://mojweb.sk/secret/${i}`);
-    const result = await crawl(
-      "https://mojweb.sk/",
-      {
-        "https://mojweb.sk/robots.txt": ok("User-agent: *\nDisallow: /secret\n", "text/plain"),
-        "https://mojweb.sk/sitemap.xml": ok(xmlSitemap(urls), "application/xml"),
-        "https://mojweb.sk/sitemap_index.xml": ok("no", "text/html", 404),
-        "https://mojweb.sk/": ok(html()),
-      },
-      { timeoutMs: 5_000 },
-    );
-    expect(result.crawledCount).toBe(1);
-    expect(result.stepStates).not.toContain("BLOCKED: ROBOTS");
+  it("bounds total robots matching time (adversarial non-ASCII rules)", async () => {
+    // 1000 wildcard rules over a path made of non-ASCII characters.
+    const robots = `User-agent: *\n${rulesOf(1_000, (i) => `/*ž*š*č*ť*ľ*ž*b${i}`)}\nDisallow: /z\n`;
+    const tail = "ž".repeat(120) + "a".repeat(600);
+    const urls = Array.from({ length: 1_000 }, (_, i) => `https://mojweb.sk/z/${i}/${tail}`);
+    const routes: Record<string, Response | MockHandler> = {
+      "https://mojweb.sk/robots.txt": ok(robots, "text/plain"),
+      "https://mojweb.sk/sitemap.xml": ok(xmlSitemap(urls), "application/xml"),
+      "https://mojweb.sk/sitemap_index.xml": ok("no", "text/html", 404),
+      "https://mojweb.sk/": ok(html()),
+    };
+    const fetchFn = mockFetch(routes);
+    const t = performance.now();
+    const result = await crawlSite("https://mojweb.sk/", {
+      fetchFn,
+      resolver: publicResolver,
+      timeoutMs: 5_000,
+      pageLimit: 5,
+    });
+    const ms = performance.now() - t;
+    expect(ms).toBeLessThan(500);
+    expect(MAX_ROBOTS_MATCH_MS).toBeLessThanOrEqual(200);
+    expect(result.stepStates).toContain("PARTIAL_CRAWL");
   });
 });
+
+describe("review fixes round 4: robots patterns normalized once at parse time (P2-A'')", () => {
+  it("stores the percent-normalized pattern", () => {
+    const robots = parseRobotsTxt("User-agent: *\nDisallow: /ž/%7e*\n");
+    expect(robots.groups[0]!.rules[0]!.pattern).toBe("/%C5%BE/~*");
+  });
+
+  it("computes the length caps on the normalized pattern", () => {
+    // 100 x "ž" = 101 raw chars (under 512) but 601 after normalization.
+    const long = `Disallow: /${"ž".repeat(100)}`;
+    expect(parseRobotsTxt(`User-agent: *\n${long}\n`).truncated).toBe(true);
+    expect(parseRobotsTxt(`User-agent: Googlebot\n${long}\n`).truncated).toBe(false);
+    // The attack shape from review: 254 x "ž" no longer slips through the caps.
+    const attack = rulesOf254();
+    expect(parseRobotsTxt(`User-agent: *\n${attack}\n`).truncated).toBe(true);
+  });
+
+  it("computes the summed cap on normalized lengths", () => {
+    // 800 rules, 16 raw chars (12.8 KB) but ~86 normalized chars each (> 64 KiB).
+    const many = Array.from(
+      { length: 800 },
+      (_, i) => `Disallow: /${"ž".repeat(14)}${i % 10}`,
+    ).join("\n");
+    expect(parseRobotsTxt(`User-agent: *\n${many}\n`).truncated).toBe(true);
+  });
+
+  it("still matches raw, percent-encoded and normalized forms equivalently", () => {
+    const robots = parseRobotsTxt("User-agent: *\nDisallow: /žena\nDisallow: /%7Euser\n");
+    expect(isPathAllowed(robots, "/%C5%BEena/x", "SEO4WEBBot")).toBe(false);
+    expect(isPathAllowed(robots, "/žena", "SEO4WEBBot")).toBe(false);
+    expect(isPathAllowed(robots, "/~user", "SEO4WEBBot")).toBe(false);
+    expect(isPathAllowed(robots, "/other", "SEO4WEBBot")).toBe(true);
+  });
+
+  it("matches 1000 URLs against 1000 non-ASCII rules quickly (matcher only)", () => {
+    const rules = Array.from({ length: 1_000 }, (_, i) => `Disallow: /ľščťžýáíé-${i}-xyz`).join(
+      "\n",
+    );
+    const robots = parseRobotsTxt(`User-agent: *\n${rules}\n`);
+    const paths = Array.from({ length: 1_000 }, (_, i) => `/y/${i}/${"ž".repeat(300)}`);
+    const t = performance.now();
+    for (const p of paths) isPathAllowed(robots, p, "SEO4WEBBot");
+    expect(performance.now() - t).toBeLessThan(500);
+  });
+});
+
+function rulesOf254(): string {
+  return `Disallow: /*${"ž".repeat(254)}`;
+}

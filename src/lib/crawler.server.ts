@@ -26,7 +26,11 @@ export const MAX_ROBOTS_RULES = 5_000;
 /** Cap on the summed pattern length of applicable rules, bounds matching cost per URL. */
 export const MAX_ROBOTS_PATTERN_CHARS = 64 * 1024;
 /** Disallowed URLs skipped at dequeue between two yields to the event loop. */
-export const ROBOTS_SKIP_YIELD_EVERY = 10;
+export const ROBOTS_SKIP_YIELD_MS = 10;
+/** Max robots-disallowed URLs skipped at dequeue per crawl, then PARTIAL_CRAWL. */
+export const MAX_ROBOTS_SKIPS = 200;
+/** Max total time spent matching robots rules at dequeue per crawl (ms). */
+export const MAX_ROBOTS_MATCH_MS = 150;
 export const MAX_ROBOTS_PATTERN_LENGTH = 512;
 const MAX_ROBOTS_PATH_LENGTH = 2_048;
 const MAX_TITLE_SCAN = 2_000;
@@ -94,7 +98,31 @@ export type CrawlOptions = {
   userAgent?: string;
 };
 
-type RobotsRule = { allow: boolean; pattern: string };
+/**
+ * A robots rule compiled once at parse time: `pattern` is already
+ * percent-normalized, `parts` is the pattern split on `*` (without the
+ * trailing `$`), so matching a URL does no per-rule normalization.
+ */
+type RobotsRule = {
+  allow: boolean;
+  pattern: string;
+  anchored: boolean;
+  parts: string[];
+  /** Pattern length without the trailing `$` (RFC 9309: longest match wins). */
+  specificity: number;
+};
+
+function compileRobotsRule(allow: boolean, normalizedPattern: string): RobotsRule {
+  const anchored = normalizedPattern.endsWith("$");
+  const body = anchored ? normalizedPattern.slice(0, -1) : normalizedPattern;
+  return {
+    allow,
+    pattern: normalizedPattern,
+    anchored,
+    parts: body.split("*"),
+    specificity: body.length,
+  };
+}
 type RobotsGroup = { agents: string[]; rules: RobotsRule[] };
 
 export type ParsedRobots = {
@@ -339,23 +367,30 @@ export function parseRobotsTxt(text: string, userAgent = "SEO4WEBBot"): ParsedRo
       // many rules for other bots must not block the crawl). Caps on groups
       // that DO apply stay fail-closed.
       const applies = current.agents.some((a) => a === "*" || robotsProductToken(a) === token);
+      // Raw length first (bounds the work of normalizing), then the length
+      // AFTER percent-normalization, which is what matching actually costs:
+      // a non-ASCII character expands to 6 characters ("ž" -> "%C5%BE").
+      const tooLong = value.length > MAX_ROBOTS_PATTERN_LENGTH;
+      const normalized = tooLong ? "" : normalizePercent(value);
+      const normalizedTooLong = normalized.length > MAX_ROBOTS_PATTERN_LENGTH;
       if (!applies) {
-        if (value.length <= MAX_ROBOTS_PATTERN_LENGTH) {
-          current.rules.push({ allow: field === "allow", pattern: value });
+        if (!tooLong && !normalizedTooLong) {
+          current.rules.push(compileRobotsRule(field === "allow", normalized));
         }
         continue;
       }
       if (
         ruleCount >= MAX_ROBOTS_RULES ||
-        value.length > MAX_ROBOTS_PATTERN_LENGTH ||
-        patternChars + value.length > MAX_ROBOTS_PATTERN_CHARS
+        tooLong ||
+        normalizedTooLong ||
+        patternChars + normalized.length > MAX_ROBOTS_PATTERN_CHARS
       ) {
         truncated = true;
         continue;
       }
       ruleCount += 1;
-      patternChars += value.length;
-      current.rules.push({ allow: field === "allow", pattern: value });
+      patternChars += normalized.length;
+      current.rules.push(compileRobotsRule(field === "allow", normalized));
     }
   }
   return { groups, sitemaps, truncated };
@@ -387,15 +422,8 @@ function normalizePercent(input: string): string {
  * The pattern is split on `*` and the literal segments are located left to
  * right with indexOf, so there is no backtracking and no exponential case.
  */
-export function robotsPatternMatches(pattern: string, path: string): boolean {
-  if (pattern.length > MAX_ROBOTS_PATTERN_LENGTH) return false;
-  const target = normalizePercent(
-    path.length > MAX_ROBOTS_PATH_LENGTH ? path.slice(0, MAX_ROBOTS_PATH_LENGTH) : path,
-  );
-  const normalizedPattern = normalizePercent(pattern);
-  const anchored = normalizedPattern.endsWith("$");
-  const body = anchored ? normalizedPattern.slice(0, -1) : normalizedPattern;
-  const parts = body.split("*");
+function matchCompiledRule(rule: RobotsRule, target: string): boolean {
+  const { parts, anchored } = rule;
   const first = parts[0]!;
   if (!target.startsWith(first)) return false;
   if (parts.length === 1) return anchored ? target === first : true;
@@ -415,6 +443,19 @@ export function robotsPatternMatches(pattern: string, path: string): boolean {
   return last === "" || target.indexOf(last, pos) >= 0;
 }
 
+function normalizeRobotsPath(path: string): string {
+  return normalizePercent(
+    path.length > MAX_ROBOTS_PATH_LENGTH ? path.slice(0, MAX_ROBOTS_PATH_LENGTH) : path,
+  );
+}
+
+export function robotsPatternMatches(pattern: string, path: string): boolean {
+  if (pattern.length > MAX_ROBOTS_PATTERN_LENGTH) return false;
+  const normalized = normalizePercent(pattern);
+  if (normalized.length > MAX_ROBOTS_PATTERN_LENGTH) return false;
+  return matchCompiledRule(compileRobotsRule(true, normalized), normalizeRobotsPath(path));
+}
+
 /** Product token of a User-agent value: "SEO4WEBBot/1.0 (x)" -> "seo4webbot". */
 function robotsProductToken(value: string): string {
   return value.toLowerCase().trim().split(/[\s/]/, 1)[0] ?? "";
@@ -429,12 +470,14 @@ export function isPathAllowed(robots: ParsedRobots, path: string, userAgent: str
   const groups = exact.length > 0 ? exact : wildcard;
   if (groups.length === 0) return true;
 
+  // Normalize the path once per URL; patterns were normalized at parse time.
+  const target = normalizeRobotsPath(path);
   let best: { length: number; allow: boolean } | null = null;
   for (const group of groups) {
     for (const rule of group.rules) {
       if (rule.pattern === "") continue;
-      if (!robotsPatternMatches(rule.pattern, path)) continue;
-      const length = rule.pattern.endsWith("$") ? rule.pattern.length - 1 : rule.pattern.length;
+      if (!matchCompiledRule(rule, target)) continue;
+      const length = rule.specificity;
       if (!best || length > best.length || (length === best.length && rule.allow && !best.allow)) {
         best = { length, allow: rule.allow };
       }
@@ -1273,6 +1316,8 @@ async function crawlSiteInner(
     discoveredCount = queued.size;
 
     let skippedByRobots = 0;
+    let robotsMatchMs = 0;
+    let lastYieldAt = performance.now();
     const statusByUrl = new Map<string, number>();
     const inbound = new Map<string, Set<string>>();
     const rememberLink = (from: string, to: string) => {
@@ -1296,12 +1341,31 @@ async function crawlSiteInner(
       }
 
       const url = queue.shift()!;
-      if (!isPathAllowed(robots, pathAndQuery(url), botName)) {
+      const matchStart = performance.now();
+      const allowedByRobots = isPathAllowed(robots, pathAndQuery(url), botName);
+      robotsMatchMs += performance.now() - matchStart;
+      if (!allowedByRobots) {
         // Skipping disallowed URLs is synchronous CPU work: yield regularly so
         // a hostile frontier cannot block the event loop (timers, other crawls).
         skippedByRobots += 1;
-        if (skippedByRobots % ROBOTS_SKIP_YIELD_EVERY === 0) {
+        if (skippedByRobots >= MAX_ROBOTS_SKIPS || robotsMatchMs >= MAX_ROBOTS_MATCH_MS) {
+          // Skip budget exhausted: stop instead of burning CPU on a hostile frontier.
+          addState(stepStates, "PARTIAL_CRAWL");
+          findings.push(
+            finding(
+              startUrl,
+              "info",
+              "ROBOTS_SKIP_LIMIT",
+              `Príliš veľa URL zakázaných v robots.txt (limit ${MAX_ROBOTS_SKIPS} preskočení alebo ${MAX_ROBOTS_MATCH_MS} ms); crawl sa zastavil.`,
+            ),
+          );
+          break;
+        }
+        // Time-based yield: give the event loop back at least every ~10 ms of
+        // synchronous matching work.
+        if (performance.now() - lastYieldAt >= ROBOTS_SKIP_YIELD_MS) {
           await new Promise<void>((resolve) => setTimeout(resolve, 0));
+          lastYieldAt = performance.now();
         }
         continue;
       }
