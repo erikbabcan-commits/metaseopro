@@ -94,23 +94,56 @@ describe("has_agency_plan self-only migration", () => {
         await as("authenticated", userA, "SELECT public.has_agency_plan(NULL::uuid) AS v"),
       ).toEqual([{ v: false }]);
     });
+    it("service_role (no user JWT) always gets false, by design", async () => {
+      await db.exec("SET ROLE service_role");
+      await db.query("SELECT set_config('request.jwt.claim.sub','',false)");
+      try {
+        const { rows } = await db.query("SELECT public.has_agency_plan($1) AS v", [userB]);
+        expect(rows).toEqual([{ v: false }]);
+      } finally {
+        await db.exec("RESET ROLE");
+      }
+    });
+    it("grants EXECUTE to authenticated and service_role, not anon or PUBLIC", async () => {
+      const { rows } = await db.query<{ anon: boolean; auth: boolean; svc: boolean }>(
+        `SELECT has_function_privilege('anon','public.has_agency_plan(uuid)','EXECUTE') AS anon,
+                has_function_privilege('authenticated','public.has_agency_plan(uuid)','EXECUTE') AS auth,
+                has_function_privilege('service_role','public.has_agency_plan(uuid)','EXECUTE') AS svc`,
+      );
+      expect(rows).toEqual([{ anon: false, auth: true, svc: true }]);
+    });
     it("anon is denied", async () => {
       const result = await hasPlan("anon", null, userB);
       expect(result).toHaveProperty("error");
       expect((result as { error: string }).error).toMatch(/permission denied/i);
     });
-    it("keeps SECURITY DEFINER, the signature and a pinned search_path", async () => {
+    it("keeps SECURITY DEFINER and the signature, with an empty search_path", async () => {
       const { rows } = await db.query<{ secdef: boolean; config: string[] | null }>(
         `SELECT prosecdef AS secdef, proconfig AS config FROM pg_proc
          WHERE oid = 'public.has_agency_plan(uuid)'::regprocedure`,
       );
       expect(rows).toHaveLength(1);
       expect(rows[0]!.secdef).toBe(true);
-      expect(rows[0]!.config).toContain("search_path=public");
+      expect(rows[0]!.config).toContain('search_path=""');
     });
     it("agency_profiles policies keep working (agency can insert, non-agency cannot)", async () => {
       expect(await insertProfile(userB)).toEqual([{ user_id: userB }]);
       expect(await insertProfile(userA)).toHaveProperty("error");
     });
+  });
+
+  it("is a NOTICE-only no-op when the function does not exist", async () => {
+    const empty = await PGlite.create();
+    try {
+      const notices: string[] = [];
+      await empty.exec("CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN;");
+      await empty.exec(read(migrationPath), { onNotice: (n) => notices.push(n.message ?? "") });
+      expect(notices).toEqual([expect.stringContaining("does not exist")]);
+      expect(
+        (await empty.query("SELECT to_regprocedure('public.has_agency_plan(uuid)') AS f")).rows,
+      ).toEqual([{ f: null }]);
+    } finally {
+      await empty.close();
+    }
   });
 });
