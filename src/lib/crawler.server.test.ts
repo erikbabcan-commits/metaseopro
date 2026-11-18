@@ -20,6 +20,10 @@ import {
 } from "@/lib/crawler.server";
 import type { DnsResolver } from "@/lib/ssrf";
 
+// Wall-clock perf tests assert < 10 s internally; vitest's 5 s default timeout
+// would cut them off first on a slow or loaded runner (P3-r).
+const PERF_TEST_TIMEOUT_MS = 30_000;
+
 const publicResolver: DnsResolver = {
   resolve: async () => ["93.184.216.34"],
 };
@@ -802,28 +806,32 @@ describe("review fixes: ReDoS inputs finish quickly (P2-2)", () => {
     }
   });
 
-  it("HTML extraction is linear on unterminated and nested tag soup", async () => {
-    const inputs = [
-      "<meta ".repeat(150_000),
-      "<a <link <img ".repeat(60_000),
-      `<meta name="description" content="${"x".repeat(900_000)}`,
-      `<title>${"<".repeat(900_000)}`,
-      `<script type="application/ld+json">${"{".repeat(900_000)}`,
-      `<meta ${'a="'.repeat(200_000)}`,
-      "<h1 ".repeat(200_000),
-    ];
-    for (const [i, body] of inputs.entries()) {
-      const t = performance.now();
-      const result = await crawl("https://mojweb.sk/", {
-        "https://mojweb.sk/robots.txt": robotsOk,
-        ...noSitemaps,
-        "https://mojweb.sk/": ok(body),
-      });
-      const ms = performance.now() - t;
-      expect(result.crawledCount, `input ${i}`).toBe(1);
-      expect(ms, `input ${i}`).toBeLessThan(10_000);
-    }
-  });
+  it(
+    "HTML extraction is linear on unterminated and nested tag soup",
+    { timeout: PERF_TEST_TIMEOUT_MS },
+    async () => {
+      const inputs = [
+        "<meta ".repeat(150_000),
+        "<a <link <img ".repeat(60_000),
+        `<meta name="description" content="${"x".repeat(900_000)}`,
+        `<title>${"<".repeat(900_000)}`,
+        `<script type="application/ld+json">${"{".repeat(900_000)}`,
+        `<meta ${'a="'.repeat(200_000)}`,
+        "<h1 ".repeat(200_000),
+      ];
+      for (const [i, body] of inputs.entries()) {
+        const t = performance.now();
+        const result = await crawl("https://mojweb.sk/", {
+          "https://mojweb.sk/robots.txt": robotsOk,
+          ...noSitemaps,
+          "https://mojweb.sk/": ok(body),
+        });
+        const ms = performance.now() - t;
+        expect(result.crawledCount, `input ${i}`).toBe(1);
+        expect(ms, `input ${i}`).toBeLessThan(10_000);
+      }
+    },
+  );
 });
 
 describe("review fixes: offsite redirect (P3-4)", () => {
@@ -909,27 +917,31 @@ describe("review fixes: crawlSiteFn rate and concurrency limits (P2-3)", () => {
 });
 
 describe("review fixes round 2: link and frontier caps (P2-A)", () => {
-  it("keeps a 1 MB page with 60k links and 1000 robots rules fast and bounded", async () => {
-    const rules = Array.from({ length: 1_000 }, () => "Disallow: /*a*a*a*a*b").join("\n");
-    const links = Array.from({ length: 60_000 }, (_, i) => `<a href="/p${i}">x</a>`).join("");
-    const t = performance.now();
-    const result = await crawl(
-      "https://mojweb.sk/",
-      {
-        "https://mojweb.sk/robots.txt": ok(`User-agent: *\n${rules}\n`, "text/plain"),
-        ...noSitemaps,
-        "https://mojweb.sk/": ok(
-          `<html><head><title>Veľa odkazov na stránke</title></head><body>${links}</body></html>`,
-        ),
-      },
-      { maxBytes: 1_000_000, pageLimit: 3 },
-    );
-    const ms = performance.now() - t;
-    expect(ms).toBeLessThan(10_000);
-    expect(result.discoveredCount).toBeLessThanOrEqual(MAX_QUEUED_URLS);
-    expect(result.pages[0]!.internalLinks.length).toBeLessThanOrEqual(MAX_RESULT_LINKS_PER_PAGE);
-    expect(result.stepStates).toContain("PARTIAL_CRAWL");
-  });
+  it(
+    "keeps a 1 MB page with 60k links and 1000 robots rules fast and bounded",
+    { timeout: PERF_TEST_TIMEOUT_MS },
+    async () => {
+      const rules = Array.from({ length: 1_000 }, () => "Disallow: /*a*a*a*a*b").join("\n");
+      const links = Array.from({ length: 60_000 }, (_, i) => `<a href="/p${i}">x</a>`).join("");
+      const t = performance.now();
+      const result = await crawl(
+        "https://mojweb.sk/",
+        {
+          "https://mojweb.sk/robots.txt": ok(`User-agent: *\n${rules}\n`, "text/plain"),
+          ...noSitemaps,
+          "https://mojweb.sk/": ok(
+            `<html><head><title>Veľa odkazov na stránke</title></head><body>${links}</body></html>`,
+          ),
+        },
+        { maxBytes: 1_000_000, pageLimit: 3 },
+      );
+      const ms = performance.now() - t;
+      expect(ms).toBeLessThan(10_000);
+      expect(result.discoveredCount).toBeLessThanOrEqual(MAX_QUEUED_URLS);
+      expect(result.pages[0]!.internalLinks.length).toBeLessThanOrEqual(MAX_RESULT_LINKS_PER_PAGE);
+      expect(result.stepStates).toContain("PARTIAL_CRAWL");
+    },
+  );
 
   it("caps the frontier at MAX_QUEUED_URLS", async () => {
     const fetchFn = vi.fn(async (input: RequestInfo | URL) => {
@@ -1245,29 +1257,33 @@ describe("review fixes round 3+4: robots-disallowed frontier (P2-A', P2-A'')", (
   ];
 
   for (const [name, shape] of shapes) {
-    it(`1000 disallowed URLs + 1000 ${name} are all filtered (deterministic clock)`, async () => {
-      const robots = `User-agent: *\n${rulesOf(1_000, shape)}\nDisallow: /z\n`;
-      expect(parseRobotsTxt(robots).truncated).toBe(false);
-      const routes = frontierRoutes(robots, 1_000);
-      const fetchFn = mockFetch(routes);
-      const t = performance.now();
-      const result = await crawlSite("https://mojweb.sk/", {
-        fetchFn,
-        resolver: publicResolver,
-        timeoutMs: 30_000,
-        pageLimit: 5,
-        // Fake clock: the matching budget cannot run out on a slow machine.
-        now: () => 0,
-      });
-      const ms = performance.now() - t;
-      expect(ms).toBeLessThan(10_000);
-      expect(result.crawledCount).toBe(1);
-      // Disallowed URLs are filtered at enqueue: counted, never queued or fetched.
-      expect(result.robotsFilteredCount).toBe(1_000);
-      expect(result.robotsFilteredCountIsLowerBound).toBe(false);
-      expect(result.discoveredCount).toBe(1);
-      expect(fetchedUrls(fetchFn).some((u) => u.includes("/z/"))).toBe(false);
-    });
+    it(
+      `1000 disallowed URLs + 1000 ${name} are all filtered (deterministic clock)`,
+      { timeout: PERF_TEST_TIMEOUT_MS },
+      async () => {
+        const robots = `User-agent: *\n${rulesOf(1_000, shape)}\nDisallow: /z\n`;
+        expect(parseRobotsTxt(robots).truncated).toBe(false);
+        const routes = frontierRoutes(robots, 1_000);
+        const fetchFn = mockFetch(routes);
+        const t = performance.now();
+        const result = await crawlSite("https://mojweb.sk/", {
+          fetchFn,
+          resolver: publicResolver,
+          timeoutMs: 30_000,
+          pageLimit: 5,
+          // Fake clock: the matching budget cannot run out on a slow machine.
+          now: () => 0,
+        });
+        const ms = performance.now() - t;
+        expect(ms).toBeLessThan(10_000);
+        expect(result.crawledCount).toBe(1);
+        // Disallowed URLs are filtered at enqueue: counted, never queued or fetched.
+        expect(result.robotsFilteredCount).toBe(1_000);
+        expect(result.robotsFilteredCountIsLowerBound).toBe(false);
+        expect(result.discoveredCount).toBe(1);
+        expect(fetchedUrls(fetchFn).some((u) => u.includes("/z/"))).toBe(false);
+      },
+    );
   }
 
   it("filters disallowed URLs at enqueue: no skips, no PARTIAL_CRAWL, nothing fetched", async () => {
@@ -1415,26 +1431,30 @@ describe("review fixes round 5: faceted e-shop (P3-l)", () => {
     return fetchFn;
   }
 
-  it("reaches the 25-page limit instead of stopping on the skip cap", async () => {
-    const fetchFn = facetedShop();
-    const t = performance.now();
-    const result = await crawlSite("https://mojweb.sk/", {
-      fetchFn,
-      resolver: publicResolver,
-      timeoutMs: 30_000,
-      pageLimit: 25,
-      now: () => 0,
-    });
-    const ms = performance.now() - t;
-    expect(result.crawledCount).toBe(25);
-    expect(result.findings.some((f) => f.code === "ROBOTS_SKIP_LIMIT")).toBe(false);
-    // 100 facet URLs per page were counted, never queued or fetched.
-    expect(result.robotsFilteredCount).toBeGreaterThan(1_000);
-    expect(fetchedUrls(fetchFn).some((u) => u.includes("?color=") || u.includes("?sort="))).toBe(
-      false,
-    );
-    expect(ms).toBeLessThan(10_000);
-  });
+  it(
+    "reaches the 25-page limit instead of stopping on the skip cap",
+    { timeout: PERF_TEST_TIMEOUT_MS },
+    async () => {
+      const fetchFn = facetedShop();
+      const t = performance.now();
+      const result = await crawlSite("https://mojweb.sk/", {
+        fetchFn,
+        resolver: publicResolver,
+        timeoutMs: 30_000,
+        pageLimit: 25,
+        now: () => 0,
+      });
+      const ms = performance.now() - t;
+      expect(result.crawledCount).toBe(25);
+      expect(result.findings.some((f) => f.code === "ROBOTS_SKIP_LIMIT")).toBe(false);
+      // 100 facet URLs per page were counted, never queued or fetched.
+      expect(result.robotsFilteredCount).toBeGreaterThan(1_000);
+      expect(fetchedUrls(fetchFn).some((u) => u.includes("?color=") || u.includes("?sort="))).toBe(
+        false,
+      );
+      expect(ms).toBeLessThan(10_000);
+    },
+  );
 });
 
 describe("review fixes round 6: robots.txt applies to redirects (P2-D)", () => {
