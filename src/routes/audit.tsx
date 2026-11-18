@@ -11,9 +11,8 @@ import { streamSSE } from "@/lib/stream-sse";
 import { AppHeader } from "@/components/AppHeader";
 import { SidebarTips } from "@/components/SidebarTips";
 import { useAuth } from "@/hooks/use-auth";
-import { parseDomainInput } from "@/lib/domain-input";
+import { auditLoginRedirect, parseDomainInput } from "@/lib/domain-input";
 import { saveOutput } from "@/lib/outputs.functions";
-import { safeRedirect } from "@/lib/safe-auth-redirect";
 import { PaywallModal } from "@/components/PaywallModal";
 
 export const Route = createFileRoute("/audit")({
@@ -64,10 +63,11 @@ function AuditPage() {
 
   useEffect(() => {
     if (loading || user) return;
-    const redirect =
+    const redirect = auditLoginRedirect(
       typeof window !== "undefined"
-        ? safeRedirect(`${window.location.pathname}${window.location.search}`)
-        : "/audit";
+        ? new URL(window.location.href).searchParams.get("domain")
+        : null,
+    );
     navigate({ to: "/login", search: { redirect } });
   }, [user, loading, navigate]);
 

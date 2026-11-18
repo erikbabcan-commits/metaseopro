@@ -41,3 +41,13 @@ export function domainInputError(raw: string): string | null {
   if (!(raw ?? "").trim()) return DOMAIN_INPUT_EMPTY_ERROR;
   return parseDomainInput(raw) ? null : DOMAIN_INPUT_INVALID_ERROR;
 }
+
+/**
+ * Login redirect target for /audit (Bora #19 P3-5/P3-6). Built only from the normalized
+ * `domain` query value, so '@', '://' and unrelated query params can never make
+ * safeRedirect fall back to /dashboard and lose the audit page. Anything unusable → "/audit".
+ */
+export function auditLoginRedirect(rawDomain: string | null | undefined): string {
+  const normalized = rawDomain ? parseDomainInput(rawDomain) : null;
+  return normalized ? `/audit?domain=${encodeURIComponent(normalized)}` : "/audit";
+}
