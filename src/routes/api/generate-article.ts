@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { ARTICLE_SYSTEM_PROMPT } from "@/lib/article-prompt";
 import { requireUser } from "@/lib/api-auth.server";
-import { checkRateLimit } from "@/lib/rate-limit.server";
+import { checkViewerRateLimit } from "@/lib/viewer-role.server";
 
 const MAX_BODY_BYTES = 16 * 1024;
 
@@ -39,7 +39,7 @@ export const Route = createFileRoute("/api/generate-article")({
           const contentLength = Number(request.headers.get("content-length") ?? "0");
           if (contentLength > MAX_BODY_BYTES) return err(413, "Vstup je príliš veľký.");
 
-          const rl = checkRateLimit(`article:${auth.userId}`, {
+          const rl = checkViewerRateLimit({ id: auth.userId }, `article:${auth.userId}`, {
             limit: 8,
             windowMs: 60_000,
           });

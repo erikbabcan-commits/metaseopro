@@ -2,7 +2,7 @@ import { AI_CHAT_URL, AI_DEFAULT_MODEL } from "@/lib/ai-provider";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireUser } from "@/lib/api-auth.server";
-import { checkRateLimit } from "@/lib/rate-limit.server";
+import { checkViewerRateLimit } from "@/lib/viewer-role.server";
 
 const MAX_BODY_BYTES = 8 * 1024;
 
@@ -39,7 +39,10 @@ export const Route = createFileRoute("/api/ctr-boost")({
           if (!auth.ok) return auth.response;
           if (Number(request.headers.get("content-length") ?? "0") > MAX_BODY_BYTES)
             return err(413, "Vstup je príliš veľký.");
-          const rl = checkRateLimit(`ctr:${auth.userId}`, { limit: 15, windowMs: 60_000 });
+          const rl = checkViewerRateLimit({ id: auth.userId }, `ctr:${auth.userId}`, {
+            limit: 15,
+            windowMs: 60_000,
+          });
           if (!rl.ok) return err(429, `Príliš veľa požiadaviek. Skús to o ${rl.retryAfterSec}s.`);
 
           let raw: unknown;

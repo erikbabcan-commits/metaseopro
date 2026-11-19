@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { auditLoginRedirect, parseDomainInput } from "@/lib/domain-input";
 import { saveOutput } from "@/lib/outputs.functions";
 import { PaywallModal } from "@/components/PaywallModal";
+import { useViewerRole } from "@/hooks/use-viewer-role";
 
 export const Route = createFileRoute("/audit")({
   head: () => ({
@@ -48,6 +49,7 @@ function AuditPage() {
   const [report, setReport] = useState("");
   const [status, setStatus] = useState<"idle" | "streaming" | "done">("idle");
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const { isAdmin } = useViewerRole();
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -102,7 +104,7 @@ function AuditPage() {
       toast.error("Zadaj aspoň jednu doménu.");
       return;
     }
-    if (all.length > 3) {
+    if (all.length > 3 && !isAdmin) {
       setPaywallOpen(true);
       return;
     }
@@ -414,15 +416,17 @@ function AuditPage() {
             <ArrowDown className="size-4" />
             Stiahnuť .md
           </Button>
-          <Button
-            variant="studio"
-            size="studio"
-            onClick={() => setPaywallOpen(true)}
-            className="flex items-center gap-2 rounded-full bg-primary/20 py-2 pr-4 pl-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/30"
-          >
-            <Sparkles className="size-4" />
-            WordPress Export (Pro)
-          </Button>
+          {!isAdmin && (
+            <Button
+              variant="studio"
+              size="studio"
+              onClick={() => setPaywallOpen(true)}
+              className="flex items-center gap-2 rounded-full bg-primary/20 py-2 pr-4 pl-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/30"
+            >
+              <Sparkles className="size-4" />
+              WordPress Export (Pro)
+            </Button>
+          )}
         </div>
       )}
 

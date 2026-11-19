@@ -4,7 +4,7 @@ import { z } from "zod";
 import { RAKETA_LANGUAGES, RAKETA_OUTPUTS, type RaketaAnalysis } from "@/lib/raketa-schema";
 import { RAKETA_SYSTEM_PROMPT, buildRaketaUserPrompt } from "@/lib/raketa-prompt";
 import { requireUser } from "@/lib/api-auth.server";
-import { checkRateLimit } from "@/lib/rate-limit.server";
+import { checkViewerRateLimit } from "@/lib/viewer-role.server";
 
 const MAX_BODY_BYTES = 48 * 1024;
 
@@ -58,7 +58,7 @@ export const Route = createFileRoute("/api/raketa-generate")({
           const contentLength = Number(request.headers.get("content-length") ?? "0");
           if (contentLength > MAX_BODY_BYTES) return err(413, "Vstup je príliš veľký.");
 
-          const rl = checkRateLimit(`raketa-generate:${auth.userId}`, {
+          const rl = checkViewerRateLimit({ id: auth.userId }, `raketa-generate:${auth.userId}`, {
             limit: 8,
             windowMs: 60_000,
           });

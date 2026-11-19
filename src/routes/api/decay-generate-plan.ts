@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { GeneratePlanSchema } from "@/lib/decay-schema";
 import { DECAY_SYSTEM_PROMPT, buildDecayUserPrompt } from "@/lib/decay-prompt";
 import { requireUser } from "@/lib/api-auth.server";
-import { checkRateLimit } from "@/lib/rate-limit.server";
+import { checkViewerRateLimit } from "@/lib/viewer-role.server";
 
 const MAX_BODY_BYTES = 16 * 1024;
 
@@ -25,7 +25,7 @@ export const Route = createFileRoute("/api/decay-generate-plan")({
           const contentLength = Number(request.headers.get("content-length") ?? "0");
           if (contentLength > MAX_BODY_BYTES) return err(413, "Vstup je príliš veľký.");
 
-          const rl = checkRateLimit(`decay-generate:${auth.userId}`, {
+          const rl = checkViewerRateLimit({ id: auth.userId }, `decay-generate:${auth.userId}`, {
             limit: 8,
             windowMs: 60_000,
           });

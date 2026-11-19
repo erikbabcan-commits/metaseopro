@@ -28,6 +28,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { DEFAULT_AGENCY_PROFILE, type AgencyProfile } from "@/lib/agency";
 import { PaywallModal } from "@/components/PaywallModal";
+import { useViewerRole } from "@/hooks/use-viewer-role";
 import { ClientReportModal } from "@/components/ClientReportModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BillingInvoiceSection } from "@/components/BillingInvoiceSection";
@@ -105,6 +106,7 @@ function AgencySettingsPage() {
   const [subscriptionRetry, setSubscriptionRetry] = useState(0);
   const [openingPortal, setOpeningPortal] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const { isAdmin } = useViewerRole();
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const currentSubscription = subscriptionState?.userId === userId ? subscriptionState : null;
@@ -345,7 +347,7 @@ function AgencySettingsPage() {
         </div>
 
         {/* Agency Plan Status Banner */}
-        {userPlan && !isAgencyPlan && (
+        {userPlan && !isAgencyPlan && !isAdmin && (
           <div className="mt-6 rounded-xl border border-primary/20 bg-primary/5 p-4 md:p-5 flex flex-wrap items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">

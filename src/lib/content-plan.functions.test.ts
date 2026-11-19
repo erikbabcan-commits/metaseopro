@@ -241,6 +241,28 @@ describe("Content Plan paid access after the first 24 hours", () => {
   });
 });
 
+describe("Content Plan superadmin bypass (ADMIN_USER_IDS only)", () => {
+  it("lets the superadmin check and generate after the free day without a subscription", async () => {
+    vi.stubEnv("ADMIN_USER_IDS", mocks.state.userId);
+    queueUsageCheck(OLD_FIRST_USE);
+    await expect(checkContentPlanAccess()).resolves.toMatchObject({ allowed: true });
+
+    queueExistingGeneration(OLD_FIRST_USE, true);
+    await expect(generateContentPlan({ data: INPUT })).resolves.toEqual({ plan: PLAN });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(mocks.state.calls.some((call) => call.table === "subscriptions")).toBe(false);
+  });
+
+  it("does not bypass for a user whose id is not listed, even with ADMIN_EMAILS set", async () => {
+    vi.stubEnv("ADMIN_USER_IDS", "");
+    vi.stubEnv("ADMIN_EMAILS", "owner@example.com");
+    queueSubscription(null);
+    queueExistingGeneration(OLD_FIRST_USE, false);
+    await expect(generateContentPlan({ data: INPUT })).rejects.toThrow("PAYMENT_REQUIRED");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("Content Plan free 24-hour window", () => {
   it.each([
     [24 * HOUR - 1, true],

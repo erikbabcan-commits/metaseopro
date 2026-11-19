@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/use-auth";
+import { useViewerRole } from "@/hooks/use-viewer-role";
 import { supabase } from "@/integrations/supabase/client";
 import { PaywallModal } from "@/components/PaywallModal";
 import { PLANS, type PlanId } from "@/lib/slovak-billing";
@@ -109,6 +110,23 @@ const AGENCY_TOOLS = [
   },
 ] as const;
 
+function SuperadminBadge() {
+  return (
+    <Badge
+      variant="outline"
+      className="gap-1 border-primary/50 bg-primary/15 text-primary font-semibold text-[11px] px-2 py-0.5"
+      data-testid="superadmin-badge"
+    >
+      <ShieldCheck className="size-3 text-primary" />
+      Superadmin
+    </Badge>
+  );
+}
+
+function ViewerBadge({ isAdmin, plan }: { isAdmin: boolean; plan: PlanId | null }) {
+  return isAdmin ? <SuperadminBadge /> : <PlanBadge plan={plan} />;
+}
+
 function PlanBadge({ plan }: { plan: PlanId | null }) {
   if (!plan) {
     return (
@@ -152,6 +170,7 @@ function PlanBadge({ plan }: { plan: PlanId | null }) {
 export function AppHeader() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user, signOut } = useAuth();
+  const { isAdmin } = useViewerRole();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -425,23 +444,25 @@ export function AppHeader() {
             <div className="flex items-center gap-2">
               {/* Plan Badge */}
               <div className="hidden sm:inline-flex">
-                <PlanBadge plan={userPlan} />
+                <ViewerBadge isAdmin={isAdmin} plan={userPlan} />
               </div>
 
-              {/* Upgrade / Pricing CTA */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPaywallOpen(true)}
-                className="hidden lg:inline-flex h-8 gap-1.5 text-xs font-semibold border-border hover:bg-muted"
-                title="Cenník a možnosti predplatného"
-              >
-                <Sparkles className="size-3.5 text-primary" />
-                <span className="hidden md:inline">
-                  {userPlan === "agency" ? "Cenník" : "Cenník / Upgrade"}
-                </span>
-                <span className="md:hidden">Upgrade</span>
-              </Button>
+              {/* Upgrade / Pricing CTA (never shown to a superadmin) */}
+              {!isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPaywallOpen(true)}
+                  className="hidden lg:inline-flex h-8 gap-1.5 text-xs font-semibold border-border hover:bg-muted"
+                  title="Cenník a možnosti predplatného"
+                >
+                  <Sparkles className="size-3.5 text-primary" />
+                  <span className="hidden md:inline">
+                    {userPlan === "agency" ? "Cenník" : "Cenník / Upgrade"}
+                  </span>
+                  <span className="md:hidden">Upgrade</span>
+                </Button>
+              )}
 
               {/* User Dropdown */}
               <DropdownMenu>
@@ -469,7 +490,7 @@ export function AppHeader() {
                     <p className="text-xs font-semibold text-foreground truncate">{user.email}</p>
                     <div className="flex items-center justify-between gap-1 mt-1">
                       <span className="text-[11px] text-muted-foreground">Balík:</span>
-                      <PlanBadge plan={userPlan} />
+                      <ViewerBadge isAdmin={isAdmin} plan={userPlan} />
                     </div>
                   </div>
 
@@ -483,13 +504,15 @@ export function AppHeader() {
                     </Link>
                   </DropdownMenuItem>
 
-                  <DropdownMenuItem
-                    onClick={() => setPaywallOpen(true)}
-                    className="flex items-center gap-2 cursor-pointer text-xs"
-                  >
-                    <Sparkles className="size-3.5 text-primary" />
-                    Cenník a predplatné
-                  </DropdownMenuItem>
+                  {!isAdmin && (
+                    <DropdownMenuItem
+                      onClick={() => setPaywallOpen(true)}
+                      className="flex items-center gap-2 cursor-pointer text-xs"
+                    >
+                      <Sparkles className="size-3.5 text-primary" />
+                      Cenník a predplatné
+                    </DropdownMenuItem>
+                  )}
 
                   <DropdownMenuSeparator className="my-1 border-border/60" />
 
@@ -554,21 +577,23 @@ export function AppHeader() {
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-foreground truncate">{user.email}</p>
                       <div className="mt-1">
-                        <PlanBadge plan={userPlan} />
+                        <ViewerBadge isAdmin={isAdmin} plan={userPlan} />
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setMobileOpen(false);
-                        setPaywallOpen(true);
-                      }}
-                      className="h-7 text-xs gap-1"
-                    >
-                      <Sparkles className="size-3 text-primary" />
-                      Upgrade
-                    </Button>
+                    {!isAdmin && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setMobileOpen(false);
+                          setPaywallOpen(true);
+                        }}
+                        className="h-7 text-xs gap-1"
+                      >
+                        <Sparkles className="size-3 text-primary" />
+                        Upgrade
+                      </Button>
+                    )}
                   </div>
                 )}
 
@@ -667,17 +692,19 @@ export function AppHeader() {
               <div className="p-4 border-t border-border/60 bg-muted/20 space-y-3 safe-bottom">
                 <div className="flex items-center justify-between gap-2">
                   <LocaleSwitch locale={locale} onSwitch={switchLocale} />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setMobileOpen(false);
-                      setPaywallOpen(true);
-                    }}
-                    className="h-9 gap-1.5 text-xs font-semibold"
-                  >
-                    <Sparkles className="size-3.5 text-primary" /> Cenník / Upgrade
-                  </Button>
+                  {!isAdmin && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setMobileOpen(false);
+                        setPaywallOpen(true);
+                      }}
+                      className="h-9 gap-1.5 text-xs font-semibold"
+                    >
+                      <Sparkles className="size-3.5 text-primary" /> Cenník / Upgrade
+                    </Button>
+                  )}
                 </div>
                 {user ? (
                   <Button

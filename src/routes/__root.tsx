@@ -11,6 +11,7 @@ import {
 
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/hooks/use-auth";
+import { ViewerRoleProvider } from "@/hooks/use-viewer-role";
 import { SITE, pageUrl } from "@/lib/i18n";
 import { PwaLaunchExperience } from "@/components/PwaLaunchExperience";
 import { IosInstallPrompt } from "@/components/IosInstallPrompt";
@@ -76,7 +77,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" },
+      {
+        name: "viewport",
+        content:
+          "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+      },
       { name: "theme-color", content: "#171717" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
@@ -163,9 +168,11 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <PwaLaunchExperience />
-        <IosInstallPrompt />
-        <Outlet />
+        <ViewerRoleProvider>
+          <PwaLaunchExperience />
+          <IosInstallPrompt />
+          <Outlet />
+        </ViewerRoleProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
