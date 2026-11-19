@@ -11,6 +11,7 @@ import { streamSSE } from "@/lib/stream-sse";
 import { AppHeader } from "@/components/AppHeader";
 import { SidebarTips } from "@/components/SidebarTips";
 import { useAuth } from "@/hooks/use-auth";
+import { auditLoginRedirect, parseDomainInput } from "@/lib/domain-input";
 import { saveOutput } from "@/lib/outputs.functions";
 import { PaywallModal } from "@/components/PaywallModal";
 
@@ -50,7 +51,24 @@ function AuditPage() {
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (!loading && !user) navigate({ to: "/login", search: { redirect: "/audit" } });
+    if (typeof window === "undefined") return;
+    const raw = new URL(window.location.href).searchParams.get("domain");
+    if (!raw) return;
+    const normalized = parseDomainInput(raw);
+    if (!normalized) return;
+    setDomains((current) =>
+      current.includes(normalized) ? current : [...current, normalized].slice(0, 5),
+    );
+  }, []);
+
+  useEffect(() => {
+    if (loading || user) return;
+    const redirect = auditLoginRedirect(
+      typeof window !== "undefined"
+        ? new URL(window.location.href).searchParams.get("domain")
+        : null,
+    );
+    navigate({ to: "/login", search: { redirect } });
   }, [user, loading, navigate]);
 
   const parseDomains = (raw: string): string[] => {
