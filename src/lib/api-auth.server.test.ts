@@ -103,8 +103,6 @@ describe("requireUser (getClaims hardening)", () => {
       ok: true,
       userId: "user-123",
       email: "u@example.test",
-      emailConfirmedAt: "2026-01-01T00:00:00Z",
-      emailVerified: true,
     });
     expect(getClaims).toHaveBeenCalledWith("good.token.here");
   });
