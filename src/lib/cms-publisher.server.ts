@@ -32,7 +32,8 @@ export interface WebhookPublishParams {
 
 export interface PublishResult {
   success: boolean;
-  action: "created" | "updated" | "webhook_delivered";
+  /** "none": nothing was sent to the CMS (e.g. the slug lookup failed). */
+  action: "created" | "updated" | "webhook_delivered" | "none";
   postId?: number;
   postUrl?: string;
   editUrl?: string;
@@ -41,17 +42,88 @@ export interface PublishResult {
   details?: Record<string, string | number | boolean | null>;
 }
 
-import { assertSafePublicUrl, safeFetch } from "./safe-url";
+import { assertSafePublicUrl, safeFetch, TooManyRedirectsError } from "./safe-url";
 export { assertSafePublicUrl, safeFetch };
 
 const CMS_FETCH_TIMEOUT_MS = 15_000;
 const MAX_RESPONSE_BYTES = 5_000_000; // 5MB cap on CMS API responses
+
+/**
+ * Every CMS request goes through here. Redirects are never followed: the
+ * destination was verified (Search Console) for the exact URL we call, and a
+ * 307/308 would otherwise replay the POST body (content) on a host nobody
+ * verified. A 3xx is reported as an error instead.
+ */
+async function cmsFetch(
+  input: string,
+  init: RequestInit,
+  fetchFn: typeof fetch | undefined,
+): Promise<Response> {
+  try {
+    return await safeFetch(input, init, {
+      fetchFn,
+      timeoutMs: CMS_FETCH_TIMEOUT_MS,
+      maxRedirects: 0,
+    });
+  } catch (err) {
+    if (err instanceof TooManyRedirectsError) {
+      throw new Error(
+        "CMS server odpovedal presmerovaním. Presmerovania sa z bezpečnostných dôvodov nenasledujú; nastavte priamu (finálnu) adresu endpointu.",
+      );
+    }
+    throw err;
+  }
+}
 
 function assertResponseSize(res: Response): void {
   const len = Number(res.headers?.get?.("content-length") ?? "0");
   if (Number.isFinite(len) && len > MAX_RESPONSE_BYTES) {
     throw new Error(`Odpoveď z CMS presiahla limit ${MAX_RESPONSE_BYTES} bajtov.`);
   }
+}
+
+type SlugLookup = { ok: true; postId: number | null } | { ok: false; error: string };
+
+const SLUG_LOOKUP_FAILED_PREFIX =
+  "Nepodarilo sa overiť, či príspevok s týmto slugom už existuje, preto sa nič neodoslalo (aby nevznikol duplikát).";
+
+/**
+ * Looks up an existing post by slug. `postId: null` is returned only for a
+ * successful (2xx) response with a well-formed empty list.
+ */
+async function lookupPostIdBySlug(
+  endpoint: string,
+  slug: string,
+  headers: Record<string, string>,
+  fetchFn: typeof fetch | undefined,
+): Promise<SlugLookup> {
+  const queryUrl = `${endpoint}?slug=${encodeURIComponent(slug)}&status=any`;
+  let res: Response;
+  try {
+    res = await cmsFetch(queryUrl, { method: "GET", headers }, fetchFn);
+    assertResponseSize(res);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `${SLUG_LOOKUP_FAILED_PREFIX} ${msg}` };
+  }
+  if (!res.ok) {
+    return { ok: false, error: `${SLUG_LOOKUP_FAILED_PREFIX} WordPress vrátil kód ${res.status}.` };
+  }
+  let posts: unknown;
+  try {
+    posts = await res.json();
+  } catch {
+    return { ok: false, error: `${SLUG_LOOKUP_FAILED_PREFIX} Odpoveď nie je platný JSON.` };
+  }
+  if (!Array.isArray(posts)) {
+    return { ok: false, error: `${SLUG_LOOKUP_FAILED_PREFIX} Neočakávaný formát odpovede.` };
+  }
+  if (posts.length === 0) return { ok: true, postId: null };
+  const id = (posts[0] as { id?: unknown } | null)?.id;
+  if (typeof id !== "number" || !Number.isInteger(id) || id <= 0) {
+    return { ok: false, error: `${SLUG_LOOKUP_FAILED_PREFIX} Neočakávaný formát odpovede.` };
+  }
+  return { ok: true, postId: id };
 }
 
 /**
@@ -190,7 +262,7 @@ export async function publishToWordPress(params: WordPressPublishParams): Promis
   } catch (err) {
     return {
       success: false,
-      action: "updated",
+      action: "none",
       status: "error",
       error: err instanceof Error ? err.message : "Neplatná alebo nepovolená URL adresa.",
     };
@@ -221,25 +293,22 @@ export async function publishToWordPress(params: WordPressPublishParams): Promis
   }
 
   try {
-    // 1. If we have a slug but no ID, query WP REST API to check if post already exists
+    // 1. If we have a slug but no ID, look the post up first. Only a successful
+    //    lookup decides between update (match) and create (empty result). Any
+    //    other outcome (redirect, HTTP error, network error, unreadable body)
+    //    aborts the deploy: guessing "not found" would create a duplicate post.
     if (!targetPostId && targetSlug) {
-      try {
-        const queryUrl = `${endpoint}?slug=${encodeURIComponent(targetSlug)}&status=any`;
-        const searchRes = await safeFetch(
-          queryUrl,
-          { method: "GET", headers },
-          { fetchFn, timeoutMs: CMS_FETCH_TIMEOUT_MS },
-        );
-        assertResponseSize(searchRes);
-        if (searchRes.ok) {
-          const posts = (await searchRes.json()) as Array<{ id: number }>;
-          if (Array.isArray(posts) && posts.length > 0 && posts[0]?.id) {
-            targetPostId = posts[0].id;
-          }
-        }
-      } catch (e) {
-        console.warn("[CMS Publisher] Failed to search post by slug, falling back to create:", e);
+      const lookup = await lookupPostIdBySlug(endpoint, targetSlug, headers, fetchFn);
+      if (!lookup.ok) {
+        return {
+          success: false,
+          action: "none",
+          status: "error",
+          error: lookup.error,
+          details: { code: "SLUG_LOOKUP_FAILED" },
+        };
       }
+      targetPostId = lookup.postId;
     }
 
     // 2. Build payload
@@ -256,14 +325,14 @@ export async function publishToWordPress(params: WordPressPublishParams): Promis
     const requestUrl = targetPostId ? `${endpoint}/${targetPostId}` : endpoint;
     const action: "created" | "updated" = targetPostId ? "updated" : "created";
 
-    const response = await safeFetch(
+    const response = await cmsFetch(
       requestUrl,
       {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
       },
-      { fetchFn, timeoutMs: CMS_FETCH_TIMEOUT_MS },
+      fetchFn,
     );
     assertResponseSize(response);
 
@@ -394,14 +463,14 @@ export async function publishToCustomWebhook(params: WebhookPublishParams): Prom
   };
 
   try {
-    const res = await safeFetch(
+    const res = await cmsFetch(
       webhookUrl,
       {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
       },
-      { fetchFn, timeoutMs: CMS_FETCH_TIMEOUT_MS },
+      fetchFn,
     );
     assertResponseSize(res);
 
@@ -456,7 +525,7 @@ export async function testWordPressConnection(params: {
   try {
     // Try requesting /wp/v2/users/me which verifies both REST API and auth credentials
     const meUrl = `${baseWpJson}/wp/v2/users/me`;
-    const res = await safeFetch(
+    const res = await cmsFetch(
       meUrl,
       {
         headers: {
@@ -464,7 +533,7 @@ export async function testWordPressConnection(params: {
           Accept: "application/json",
         },
       },
-      { fetchFn, timeoutMs: CMS_FETCH_TIMEOUT_MS },
+      fetchFn,
     );
     assertResponseSize(res);
 
@@ -487,12 +556,12 @@ export async function testWordPressConnection(params: {
     }
 
     // Fallback: check if public posts endpoint is at least reachable
-    const testPostsRes = await safeFetch(
+    const testPostsRes = await cmsFetch(
       `${endpoint}?per_page=1`,
       {
         headers: { Authorization: authHeader },
       },
-      { fetchFn, timeoutMs: CMS_FETCH_TIMEOUT_MS },
+      fetchFn,
     );
     assertResponseSize(testPostsRes);
     if (testPostsRes.ok) {
