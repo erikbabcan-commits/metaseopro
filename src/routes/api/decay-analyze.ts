@@ -61,10 +61,7 @@ export const Route = createFileRoute("/api/decay-analyze")({
               return err(409, "Google Search Console nie je pripojený. Použi demo režim.");
             try {
               // Multi-tenant isolation: verify user has permissions for this specific property
-              await assertUserPropertyAccess(auth.userId, parsed.data.siteUrl, auth.email, {
-                email_verified: auth.emailVerified,
-                email_confirmed_at: auth.emailConfirmedAt,
-              });
+              await assertUserPropertyAccess(auth.userId, parsed.data.siteUrl, auth.email);
               dataset = await buildLiveDataset(parsed.data.siteUrl);
             } catch (e) {
               const msg = (e as Error).message;

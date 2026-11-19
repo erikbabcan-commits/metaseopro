@@ -19,12 +19,6 @@ export function isGscConfigured(): boolean {
   return creds() !== null;
 }
 
-/** Verified-email metadata from the JWT claims, used by the admin fallback. */
-export interface GscUserMeta {
-  email_verified?: boolean;
-  email_confirmed_at?: string | null;
-}
-
 async function gscFetch(path: string, init?: RequestInit): Promise<Response> {
   const c = creds();
   if (!c) throw new Error("GSC_NOT_CONNECTED");
@@ -69,9 +63,8 @@ export async function listVerifiedProperties(): Promise<VerifiedProperty[]> {
 export async function listUserVerifiedProperties(
   userId: string,
   email?: string,
-  userMeta?: GscUserMeta,
 ): Promise<VerifiedProperty[]> {
-  const isPlatformOwner = isAdminUser({ id: userId, email, ...userMeta });
+  const isPlatformOwner = isAdminUser({ id: userId });
 
   if (isPlatformOwner) {
     return listVerifiedProperties();
@@ -107,11 +100,10 @@ export async function assertUserPropertyAccess(
   userId: string,
   siteUrl: string,
   email?: string,
-  userMeta?: GscUserMeta,
 ): Promise<string> {
   const verified = await assertVerifiedProperty(siteUrl);
 
-  const isPlatformOwner = isAdminUser({ id: userId, email, ...userMeta });
+  const isPlatformOwner = isAdminUser({ id: userId });
 
   if (isPlatformOwner) {
     return verified;
