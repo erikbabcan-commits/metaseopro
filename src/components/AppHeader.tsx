@@ -34,38 +34,40 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/use-auth";
+import { useViewerRole } from "@/hooks/use-viewer-role";
 import { supabase } from "@/integrations/supabase/client";
 import { PaywallModal } from "@/components/PaywallModal";
-import type { PlanId } from "@/lib/slovak-billing";
-import { isLocale, readLocaleCookie, writeLocaleCookie, swapLocale, type Locale } from "@/lib/i18n";
+import { PLANS, type PlanId } from "@/lib/slovak-billing";
+import { getEffectivePlan } from "@/lib/billing-policy";
+import { isLocale, readLocaleCookie, writeLocaleCookie, type Locale } from "@/lib/i18n";
 
 const SEO_TOOLS = [
   {
-    to: "/$locale/dashboard",
+    to: "/dashboard",
     label: "Dashboard",
     desc: "Centrálny prehľad KPI, Opportunity Radar a domény",
     icon: LayoutDashboard,
   },
   {
-    to: "/$locale/raketa",
+    to: "/raketa",
     label: "SEO Raketa",
     desc: "Technická on-page inšpekcia URL a porovnanie",
     icon: Rocket,
   },
   {
-    to: "/$locale/decay",
+    to: "/decay",
     label: "Decay Radar",
     desc: "Detekcia poklesu návštevnosti v Google Search Console",
     icon: TrendingDown,
   },
   {
-    to: "/$locale/audit",
+    to: "/audit",
     label: "SEO Audit",
     desc: "Konkurenčná analýza a keyword gap cez Semrush",
     icon: Search,
   },
   {
-    to: "/$locale",
+    to: "/",
     label: "Blog Writer",
     desc: "AI tvorba článkov a živý Google SERP Lab",
     icon: PenTool,
@@ -74,19 +76,19 @@ const SEO_TOOLS = [
 
 const CONTENT_TOOLS = [
   {
-    to: "/$locale/plan",
+    to: "/plan",
     label: "Content Plan",
     desc: "30-dňový publikačný kalendár a pillar klastre",
     icon: Calendar,
   },
   {
-    to: "/$locale/brief",
+    to: "/brief",
     label: "SEO Brief",
     desc: "Kompletné zadanie pre copywritera s E-E-A-T",
     icon: FileCheck,
   },
   {
-    to: "/$locale/history",
+    to: "/history",
     label: "História",
     desc: "Archív všetkých vygenerovaných analýz a článkov",
     icon: History,
@@ -95,20 +97,44 @@ const CONTENT_TOOLS = [
 
 const AGENCY_TOOLS = [
   {
-    to: "/$locale/settings/agency",
+    to: "/settings/agency",
     label: "Whitelabel Agentúra",
     desc: "Vlastné logo, primárna farba a pätička reportu",
     icon: Building2,
   },
   {
-    to: "/$locale/dashboard",
+    to: "/dashboard",
     label: "Klientsky PDF Report",
     desc: "Reprezentatívny mesačný report pre klienta na Dashboarde",
     icon: Printer,
   },
 ] as const;
 
-function PlanBadge({ plan }: { plan: PlanId }) {
+function SuperadminBadge() {
+  return (
+    <Badge
+      variant="outline"
+      className="gap-1 border-primary/50 bg-primary/15 text-primary font-semibold text-[11px] px-2 py-0.5"
+      data-testid="superadmin-badge"
+    >
+      <ShieldCheck className="size-3 text-primary" />
+      Superadmin
+    </Badge>
+  );
+}
+
+function ViewerBadge({ isAdmin, plan }: { isAdmin: boolean; plan: PlanId | null }) {
+  return isAdmin ? <SuperadminBadge /> : <PlanBadge plan={plan} />;
+}
+
+function PlanBadge({ plan }: { plan: PlanId | null }) {
+  if (!plan) {
+    return (
+      <Badge variant="outline" className="text-muted-foreground text-[11px] px-2 py-0.5">
+        Balík neoverený
+      </Badge>
+    );
+  }
   if (plan === "agency") {
     return (
       <Badge
@@ -116,7 +142,7 @@ function PlanBadge({ plan }: { plan: PlanId }) {
         className="gap-1 border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold text-[11px] px-2 py-0.5"
       >
         <Crown className="size-3 text-amber-500" />
-        Agency
+        {PLANS.agency.name}
       </Badge>
     );
   }
@@ -127,7 +153,7 @@ function PlanBadge({ plan }: { plan: PlanId }) {
         className="gap-1 border-primary/40 bg-primary/10 text-primary font-semibold text-[11px] px-2 py-0.5"
       >
         <Sparkles className="size-3 text-primary" />
-        Pro
+        {PLANS.pro.name}
       </Badge>
     );
   }
@@ -136,7 +162,7 @@ function PlanBadge({ plan }: { plan: PlanId }) {
       variant="outline"
       className="border-border bg-muted/60 text-muted-foreground font-medium text-[11px] px-2 py-0.5"
     >
-      Free
+      {PLANS.free.name}
     </Badge>
   );
 }
@@ -144,10 +170,12 @@ function PlanBadge({ plan }: { plan: PlanId }) {
 export function AppHeader() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user, signOut } = useAuth();
+  const { isAdmin } = useViewerRole();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
-  const [userPlan, setUserPlan] = useState<PlanId>("free");
+  const [planState, setPlanState] = useState<{ userId: string; plan: PlanId } | null>(null);
+  const userPlan = planState?.userId === user?.id ? (planState?.plan ?? null) : null;
   const [locale, setLocale] = useState<Locale>(() => readLocaleCookie() ?? "sk");
 
   const switchLocale = (next: Locale) => {
@@ -155,34 +183,34 @@ export function AppHeader() {
     writeLocaleCookie(next);
     setLocale(next);
     if (typeof document !== "undefined") document.documentElement.lang = next;
-    const target = swapLocale(pathname, next);
-    window.location.assign(target);
+    window.location.reload();
   };
 
   // Load user subscription tier
   useEffect(() => {
     if (!user) {
-      setUserPlan("free");
+      setPlanState(null);
       return;
     }
     const userId = user.id;
     let active = true;
+    setPlanState(null);
 
     async function loadPlan() {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("subscriptions")
-          .select("plan, status")
+          .select("plan, status, current_period_end")
           .eq("user_id", userId)
           .maybeSingle();
 
-        if (active && data?.plan) {
-          if (data.plan === "agency" || data.plan === "pro" || data.plan === "free") {
-            setUserPlan(data.plan);
-          }
+        if (error) throw error;
+        if (active) {
+          setPlanState({ userId, plan: data ? getEffectivePlan(data) : "free" });
         }
       } catch {
-        // Fallback to free on network or schema error
+        // A failed lookup is unknown, not proof that the account has a Free plan.
+        if (active) setPlanState(null);
       }
     }
 
@@ -196,38 +224,36 @@ export function AppHeader() {
   const handleSignOut = async () => {
     await signOut();
     setMobileOpen(false);
-    navigate({ to: "/$locale/login", params: { locale }, search: { redirect: `/${locale}` } });
+    navigate({ to: "/login", search: { redirect: "/" } });
   };
 
   const isSeoActive =
-    pathname === `/${locale}/dashboard` ||
-    pathname === `/${locale}/raketa` ||
-    pathname === `/${locale}/decay` ||
-    pathname === `/${locale}/audit` ||
-    pathname === `/${locale}` ||
-    pathname === `/${locale}/`;
+    pathname === "/dashboard" ||
+    pathname === "/raketa" ||
+    pathname === "/decay" ||
+    pathname === "/audit" ||
+    pathname === "/";
 
-  const isContentActive = pathname === `/${locale}/plan` || pathname === `/${locale}/brief` || pathname === `/${locale}/history`;
+  const isContentActive = pathname === "/plan" || pathname === "/brief" || pathname === "/history";
 
-  const isAgencyActive = pathname.startsWith(`/${locale}/settings/agency`);
+  const isAgencyActive = pathname.startsWith("/settings/agency");
 
   return (
     <header className="app-header mb-8 px-4 md:px-6 border-b border-border/40 bg-background/95 backdrop-blur-md sticky top-0 z-40">
-      <div className="mx-auto flex min-h-16 max-w-screen-xl items-center justify-between gap-4">
+      <div className="mx-auto flex min-h-14 max-w-screen-xl items-center justify-between gap-2 lg:min-h-16 lg:gap-4">
         {/* Brand Logo */}
         <Link
-          to="/$locale"
-          params={{ locale }}
+          to="/"
           className="flex shrink-0 items-center gap-2.5 group"
           onClick={() => setMobileOpen(false)}
-          aria-label="seo.vorkei — AI SEO Command Center"
+          aria-label="SEO4WEB — AI SEO Command Center"
         >
           <span className="brand-mark flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-transform group-hover:scale-105">
             <ChartNoAxesCombined className="size-5" />
           </span>
           <div className="flex flex-col">
             <span className="font-display text-xl font-bold leading-none tracking-tight text-foreground">
-              seo.vorkei
+              SEO4WEB
             </span>
             <span className="text-[10px] text-muted-foreground font-medium tracking-wider uppercase mt-0.5 hidden sm:inline">
               AI SEO Command Center
@@ -239,11 +265,11 @@ export function AppHeader() {
         <nav aria-label="Hlavná navigácia" className="hidden lg:flex items-center gap-1">
           {/* 1. Dashboard Direct Link */}
           <Link
-            to="/$locale/dashboard" params={{ locale }}
-            aria-current={pathname === `/${locale}/dashboard` ? "page" : undefined}
+            to="/dashboard"
+            aria-current={pathname === "/dashboard" ? "page" : undefined}
             className={
               "inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold transition-colors " +
-              (pathname === `/${locale}/dashboard`
+              (pathname === "/dashboard"
                 ? "bg-secondary text-primary shadow-xs"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground")
             }
@@ -278,12 +304,11 @@ export function AppHeader() {
               </DropdownMenuLabel>
               {SEO_TOOLS.map((item) => {
                 const Icon = item.icon;
-                const href = item.to === "/$locale" ? `/${locale}` : `/${locale}/${item.to.split("/").pop()}`;
-                const active = pathname === href || pathname === href + "/";
+                const active = pathname === item.to;
                 return (
                   <DropdownMenuItem key={item.to} asChild className="p-0">
                     <Link
-                      to={item.to} params={{ locale }}
+                      to={item.to}
                       className={
                         "flex items-start gap-3 p-2 rounded-md transition-colors w-full cursor-pointer " +
                         (active ? "bg-secondary text-primary" : "hover:bg-muted text-foreground")
@@ -331,12 +356,11 @@ export function AppHeader() {
               </DropdownMenuLabel>
               {CONTENT_TOOLS.map((item) => {
                 const Icon = item.icon;
-                const href = item.to === "/$locale" ? `/${locale}` : `/${locale}/${item.to.split("/").pop()}`;
-                const active = pathname === href || pathname === href + "/";
+                const active = pathname === item.to;
                 return (
                   <DropdownMenuItem key={item.to} asChild className="p-0">
                     <Link
-                      to={item.to} params={{ locale }}
+                      to={item.to}
                       className={
                         "flex items-start gap-3 p-2 rounded-md transition-colors w-full cursor-pointer " +
                         (active ? "bg-secondary text-primary" : "hover:bg-muted text-foreground")
@@ -384,12 +408,11 @@ export function AppHeader() {
               </DropdownMenuLabel>
               {AGENCY_TOOLS.map((item) => {
                 const Icon = item.icon;
-                const href = item.to === "/$locale" ? `/${locale}` : `/${locale}/${item.to.split("/").pop()}`;
-                const active = pathname === href || pathname === href + "/";
+                const active = pathname === item.to;
                 return (
                   <DropdownMenuItem key={item.to} asChild className="p-0">
                     <Link
-                      to={item.to} params={{ locale }}
+                      to={item.to}
                       className={
                         "flex items-start gap-3 p-2 rounded-md transition-colors w-full cursor-pointer " +
                         (active ? "bg-secondary text-primary" : "hover:bg-muted text-foreground")
@@ -413,29 +436,33 @@ export function AppHeader() {
         </nav>
 
         {/* ================= RIGHT CORNER: LOCALE + USER STATUS & PLAN PILL ================= */}
-        <div className="flex items-center gap-2.5">
-          <LocaleSwitch locale={locale} onSwitch={switchLocale} />
+        <div className="flex items-center gap-1.5 lg:gap-2.5">
+          <div className="hidden lg:block">
+            <LocaleSwitch locale={locale} onSwitch={switchLocale} />
+          </div>
           {user ? (
             <div className="flex items-center gap-2">
               {/* Plan Badge */}
               <div className="hidden sm:inline-flex">
-                <PlanBadge plan={userPlan} />
+                <ViewerBadge isAdmin={isAdmin} plan={userPlan} />
               </div>
 
-              {/* Upgrade / Pricing CTA */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPaywallOpen(true)}
-                className="h-8 gap-1.5 text-xs font-semibold border-border hover:bg-muted"
-                title="Cenník a možnosti predplatného"
-              >
-                <Sparkles className="size-3.5 text-primary" />
-                <span className="hidden md:inline">
-                  {userPlan === "agency" ? "Cenník" : "Cenník / Upgrade"}
-                </span>
-                <span className="md:hidden">Upgrade</span>
-              </Button>
+              {/* Upgrade / Pricing CTA (never shown to a superadmin) */}
+              {!isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPaywallOpen(true)}
+                  className="hidden lg:inline-flex h-8 gap-1.5 text-xs font-semibold border-border hover:bg-muted"
+                  title="Cenník a možnosti predplatného"
+                >
+                  <Sparkles className="size-3.5 text-primary" />
+                  <span className="hidden md:inline">
+                    {userPlan === "agency" ? "Cenník" : "Cenník / Upgrade"}
+                  </span>
+                  <span className="md:hidden">Upgrade</span>
+                </Button>
+              )}
 
               {/* User Dropdown */}
               <DropdownMenu>
@@ -462,14 +489,14 @@ export function AppHeader() {
                   <div className="px-2 py-1.5 border-b border-border/60 mb-1">
                     <p className="text-xs font-semibold text-foreground truncate">{user.email}</p>
                     <div className="flex items-center justify-between gap-1 mt-1">
-                      <span className="text-[11px] text-muted-foreground">Aktívny balík:</span>
-                      <PlanBadge plan={userPlan} />
+                      <span className="text-[11px] text-muted-foreground">Balík:</span>
+                      <ViewerBadge isAdmin={isAdmin} plan={userPlan} />
                     </div>
                   </div>
 
                   <DropdownMenuItem asChild>
                     <Link
-                      to="/$locale/settings/agency" params={{ locale }}
+                      to="/settings/agency"
                       className="flex items-center gap-2 cursor-pointer text-xs"
                     >
                       <Building2 className="size-3.5 text-muted-foreground" />
@@ -477,13 +504,15 @@ export function AppHeader() {
                     </Link>
                   </DropdownMenuItem>
 
-                  <DropdownMenuItem
-                    onClick={() => setPaywallOpen(true)}
-                    className="flex items-center gap-2 cursor-pointer text-xs"
-                  >
-                    <Sparkles className="size-3.5 text-primary" />
-                    Cenník a predplatné
-                  </DropdownMenuItem>
+                  {!isAdmin && (
+                    <DropdownMenuItem
+                      onClick={() => setPaywallOpen(true)}
+                      className="flex items-center gap-2 cursor-pointer text-xs"
+                    >
+                      <Sparkles className="size-3.5 text-primary" />
+                      Cenník a predplatné
+                    </DropdownMenuItem>
+                  )}
 
                   <DropdownMenuSeparator className="my-1 border-border/60" />
 
@@ -503,13 +532,13 @@ export function AppHeader() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setPaywallOpen(true)}
-                className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                className="hidden lg:inline-flex h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
               >
                 <Sparkles className="size-3.5 text-primary" />
                 Cenník
               </Button>
               <Button asChild size="sm" className="h-8 gap-1 text-xs font-semibold">
-                <Link to="/$locale/login" params={{ locale }} search={{ redirect: "/" }}>
+                <Link to="/login" search={{ redirect: "/" }}>
                   Prihlásiť <ArrowUpRight className="size-3" />
                 </Link>
               </Button>
@@ -538,7 +567,7 @@ export function AppHeader() {
                     <span className="brand-mark flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
                       <ChartNoAxesCombined className="size-4" />
                     </span>
-                    <SheetTitle className="font-display text-lg font-bold">seo.vorkei</SheetTitle>
+                    <SheetTitle className="font-display text-lg font-bold">SEO4WEB</SheetTitle>
                   </div>
                 </SheetHeader>
 
@@ -548,21 +577,23 @@ export function AppHeader() {
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-foreground truncate">{user.email}</p>
                       <div className="mt-1">
-                        <PlanBadge plan={userPlan} />
+                        <ViewerBadge isAdmin={isAdmin} plan={userPlan} />
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setMobileOpen(false);
-                        setPaywallOpen(true);
-                      }}
-                      className="h-7 text-xs gap-1"
-                    >
-                      <Sparkles className="size-3 text-primary" />
-                      Upgrade
-                    </Button>
+                    {!isAdmin && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setMobileOpen(false);
+                          setPaywallOpen(true);
+                        }}
+                        className="h-7 text-xs gap-1"
+                      >
+                        <Sparkles className="size-3 text-primary" />
+                        Upgrade
+                      </Button>
+                    )}
                   </div>
                 )}
 
@@ -576,12 +607,11 @@ export function AppHeader() {
                     <div className="space-y-0.5">
                       {SEO_TOOLS.map((item) => {
                         const Icon = item.icon;
-                        const href = item.to === "/$locale" ? `/${locale}` : `/${locale}/${item.to.split("/").pop()}`;
-                const active = pathname === href || pathname === href + "/";
+                        const active = pathname === item.to;
                         return (
                           <Link
                             key={item.to}
-                            to={item.to} params={{ locale }}
+                            to={item.to}
                             onClick={() => setMobileOpen(false)}
                             className={
                               "flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors " +
@@ -606,12 +636,11 @@ export function AppHeader() {
                     <div className="space-y-0.5">
                       {CONTENT_TOOLS.map((item) => {
                         const Icon = item.icon;
-                        const href = item.to === "/$locale" ? `/${locale}` : `/${locale}/${item.to.split("/").pop()}`;
-                const active = pathname === href || pathname === href + "/";
+                        const active = pathname === item.to;
                         return (
                           <Link
                             key={item.to}
-                            to={item.to} params={{ locale }}
+                            to={item.to}
                             onClick={() => setMobileOpen(false)}
                             className={
                               "flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors " +
@@ -636,12 +665,11 @@ export function AppHeader() {
                     <div className="space-y-0.5">
                       {AGENCY_TOOLS.map((item) => {
                         const Icon = item.icon;
-                        const href = item.to === "/$locale" ? `/${locale}` : `/${locale}/${item.to.split("/").pop()}`;
-                const active = pathname === href || pathname === href + "/";
+                        const active = pathname === item.to;
                         return (
                           <Link
                             key={item.to}
-                            to={item.to} params={{ locale }}
+                            to={item.to}
                             onClick={() => setMobileOpen(false)}
                             className={
                               "flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors " +
@@ -661,7 +689,23 @@ export function AppHeader() {
               </div>
 
               {/* Mobile Drawer Footer */}
-              <div className="p-4 border-t border-border/60 bg-muted/20">
+              <div className="p-4 border-t border-border/60 bg-muted/20 space-y-3 safe-bottom">
+                <div className="flex items-center justify-between gap-2">
+                  <LocaleSwitch locale={locale} onSwitch={switchLocale} />
+                  {!isAdmin && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setMobileOpen(false);
+                        setPaywallOpen(true);
+                      }}
+                      className="h-9 gap-1.5 text-xs font-semibold"
+                    >
+                      <Sparkles className="size-3.5 text-primary" /> Cenník / Upgrade
+                    </Button>
+                  )}
+                </div>
                 {user ? (
                   <Button
                     variant="ghost"
@@ -673,7 +717,7 @@ export function AppHeader() {
                 ) : (
                   <Button asChild className="w-full text-xs font-semibold gap-1.5">
                     <Link
-                      to="/$locale/login" params={{ locale }}
+                      to="/login"
                       search={{ redirect: "/" }}
                       onClick={() => setMobileOpen(false)}
                     >
@@ -693,13 +737,7 @@ export function AppHeader() {
   );
 }
 
-function LocaleSwitch({
-  locale,
-  onSwitch,
-}: {
-  locale: Locale;
-  onSwitch: (next: Locale) => void;
-}) {
+function LocaleSwitch({ locale, onSwitch }: { locale: Locale; onSwitch: (next: Locale) => void }) {
   return (
     <div className="flex items-center gap-0.5 text-xs" role="group" aria-label="Language">
       {(["sk", "en", "de"] as const).map((code) => (

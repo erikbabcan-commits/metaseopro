@@ -1,7 +1,8 @@
+import { AI_CHAT_URL, AI_DEFAULT_MODEL } from "@/lib/ai-provider";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireUser } from "@/lib/api-auth.server";
-import { checkRateLimit } from "@/lib/rate-limit.server";
+import { checkViewerRateLimit } from "@/lib/viewer-role.server";
 
 const MAX_BODY_BYTES = 8 * 1024;
 
@@ -38,7 +39,10 @@ export const Route = createFileRoute("/api/ctr-boost")({
           if (!auth.ok) return auth.response;
           if (Number(request.headers.get("content-length") ?? "0") > MAX_BODY_BYTES)
             return err(413, "Vstup je príliš veľký.");
-          const rl = checkRateLimit(`ctr:${auth.userId}`, { limit: 15, windowMs: 60_000 });
+          const rl = checkViewerRateLimit({ id: auth.userId }, `ctr:${auth.userId}`, {
+            limit: 15,
+            windowMs: 60_000,
+          });
           if (!rl.ok) return err(429, `Príliš veľa požiadaviek. Skús to o ${rl.retryAfterSec}s.`);
 
           let raw: unknown;
@@ -51,7 +55,7 @@ export const Route = createFileRoute("/api/ctr-boost")({
           if (!parsed.success) return err(400, "Neplatný vstup.");
           const i = parsed.data;
 
-          const apiKey = process.env.LOVABLE_API_KEY;
+          const apiKey = process.env.MISTRAL_API_KEY;
           if (!apiKey) return err(500, "AI nie je nakonfigurované.");
 
           const userPrompt = [
@@ -65,13 +69,15 @@ export const Route = createFileRoute("/api/ctr-boost")({
             .filter(Boolean)
             .join("\n");
 
-          const upstream = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
+          const upstream = await fetch(AI_CHAT_URL, {
             method: "POST",
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-              model: "openai/gpt-6-astra",
-              instructions: SYSTEM,
-              input: userPrompt,
+              model: AI_DEFAULT_MODEL,
+              messages: [
+                { role: "system", content: SYSTEM },
+                { role: "user", content: userPrompt },
+              ],
             }),
           });
           if (!upstream.ok) {
@@ -81,13 +87,9 @@ export const Route = createFileRoute("/api/ctr-boost")({
             return err(500, "Chyba AI.");
           }
           const json = (await upstream.json()) as {
-            output?: { type?: string; content?: { type?: string; text?: string }[] }[];
+            choices?: { message?: { content?: string } }[];
           };
-          const text = (json.output ?? [])
-            .flatMap((o) => o.content ?? [])
-            .filter((c) => c.type === "output_text")
-            .map((c) => c.text ?? "")
-            .join("");
+          const text = json.choices?.[0]?.message?.content ?? "";
           // Re-emit as a single chat-style SSE chunk so the shared client stream reader works.
           const sse =
             `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n` +

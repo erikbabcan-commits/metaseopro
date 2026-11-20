@@ -18,8 +18,10 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { getUserSubscription, updateCompanyBillingDetails } from "@/lib/billing.functions";
-import { isValidDIC, isValidICDPH, isValidICO, type PlanId } from "@/lib/slovak-billing";
+import { isValidDIC, isValidICDPH, isValidICO, PLANS, type PlanId } from "@/lib/slovak-billing";
+import { checkoutPlanLabel } from "@/lib/billing-ui";
 import { PaywallModal } from "@/components/PaywallModal";
+import { useViewerRole } from "@/hooks/use-viewer-role";
 
 interface BillingAddressState {
   line1?: string;
@@ -31,12 +33,16 @@ interface BillingAddressState {
 export function BillingInvoiceSection() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<{ userId: string; message: string } | null>(null);
+  const [loadRetry, setLoadRetry] = useState(0);
   const [saving, setSaving] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const { isAdmin } = useViewerRole();
 
   // Plan info
   const [plan, setPlan] = useState<PlanId>("free");
-  const [status, setStatus] = useState<string>("active");
+  const [status, setStatus] = useState<string>("unknown");
   const [currentPeriodEnd, setCurrentPeriodEnd] = useState<string | null>(null);
   const [lastInvoiceNumber, setLastInvoiceNumber] = useState<string | null>(null);
   const [lastInvoiceUrl, setLastInvoiceUrl] = useState<string | null>(null);
@@ -59,17 +65,21 @@ export function BillingInvoiceSection() {
   useEffect(() => {
     if (!user) {
       setLoading(false);
+      setLoadedUserId(null);
       return;
     }
+    const currentUserId = user.id;
     let active = true;
 
     async function fetchSubscription() {
       setLoading(true);
+      setLoadError(null);
       try {
         const sub = await getUserSubscription();
+        if (!sub) throw new Error("Nepodarilo sa načítať fakturačné údaje.");
         if (active && sub) {
           setPlan(sub.plan);
-          setStatus(sub.status || "active");
+          setStatus(sub.status || "unknown");
           setCurrentPeriodEnd(sub.currentPeriodEnd);
           setCompanyName(sub.companyName || "");
           setIco(sub.ico || "");
@@ -79,15 +89,22 @@ export function BillingInvoiceSection() {
           setLastInvoiceUrl(sub.lastInvoiceUrl || null);
 
           const addr = sub.billingAddress as BillingAddressState | null;
-          if (addr) {
-            setAddress(addr.line1 || "");
-            setCity(addr.city || "");
-            setZip(addr.postal_code || "");
-            setCountry(addr.country || "Slovensko");
-          }
+          setAddress(addr?.line1 || "");
+          setCity(addr?.city || "");
+          setZip(addr?.postal_code || "");
+          setCountry(addr?.country || "Slovensko");
+          setIcoError("");
+          setDicError("");
+          setIcDphError("");
+          setLoadedUserId(currentUserId);
         }
       } catch (err) {
-        console.error("Error loading subscription in BillingInvoiceSection:", err);
+        if (active) {
+          setLoadError({
+            userId: currentUserId,
+            message: err instanceof Error ? err.message : "Nepodarilo sa načítať fakturačné údaje.",
+          });
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -98,7 +115,7 @@ export function BillingInvoiceSection() {
     return () => {
       active = false;
     };
-  }, [user]);
+  }, [user, loadRetry]);
 
   // Live validators
   const handleIcoChange = (val: string) => {
@@ -176,10 +193,23 @@ export function BillingInvoiceSection() {
     }
   };
 
-  if (loading) {
+  if (!user) return null;
+
+  if (loadError?.userId === user.id) {
     return (
-      <div className="rounded-xl border border-border bg-card p-6 flex items-center justify-center gap-3 text-muted-foreground text-sm">
-        <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
+      <div role="alert" className="space-y-3 rounded-xl border border-danger-border bg-card p-5">
+        <p className="text-sm">{loadError.message}</p>
+        <Button type="button" variant="outline" onClick={() => setLoadRetry((value) => value + 1)}>
+          Skúsiť načítať znova
+        </Button>
+      </div>
+    );
+  }
+
+  if (loading || loadedUserId !== user.id) {
+    return (
+      <div className="rounded-xl border border-[#2c2c2c] bg-[#212121] p-6 flex items-center justify-center gap-3 text-zinc-400 text-sm shadow-xl shadow-black/40">
+        <Loader2 className="size-4 animate-spin motion-reduce:animate-none text-emerald-400" />
         <span>Načítavam fakturačné údaje a predplatné…</span>
       </div>
     );
@@ -188,70 +218,72 @@ export function BillingInvoiceSection() {
   return (
     <div className="space-y-6">
       {/* 1. Header Card: Current Plan & Invoice Download */}
-      <div className="rounded-xl border border-border bg-card p-5 md:p-6 shadow-sm">
+      <div className="rounded-xl border border-[#2c2c2c] bg-[#212121] p-5 md:p-6 shadow-xl shadow-black/40">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <CreditCard className="size-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-base">Fakturačné údaje a predplatné</h3>
+                <h3 className="font-semibold text-base text-white">
+                  Fakturačné údaje a predplatné
+                </h3>
                 <Badge
                   variant="outline"
                   className={
                     plan === "agency"
-                      ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold"
+                      ? "border-amber-500/40 bg-amber-500/10 text-amber-400 font-bold"
                       : plan === "pro"
-                        ? "border-primary/40 bg-primary/10 text-primary font-bold"
-                        : "border-border bg-muted/60 text-muted-foreground"
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-bold"
+                        : "border-[#333333] bg-[#262626] text-zinc-400"
                   }
                 >
-                  {plan.toUpperCase()}
+                  {PLANS[plan].name}
                 </Badge>
-                {status === "active" && (
+                {plan !== "free" && (status === "active" || status === "trialing") && (
                   <Badge
                     variant="outline"
-                    className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px]"
+                    className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px]"
                   >
                     Aktívne
                   </Badge>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-xs text-zinc-400 mt-0.5">
                 {currentPeriodEnd
-                  ? `Predplatné je aktívne do ${new Date(currentPeriodEnd).toLocaleDateString("sk-SK")}`
+                  ? `Koniec fakturačného obdobia: ${new Date(currentPeriodEnd).toLocaleDateString("sk-SK")}`
                   : "Bezplatný plán (1 projekt, 1 mesačný snapshot)"}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2.5">
-            {plan === "free" ? (
+            {isAdmin ? null : plan === "free" ? (
               <Button
                 size="sm"
                 onClick={() => setPaywallOpen(true)}
-                className="gap-1.5 text-xs font-semibold"
+                className="gap-1.5 text-xs font-semibold bg-white text-zinc-950 hover:bg-zinc-200"
               >
-                <Sparkles className="size-3.5" />
-                Aktivovať balík Pro (39 €)
+                <Sparkles className="size-3.5 text-emerald-600" />
+                Aktivovať {checkoutPlanLabel("pro")}
               </Button>
             ) : lastInvoiceUrl ? (
               <Button
                 asChild
                 variant="outline"
                 size="sm"
-                className="gap-2 text-xs font-semibold border-primary/30 text-primary hover:bg-primary/5"
+                className="gap-2 text-xs font-semibold border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
               >
                 <a href={lastInvoiceUrl} target="_blank" rel="noopener noreferrer">
                   <Download className="size-3.5" />
-                  Stiahnuť poslednú faktúru (PDF)
+                  Otvoriť poslednú faktúru
                 </a>
               </Button>
             ) : (
-              <div className="text-xs text-muted-foreground italic flex items-center gap-1.5">
+              <div className="text-xs text-zinc-400 italic flex items-center gap-1.5">
                 <FileText className="size-3.5" />
-                Faktúra sa vystaví pri najbližšej platbe
+                Faktúra zatiaľ nie je k dispozícii
               </div>
             )}
           </div>
@@ -259,19 +291,20 @@ export function BillingInvoiceSection() {
 
         {/* Invoice Summary Pill */}
         {lastInvoiceNumber && (
-          <div className="mt-4 pt-4 border-t border-border/60 flex flex-wrap items-center justify-between text-xs text-muted-foreground gap-2">
-            <span className="flex items-center gap-1.5 font-medium text-foreground">
-              <CheckCircle2 className="size-4 text-emerald-500" />
-              Posledná vystavená faktúra: <strong className="font-mono">{lastInvoiceNumber}</strong>
+          <div className="mt-4 pt-4 border-t border-[#2c2c2c] flex flex-wrap items-center justify-between text-xs text-zinc-400 gap-2">
+            <span className="flex items-center gap-1.5 font-medium text-zinc-200">
+              <CheckCircle2 className="size-4 text-emerald-400" />
+              Posledná vystavená faktúra:{" "}
+              <strong className="font-mono text-white">{lastInvoiceNumber}</strong>
             </span>
             {lastInvoiceUrl && (
               <a
                 href={lastInvoiceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-primary hover:underline font-semibold"
+                className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 hover:underline font-semibold"
               >
-                Otvoriť PDF na SuperFaktúra.sk <ExternalLink className="size-3" />
+                Otvoriť faktúru <ExternalLink className="size-3" />
               </a>
             )}
           </div>
@@ -279,17 +312,17 @@ export function BillingInvoiceSection() {
       </div>
 
       {/* 2. Billing Details Form */}
-      <div className="rounded-xl border border-border bg-card p-5 md:p-6 shadow-sm">
-        <div className="flex items-center gap-2 font-semibold text-sm mb-4">
-          <Building2 className="size-4 text-primary" />
-          <span>Firemné fakturačné údaje (Slovensko a EÚ)</span>
+      <div className="rounded-xl border border-[#2c2c2c] bg-[#212121] p-5 md:p-6 shadow-xl shadow-black/40">
+        <div className="flex items-center gap-2 font-semibold text-sm mb-4 text-white">
+          <Building2 className="size-4 text-emerald-400" />
+          <span>Firemné fakturačné údaje</span>
         </div>
 
         <form onSubmit={handleSaveBilling} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             {/* Obchodné meno */}
             <div className="sm:col-span-2 space-y-1.5">
-              <Label htmlFor="billingCompanyName" className="text-xs font-medium">
+              <Label htmlFor="billingCompanyName" className="text-xs font-medium text-zinc-300">
                 Obchodné meno spoločnosti / Živnostník
               </Label>
               <Input
@@ -297,17 +330,18 @@ export function BillingInvoiceSection() {
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="napr. Moja SEO Agentúra s.r.o."
+                className="bg-[#1a1a1a] border-[#333333] text-[#f4f4f5] placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500"
               />
             </div>
 
             {/* IČO */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label htmlFor="billingIco" className="text-xs font-medium">
+                <Label htmlFor="billingIco" className="text-xs font-medium text-zinc-300">
                   IČO (8 číslic)
                 </Label>
                 {ico && !icoError && (
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                  <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
                     <CheckCircle2 className="size-3" /> Platné
                   </span>
                 )}
@@ -317,12 +351,12 @@ export function BillingInvoiceSection() {
                 value={ico}
                 onChange={(e) => handleIcoChange(e.target.value)}
                 placeholder="12345678"
-                className={
-                  icoError ? "border-danger-foreground focus-visible:ring-danger-foreground" : ""
-                }
+                className={`bg-[#1a1a1a] text-[#f4f4f5] placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500 ${
+                  icoError ? "border-rose-500 focus-visible:ring-rose-500" : "border-[#333333]"
+                }`}
               />
               {icoError && (
-                <p className="text-[11px] text-danger-foreground flex items-center gap-1">
+                <p className="text-[11px] text-rose-400 flex items-center gap-1">
                   <ShieldAlert className="size-3" /> {icoError}
                 </p>
               )}
@@ -331,11 +365,11 @@ export function BillingInvoiceSection() {
             {/* DIČ */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label htmlFor="billingDic" className="text-xs font-medium">
+                <Label htmlFor="billingDic" className="text-xs font-medium text-zinc-300">
                   DIČ (10 číslic)
                 </Label>
                 {dic && !dicError && (
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                  <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
                     <CheckCircle2 className="size-3" /> Platné
                   </span>
                 )}
@@ -345,12 +379,12 @@ export function BillingInvoiceSection() {
                 value={dic}
                 onChange={(e) => handleDicChange(e.target.value)}
                 placeholder="2021234567"
-                className={
-                  dicError ? "border-danger-foreground focus-visible:ring-danger-foreground" : ""
-                }
+                className={`bg-[#1a1a1a] text-[#f4f4f5] placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500 ${
+                  dicError ? "border-rose-500 focus-visible:ring-rose-500" : "border-[#333333]"
+                }`}
               />
               {dicError && (
-                <p className="text-[11px] text-danger-foreground flex items-center gap-1">
+                <p className="text-[11px] text-rose-400 flex items-center gap-1">
                   <ShieldAlert className="size-3" /> {dicError}
                 </p>
               )}
@@ -359,11 +393,11 @@ export function BillingInvoiceSection() {
             {/* IČ DPH */}
             <div className="sm:col-span-2 space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label htmlFor="billingIcDph" className="text-xs font-medium">
-                  IČ DPH (nepovinné, formát SK + DIČ alebo CZ...)
+                <Label htmlFor="billingIcDph" className="text-xs font-medium text-zinc-300">
+                  IČ DPH (nepovinné, slovenský formát SK + DIČ)
                 </Label>
                 {icDph && !icDphError && (
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                  <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
                     <CheckCircle2 className="size-3" /> Platný formát
                   </span>
                 )}
@@ -372,26 +406,26 @@ export function BillingInvoiceSection() {
                 id="billingIcDph"
                 value={icDph}
                 onChange={(e) => handleIcDphChange(e.target.value)}
-                placeholder="SK2021234567 (alebo CZ12345678 pre Reverse Charge)"
-                className={
-                  icDphError ? "border-danger-foreground focus-visible:ring-danger-foreground" : ""
-                }
+                placeholder="SK2021234567"
+                className={`bg-[#1a1a1a] text-[#f4f4f5] placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500 ${
+                  icDphError ? "border-rose-500 focus-visible:ring-rose-500" : "border-[#333333]"
+                }`}
               />
               {icDphError ? (
-                <p className="text-[11px] text-danger-foreground flex items-center gap-1">
+                <p className="text-[11px] text-rose-400 flex items-center gap-1">
                   <ShieldAlert className="size-3" /> {icDphError}
                 </p>
               ) : (
-                <p className="text-[11px] text-muted-foreground">
-                  Zahraničné firmy z EÚ s overeným IČ DPH automaticky uplatňujú prenesenie daňovej
-                  povinnosti (Reverse Charge 0% DPH).
+                <p className="text-[11px] text-zinc-400">
+                  Platný formát nie je potvrdením registrácie vo VIES ani nároku na prenesenie
+                  daňovej povinnosti. Konečnú daň si skontrolujte pri platbe v Stripe.
                 </p>
               )}
             </div>
 
             {/* Ulica a číslo */}
             <div className="space-y-1.5">
-              <Label htmlFor="billingAddress" className="text-xs font-medium">
+              <Label htmlFor="billingAddress" className="text-xs font-medium text-zinc-300">
                 Ulica a súpisné číslo
               </Label>
               <Input
@@ -399,12 +433,13 @@ export function BillingInvoiceSection() {
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="Hlavná 42"
+                className="bg-[#1a1a1a] border-[#333333] text-[#f4f4f5] placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500"
               />
             </div>
 
             {/* Mesto */}
             <div className="space-y-1.5">
-              <Label htmlFor="billingCity" className="text-xs font-medium">
+              <Label htmlFor="billingCity" className="text-xs font-medium text-zinc-300">
                 Mesto
               </Label>
               <Input
@@ -412,12 +447,13 @@ export function BillingInvoiceSection() {
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 placeholder="Bratislava"
+                className="bg-[#1a1a1a] border-[#333333] text-[#f4f4f5] placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500"
               />
             </div>
 
             {/* PSČ */}
             <div className="space-y-1.5">
-              <Label htmlFor="billingZip" className="text-xs font-medium">
+              <Label htmlFor="billingZip" className="text-xs font-medium text-zinc-300">
                 PSČ
               </Label>
               <Input
@@ -425,19 +461,20 @@ export function BillingInvoiceSection() {
                 value={zip}
                 onChange={(e) => setZip(e.target.value)}
                 placeholder="811 01"
+                className="bg-[#1a1a1a] border-[#333333] text-[#f4f4f5] placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500"
               />
             </div>
 
             {/* Krajina */}
             <div className="space-y-1.5">
-              <Label htmlFor="billingCountry" className="text-xs font-medium">
+              <Label htmlFor="billingCountry" className="text-xs font-medium text-zinc-300">
                 Krajina sídla
               </Label>
               <select
                 id="billingCountry"
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full rounded-md border border-[#333333] bg-[#1a1a1a] text-[#f4f4f5] px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus:border-emerald-500"
               >
                 <option value="Slovensko">Slovenská republika (SK)</option>
                 <option value="Česká republika">Česká republika (CZ)</option>
@@ -453,7 +490,7 @@ export function BillingInvoiceSection() {
             <Button
               type="submit"
               disabled={saving || Boolean(icoError || dicError || icDphError)}
-              className="gap-2 text-xs font-semibold"
+              className="gap-2 text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold"
             >
               {saving ? (
                 <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />

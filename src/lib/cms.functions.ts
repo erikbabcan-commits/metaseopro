@@ -10,6 +10,13 @@ import {
   type PublishStatus,
   type PublishResult,
 } from "./cms-publisher.server";
+import {
+  assertAllowedCmsDestination,
+  assertCmsSendRateLimit,
+  CmsDestinationError,
+  destinationHost,
+} from "./cms-destination.server";
+import { applyCmsErrorHttpStatus, withCmsHttpStatus } from "./cms-http-status.server";
 
 const CmsConnectionSchema = z.object({
   id: z.string().uuid().optional(),
@@ -103,6 +110,12 @@ export const saveUserCmsConnection = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
+    // The stored endpoint later receives content and credentials: only verified hosts.
+    await withCmsHttpStatus(async () => {
+      assertCmsSendRateLimit("save", userId);
+      await assertAllowedCmsDestination(userId, [data.siteUrl, data.apiEndpoint]);
+    });
+
     const payload = {
       user_id: userId,
       site_url: data.siteUrl.trim(),
@@ -166,7 +179,18 @@ export const testConnectionBeforeSave = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    // Bound outbound requests to hosts the caller has verified in Search Console.
+    try {
+      assertCmsSendRateLimit("test", context.userId);
+      await assertAllowedCmsDestination(context.userId, [data.apiEndpoint]);
+    } catch (err) {
+      if (err instanceof CmsDestinationError) {
+        applyCmsErrorHttpStatus(err);
+        return { ok: false, message: err.message };
+      }
+      throw err;
+    }
     return await testWordPressConnection({
       apiEndpoint: data.apiEndpoint,
       credentials: data.credentials,
@@ -181,6 +205,7 @@ export const deployContentToCms = createServerFn({ method: "POST" })
   .validator((input: unknown) => DeployInputSchema.parse(input))
   .handler(async ({ data, context }): Promise<PublishResult> => {
     const { supabase, userId } = context;
+    await withCmsHttpStatus(() => assertCmsSendRateLimit("deploy", userId));
 
     let connection: ConnectionRecord | null = null;
 
@@ -203,12 +228,20 @@ export const deployContentToCms = createServerFn({ method: "POST" })
 
       if (conns && conns.length > 0) {
         const typedConns = conns as unknown as ConnectionRecord[];
+        // Exact site match or same host only; never fall back to an unrelated connection.
+        const hostOf = (value: string) => {
+          try {
+            return destinationHost(value);
+          } catch {
+            return null;
+          }
+        };
+        const requestedHost = hostOf(normalizedSite);
         const found =
           typedConns.find((c) => c.site_url.toLowerCase().trim() === normalizedSite) ||
-          typedConns.find((c) =>
-            normalizedSite.includes(c.site_url.toLowerCase().replace(/^https?:\/\//, "")),
-          ) ||
-          typedConns[0];
+          (requestedHost
+            ? typedConns.find((c) => hostOf(c.site_url) === requestedHost)
+            : undefined);
         if (found) connection = found;
       }
     }
@@ -218,6 +251,13 @@ export const deployContentToCms = createServerFn({ method: "POST" })
         "Nebolo nájdené žiadne CMS pripojenie. Pridajte svoje WordPress stránky v Nastaveniach agentúry -> CMS Integrácie.",
       );
     }
+
+    // Re-verify at send time: cms_connections rows are user-writable through RLS,
+    // so a stored endpoint is not proof that the destination belongs to this user.
+    const sendTo = connection;
+    await withCmsHttpStatus(() =>
+      assertAllowedCmsDestination(userId, [sendTo.site_url, sendTo.api_endpoint]),
+    );
 
     if (connection.platform === "wordpress") {
       const target = data.postIdOrSlug || data.targetUrl || "";

@@ -2,14 +2,15 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type { DecayDataset } from "./decay-schema";
+import { getServerSupabasePublishableKey, getServerSupabaseUrl } from "./supabase-env.server";
 
 export async function saveDecaySnapshot(
   request: Request,
   userId: string,
   dataset: DecayDataset,
 ): Promise<string | null> {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_PUBLISHABLE_KEY;
+  const url = getServerSupabaseUrl();
+  const key = getServerSupabasePublishableKey();
   const token = request.headers.get("authorization")?.slice(7).trim();
   if (!url || !key || !token) return null;
 

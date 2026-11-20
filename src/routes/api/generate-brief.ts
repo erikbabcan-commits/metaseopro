@@ -1,8 +1,9 @@
+import { AI_CHAT_URL, AI_DEFAULT_MODEL } from "@/lib/ai-provider";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { BRIEF_SYSTEM_PROMPT } from "@/lib/brief-prompt";
 import { requireUser } from "@/lib/api-auth.server";
-import { checkRateLimit } from "@/lib/rate-limit.server";
+import { checkViewerRateLimit } from "@/lib/viewer-role.server";
 
 const MAX_BODY_BYTES = 8 * 1024;
 
@@ -33,7 +34,7 @@ export const Route = createFileRoute("/api/generate-brief")({
           const contentLength = Number(request.headers.get("content-length") ?? "0");
           if (contentLength > MAX_BODY_BYTES) return err(413, "Vstup je príliš veľký.");
 
-          const rl = checkRateLimit(`brief:${auth.userId}`, {
+          const rl = checkViewerRateLimit({ id: auth.userId }, `brief:${auth.userId}`, {
             limit: 10,
             windowMs: 60_000,
           });
@@ -64,8 +65,8 @@ export const Route = createFileRoute("/api/generate-brief")({
           }
           const input = parsed.data;
 
-          const apiKey = process.env.LOVABLE_API_KEY;
-          if (!apiKey) return err(500, "LOVABLE_API_KEY nie je nakonfigurovaný.");
+          const apiKey = process.env.MISTRAL_API_KEY;
+          if (!apiKey) return err(500, "MISTRAL_API_KEY nie je nakonfigurovaný.");
 
           const goalLabel: Record<string, string> = {
             traffic: "Organická návštevnosť",
@@ -87,14 +88,14 @@ export const Route = createFileRoute("/api/generate-brief")({
             .filter(Boolean)
             .join("\n");
 
-          const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          const upstream = await fetch(AI_CHAT_URL, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${apiKey}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "google/gemini-3-flash-preview",
+              model: AI_DEFAULT_MODEL,
               stream: true,
               messages: [
                 { role: "system", content: BRIEF_SYSTEM_PROMPT },

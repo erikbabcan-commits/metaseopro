@@ -1,19 +1,20 @@
 import type { ErrorComponentProps } from "@tanstack/react-router";
-import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
   createRootRouteWithContext,
   useRouter,
-  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/hooks/use-auth";
-import { OG_IMAGE, SITE } from "@/lib/i18n";
+import { ViewerRoleProvider } from "@/hooks/use-viewer-role";
+import { SITE, pageUrl } from "@/lib/i18n";
+import { PwaLaunchExperience } from "@/components/PwaLaunchExperience";
+import { IosInstallPrompt } from "@/components/IosInstallPrompt";
 
 function NotFoundComponent() {
   return (
@@ -76,23 +77,33 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { name: "theme-color", content: "#0f1214" },
-      { title: "seo.vorkei — AI SEO Command Center" },
+      {
+        name: "viewport",
+        content:
+          "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+      },
+      { name: "theme-color", content: "#171717" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "SEO4WEB" },
+      { name: "format-detection", content: "telephone=no" },
+      { name: "robots", content: "index, follow" },
+      { title: "SEO4WEB — All-in-One SEO Command Center pre slovenský a český trh" },
       {
         name: "description",
         content:
-          "Audit, brief, 30-day plan and SEO article. One workflow for agencies, freelancers and SMBs. SK / EN / DE.",
+          "SEO4WEB: Inteligentný SEO audit, detekcia prepadov návštevnosti (Content Decay), CTR booster a 1-klikové nasadzovanie optimalizácií do WordPressu.",
       },
       {
         name: "keywords",
         content:
           "SEO audit, SEO nástroj, Search Console, Content Decay Radar, WordPress SEO, Yoast SEO, Rank Math, CTR optimalizácia, SEO Slovensko",
       },
-      { property: "og:site_name", content: "seo.vorkei" },
+      { property: "og:site_name", content: "SEO4WEB" },
       {
         property: "og:title",
-        content: "seo.vorkei — AI SEO Command Center",
+        content: "SEO4WEB — All-in-One SEO Command Center",
       },
       {
         property: "og:description",
@@ -101,26 +112,29 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: SITE },
-      { property: "og:image", content: OG_IMAGE },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "seo.vorkei — AI SEO Command Center" },
       {
         name: "twitter:description",
         content:
           "Audit, brief, 30-day plan and SEO article. One workflow for agencies and freelancers. SK / EN / DE.",
       },
-      { name: "twitter:image", content: OG_IMAGE },
     ],
     links: [
-      { rel: "manifest", href: "/manifest.json" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", sizes: "180x180", href: "/icons/apple-touch-icon-180.png" },
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
-      { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32.png" },
-      { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
+      { rel: "icon", type: "image/png", sizes: "32x32", href: "/icons/icon-32.png" },
+      { rel: "icon", type: "image/png", sizes: "16x16", href: "/icons/icon-16.png" },
+      { rel: "canonical", href: SITE },
+      { rel: "alternate", hrefLang: "sk", href: pageUrl("sk", "/") },
+      { rel: "alternate", hrefLang: "en", href: pageUrl("en", "/") },
+      { rel: "alternate", hrefLang: "de", href: pageUrl("de", "/") },
+      { rel: "alternate", hrefLang: "x-default", href: pageUrl("sk", "/") },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Figtree:wght@400;500;600;700&display=swap",
       },
       {
         rel: "stylesheet",
@@ -135,10 +149,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: React.ReactNode }) {
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const lang = pathname.match(/^\/(en|de|sk)(?=\/|$)/)?.[1] ?? "sk";
   return (
-    <html lang={lang}>
+    <html lang="sk">
       <head>
         <HeadContent />
       </head>
@@ -156,19 +168,12 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <PwaRegistrar />
-        <Outlet />
+        <ViewerRoleProvider>
+          <PwaLaunchExperience />
+          <IosInstallPrompt />
+          <Outlet />
+        </ViewerRoleProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
-}
-
-function PwaRegistrar() {
-  useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
-    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {
-      // Registration failure must not break the app.
-    });
-  }, []);
-  return null;
 }

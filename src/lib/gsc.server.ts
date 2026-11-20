@@ -2,6 +2,7 @@
 // Never call the Google API directly and never construct siteUrl from user input:
 // only exact values returned by GET /webmasters/v3/sites are ever used.
 import type { DecayRow, QueryRow } from "./decay-schema";
+import { isAdminUser } from "./admin.server";
 
 const GATEWAY = "https://connector-gateway.lovable.dev/google_search_console";
 
@@ -63,20 +64,7 @@ export async function listUserVerifiedProperties(
   userId: string,
   email?: string,
 ): Promise<VerifiedProperty[]> {
-  const adminEmails = (process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  const adminUserIds = (process.env.ADMIN_USER_IDS || "")
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
-
-  const isPlatformOwner =
-    (email &&
-      (adminEmails.includes(email.toLowerCase()) ||
-        ["h4ck3d@h4ck3d.me", "erikbabcan@gmail.com"].includes(email.toLowerCase()))) ||
-    adminUserIds.includes(userId);
+  const isPlatformOwner = isAdminUser({ id: userId });
 
   if (isPlatformOwner) {
     return listVerifiedProperties();
@@ -115,20 +103,7 @@ export async function assertUserPropertyAccess(
 ): Promise<string> {
   const verified = await assertVerifiedProperty(siteUrl);
 
-  const adminEmails = (process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  const adminUserIds = (process.env.ADMIN_USER_IDS || "")
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
-
-  const isPlatformOwner =
-    (email &&
-      (adminEmails.includes(email.toLowerCase()) ||
-        ["h4ck3d@h4ck3d.me", "erikbabcan@gmail.com"].includes(email.toLowerCase()))) ||
-    adminUserIds.includes(userId);
+  const isPlatformOwner = isAdminUser({ id: userId });
 
   if (isPlatformOwner) {
     return verified;
