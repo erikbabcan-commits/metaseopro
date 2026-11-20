@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Rocket } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,8 +55,8 @@ export function OpportunityRadar({
   userId: string;
   onDeploy?: (url: string, markdown?: string, title?: string) => void;
 }) {
-  const rows = snap.raw_data?.rows ?? [];
-  const pages = useMemo(() => rows.map(toOpp), [rows]);
+  const rows = snap.raw_data?.rows;
+  const pages = useMemo(() => (rows ?? []).map(toOpp), [rows]);
   const brand = useMemo(() => {
     try {
       return [
@@ -73,7 +73,7 @@ export function OpportunityRadar({
   const links = useMemo(() => suggestInternalLinks(ranked).slice(0, 6), [ranked]);
   const [exps, setExps] = useState<Experiment[]>([]);
 
-  const loadExps = async () => {
+  const loadExps = useCallback(async () => {
     const { data } = await supabase
       .from("seo_experiments")
       .select("id,page_url,implemented_at,baseline,target_queries,status")
@@ -81,13 +81,13 @@ export function OpportunityRadar({
       .order("created_at", { ascending: false })
       .limit(30);
     setExps((data ?? []) as unknown as Experiment[]);
-  };
+  }, [snap.site_url]);
   useEffect(() => {
     void loadExps();
-  }, [snap.site_url]);
+  }, [loadExps]);
 
   const optimize = (url: string) => {
-    const r = rows.find((x) => x.url === url);
+    const r = rows?.find((x) => x.url === url);
     if (!r) return;
     handoffToWriter(snap.site_url, r);
     window.location.href = "/?fromRefresh=1";
