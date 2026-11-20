@@ -12,21 +12,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Bun runtime
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.4.5
 
       - name: Install dependencies
         run: bun install
-
-      - name: Run Vitest suite (110 tests)
-        run: bunx vitest run
 
       - name: Type check (TypeScript)
         run: bun run tsc --noEmit
 
       - name: Production build
         run: bun run build
+
+      - name: Run Vitest suite
+        env:
+          TEST_BASE_URL: http://127.0.0.1:4173
+        run: |
+          bun run dev -- --host 127.0.0.1 --port 4173 --strictPort > dev-server.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null "$TEST_BASE_URL/"; then
+              break
+            fi
+            sleep 1
+          done
+          if ! curl -sf -o /dev/null "$TEST_BASE_URL/"; then
+            echo "dev server did not become ready" >&2
+            tail -80 dev-server.log >&2
+            exit 1
+          fi
+          bunx vitest run
+
