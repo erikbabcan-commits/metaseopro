@@ -2,22 +2,26 @@ import { describe, expect, it } from "vitest";
 
 const BASE_URL = process.env.TEST_BASE_URL || "http://127.0.0.1:8080";
 
-async function isServerReachable(): Promise<boolean> {
+async function requireServer(): Promise<void> {
   try {
-    const res = await fetch(`${BASE_URL}/`, { method: "HEAD", signal: AbortSignal.timeout(2000) });
-    return res.status >= 200 && res.status < 400;
-  } catch {
-    return false;
+    const res = await fetch(`${BASE_URL}/`, {
+      method: "GET",
+      signal: AbortSignal.timeout(5000),
+      redirect: "manual",
+    });
+    if (res.status >= 200 && res.status < 500) return;
+    throw new Error(`HTTP ${res.status}`);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Live server not reachable at ${BASE_URL}. Route checks must not be skipped. ${detail}`,
+    );
   }
 }
 
 describe("E2E Application Workflow & Route Integrity", () => {
   it("renders Landing Page (/) with complete SSR metadata and AppHeader", async () => {
-    const reachable = await isServerReachable();
-    if (!reachable) {
-      console.warn("Dev server not reachable, skipping live HTTP test.");
-      return;
-    }
+    await requireServer();
 
     const res = await fetch(`${BASE_URL}/`);
     expect(res.status).toBe(200);
@@ -33,8 +37,7 @@ describe("E2E Application Workflow & Route Integrity", () => {
   }, 15000);
 
   it("serves Whitelabel Agency Settings route (/settings/agency)", async () => {
-    const reachable = await isServerReachable();
-    if (!reachable) return;
+    await requireServer();
 
     const res = await fetch(`${BASE_URL}/settings/agency`);
     expect(res.status).toBe(200);
@@ -46,8 +49,7 @@ describe("E2E Application Workflow & Route Integrity", () => {
   }, 15000);
 
   it("serves all primary application routes with 200 OK", async () => {
-    const reachable = await isServerReachable();
-    if (!reachable) return;
+    await requireServer();
 
     const routes = [
       "/dashboard",
@@ -72,8 +74,7 @@ describe("E2E Application Workflow & Route Integrity", () => {
   }, 20000);
 
   it("guards API routes against unauthorized access", async () => {
-    const reachable = await isServerReachable();
-    if (!reachable) return;
+    await requireServer();
 
     // decay-analyze requires bearer token
     const resAnalyze = await fetch(`${BASE_URL}/api/decay-analyze`, {
@@ -96,8 +97,7 @@ describe("E2E Application Workflow & Route Integrity", () => {
   });
 
   it("handles Stripe webhook endpoint securely", async () => {
-    const reachable = await isServerReachable();
-    if (!reachable) return;
+    await requireServer();
 
     const resWebhook = await fetch(`${BASE_URL}/api/public/stripe-webhook`, {
       method: "POST",
@@ -105,9 +105,12 @@ describe("E2E Application Workflow & Route Integrity", () => {
       body: JSON.stringify({ type: "test.event" }),
     });
 
-    // In dev without STRIPE_WEBHOOK_SECRET it safely acknowledges, or returns 400 when keys are present
-    expect([200, 400]).toContain(resWebhook.status);
-    const json = await resWebhook.json();
-    expect(json).toBeDefined();
+    // Unsigned body: 503 when Stripe is not configured (no fake 200),
+    // 400 when it is configured but the signature is missing.
+    expect([400, 503]).toContain(resWebhook.status);
+    const json = (await resWebhook.json()) as { error?: string };
+    expect(json.error).toBe(
+      resWebhook.status === 503 ? "BILLING_WEBHOOK_NOT_CONFIGURED" : "MISSING_STRIPE_SIGNATURE",
+    );
   });
 });
