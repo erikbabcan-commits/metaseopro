@@ -14,7 +14,8 @@ export function IosInstallPrompt() {
     const isIos = /iphone|ipad|ipod/.test(ua);
     const isSafari = /safari/.test(ua) && !/chrome|crios|fxios|opt/.test(ua);
     const isStandalone =
-      ("standalone" in window.navigator && (window.navigator as unknown as { standalone: boolean }).standalone) ||
+      ("standalone" in window.navigator &&
+        (window.navigator as unknown as { standalone: boolean }).standalone) ||
       window.matchMedia("(display-mode: standalone)").matches;
 
     // Check if user previously dismissed prompt in the last 7 days
@@ -91,7 +92,11 @@ export function IosInstallPrompt() {
               1
             </span>
             <span className="text-zinc-300">
-              Ťuknite na tlačidlo <strong className="text-white inline-flex items-center gap-1 font-medium bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">Zdieľať <Share className="h-3 w-3 text-sky-400 inline" /></strong> v spodnej lište Safari.
+              Ťuknite na tlačidlo{" "}
+              <strong className="text-white inline-flex items-center gap-1 font-medium bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">
+                Zdieľať <Share className="h-3 w-3 text-sky-400 inline" />
+              </strong>{" "}
+              v spodnej lište Safari.
             </span>
           </div>
 
@@ -100,7 +105,11 @@ export function IosInstallPrompt() {
               2
             </span>
             <span className="text-zinc-300">
-              Vyberte možnosť <strong className="text-white inline-flex items-center gap-1 font-medium bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">Pridať na plochu <PlusSquare className="h-3 w-3 text-emerald-400 inline" /></strong>.
+              Vyberte možnosť{" "}
+              <strong className="text-white inline-flex items-center gap-1 font-medium bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">
+                Pridať na plochu <PlusSquare className="h-3 w-3 text-emerald-400 inline" />
+              </strong>
+              .
             </span>
           </div>
         </div>
