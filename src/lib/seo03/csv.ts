@@ -4,8 +4,8 @@
  * the uploaded content.
  */
 
-export const MAX_FILE_BYTES = 2 * 1024 * 1024; // 2 MB
-export const MAX_DATA_ROWS = 5000;
+export const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB per file
+export const MAX_DATA_ROWS = 50_000; // per file
 
 export type CsvDelimiter = "," | ";" | "\t";
 
@@ -19,12 +19,27 @@ export type Seo03ErrorCode =
   | "SINGLE_PERIOD"
   | "UNTERMINATED_QUOTE";
 
+export type RequiredColumn = "page" | "clicks";
+
+export type Seo03ErrorDetails = {
+  /** Required columns that were not found (WRONG_FORMAT). */
+  missing?: RequiredColumn[];
+  /** Header cells we did find, as written in the file (shown to the user only). */
+  found?: string[];
+  /** The file looks like a GSC "Queries" export instead of "Pages". */
+  looksLikeQueries?: boolean;
+  /** Measured size in bytes (FILE_TOO_LARGE). */
+  bytes?: number;
+};
+
 export class Seo03Error extends Error {
   readonly code: Seo03ErrorCode;
-  constructor(code: Seo03ErrorCode, message: string) {
+  readonly details: Seo03ErrorDetails;
+  constructor(code: Seo03ErrorCode, message: string, details: Seo03ErrorDetails = {}) {
     super(message);
     this.name = "Seo03Error";
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -33,13 +48,15 @@ export function assertFileSize(bytes: number, limit = MAX_FILE_BYTES): void {
   if (bytes > limit) {
     throw new Seo03Error(
       "FILE_TOO_LARGE",
-      `Súbor je príliš veľký (${formatMb(bytes)} MB). Maximum je ${formatMb(limit)} MB.`,
+      `Súbor má ${formatMb(bytes)} MB. Maximum je ${formatMb(limit)} MB a ${MAX_DATA_ROWS.toLocaleString("sk-SK")} riadkov.`,
+      { bytes },
     );
   }
 }
 
-function formatMb(bytes: number): string {
-  return (bytes / (1024 * 1024)).toFixed(1).replace(".", ",");
+export function formatMb(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  return Number.isInteger(mb) ? String(mb) : mb.toFixed(1).replace(".", ",");
 }
 
 export function stripBom(text: string): string {
@@ -88,7 +105,7 @@ export function parseCsv(
     if (rows.length - 1 > maxRows) {
       throw new Seo03Error(
         "TOO_MANY_ROWS",
-        `Súbor má viac ako ${maxRows.toLocaleString("sk-SK")} riadkov. Zúž export v Search Console.`,
+        `Súbor má viac ako ${maxRows.toLocaleString("sk-SK")} riadkov. Maximum je ${formatMb(MAX_FILE_BYTES)} MB a ${maxRows.toLocaleString("sk-SK")} riadkov.`,
       );
     }
   };

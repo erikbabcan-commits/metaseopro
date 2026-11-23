@@ -1,17 +1,41 @@
 /**
- * Synthetic, anonymized sample in the shape of a GSC "Pages" compare export.
- * The domain uses the reserved `.example` TLD. Not real client data.
+ * Synthetic, anonymized sample in the shape of two GSC "Pages" exports
+ * (period A = older, period B = newer) for the fictional shop
+ * eshop-priklad.sk. Identical to __fixtures__/sample-period-{a,b}.csv from the
+ * UX spec. Not real client data.
  */
 export const SAMPLE_LABEL = "Ukážkové dáta";
+export const SAMPLE_FILE_NAMES = { a: "ukazka-obdobie-a.csv", b: "ukazka-obdobie-b.csv" } as const;
 
-export const SAMPLE_GSC_COMPARE_CSV = `Top pages,Last 3 months Clicks,Previous 3 months Clicks,Last 3 months Impressions,Previous 3 months Impressions,Last 3 months CTR,Previous 3 months CTR,Last 3 months Position,Previous 3 months Position
-https://obchod.example/,5400,5200,98000,96000,5.51%,5.42%,1.4,1.5
-https://obchod.example/kategoria/bezecke-topanky,1120,1840,38500,41000,2.91%,4.49%,6.4,3.1
-https://obchod.example/produkt/zimna-bunda-x,620,1210,29500,30000,2.1%,4.03%,2.9,2.8
-https://obchod.example/blog/ako-vybrat-spacak,410,880,10200,22000,4.02%,4%,4,4.2
-https://obchod.example/kategoria/turisticke-palice,260,300,8800,9000,2.95%,3.33%,7.5,7.2
-https://obchod.example/produkt/termoska-1l,190,150,6100,5900,3.11%,2.54%,5.1,5.6
-https://obchod.example/kontakt,118,120,2100,2150,5.62%,5.58%,2.2,2.2
-https://obchod.example/kategoria/zimne-ciapky,60,95,3100,3300,1.94%,2.88%,9.8,9.6
-https://obchod.example/blog/stary-clanok-2019,0,40,0,900,0%,4.44%,0,12.3
+export const SAMPLE_PERIOD_A_CSV = `\uFEFFTop pages
+Start date: 2026-05-26
+End date: 2026-08-23
+Page,Clicks,Impressions,CTR,Position
+https://eshop-priklad.sk/produkty/bezdratove-sluchadla,1840,62400,2.95%,6.2
+https://eshop-priklad.sk/kategoria/smartfony,2210,48100,4.59%,4.1
+https://eshop-priklad.sk/blog/ako-vybrat-notebook,640,22000,2.91%,8.4
+https://eshop-priklad.sk/,3900,120000,3.25%,3.2
+https://eshop-priklad.sk/kategoria/sluchadla,980,27500,3.56%,7.1
+https://eshop-priklad.sk/produkty/obal-na-telefon,410,18400,2.23%,11.4
+https://eshop-priklad.sk/blog/porovnanie-android-vs-ios,280,15200,1.84%,9.6
+https://eshop-priklad.sk/doprava-a-vratky,150,8900,1.69%,12.8
+https://eshop-priklad.sk/produkty/powerbanka-20w,520,19800,2.63%,8.9
+
+https://eshop-priklad.sk/akcie/letny-vypredaj,710,24100,2.95%,6.8
+`;
+
+export const SAMPLE_PERIOD_B_CSV = `\uFEFFTop pages
+Start date: 2026-08-24
+End date: 2026-11-21
+Page,Clicks,Impressions,CTR,Position
+https://eshop-priklad.sk/produkty/bezdratove-sluchadla,980,61200,1.60%,6.5
+https://eshop-priklad.sk/kategoria/smartfony,1420,31800,4.47%,9.8
+https://eshop-priklad.sk/blog/ako-vybrat-notebook,210,19400,1.08%,14.2
+https://eshop-priklad.sk/,4120,125400,3.29%,3.0
+https://eshop-priklad.sk/kategoria/sluchadla,1010,28000,3.61%,6.9
+https://eshop-priklad.sk/produkty/obal-na-telefon,440,19100,2.30%,10.8
+https://eshop-priklad.sk/blog/porovnanie-android-vs-ios,265,14800,1.79%,9.8
+https://eshop-priklad.sk/doprava-a-vratky,160,9100,1.76%,12.1
+https://eshop-priklad.sk/produkty/powerbanka-20w,610,21400,2.85%,7.6
+https://eshop-priklad.sk/akcie/cierny-piatok,880,30500,2.89%,5.4
 `;
