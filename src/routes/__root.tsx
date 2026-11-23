@@ -17,6 +17,7 @@ import { SITE } from "@/lib/i18n";
 import { clearPwaBadge } from "@/lib/pwa-badging";
 import { IosInstallPrompt } from "@/components/IosInstallPrompt";
 import { TopBarLaserLoader } from "@/components/TopBarLaserLoader";
+import { TactileFloatingNav } from "@/components/TactileFloatingNav";
 
 function NotFoundComponent() {
   return (
@@ -175,6 +176,7 @@ function RootComponent() {
           <TopBarLaserLoader />
           <IosInstallPrompt />
           <Outlet />
+          <TactileFloatingNav />
         </ViewerRoleProvider>
       </AuthProvider>
     </QueryClientProvider>
