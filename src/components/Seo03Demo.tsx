@@ -26,6 +26,7 @@ import {
   type LossSummary,
   type PageLoss,
 } from "@/lib/seo03/analysis";
+import { createSlotStore, type Slot } from "@/lib/seo03/slots";
 import {
   SAMPLE_FILE_NAMES,
   SAMPLE_LABEL,
@@ -33,7 +34,6 @@ import {
   SAMPLE_PERIOD_B_CSV,
 } from "@/lib/seo03/sample";
 
-type Slot = "a" | "b";
 type Loaded = { name: string; data: SinglePeriodExport };
 type Outcome = { sample: boolean; parsed: ParsedExport; summary: LossSummary; host: string | null };
 
@@ -94,6 +94,8 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export function Seo03Demo() {
   const [view, setView] = useState<View>({ phase: "empty" });
   const [slots, setSlots] = useState<Partial<Record<Slot, Loaded>>>({});
+  // Source of truth for A/B; `slots` only mirrors it for rendering.
+  const [slotStore] = useState(() => createSlotStore<Loaded>());
   const [lastSlot, setLastSlot] = useState<Slot>("a");
   const inputA = useRef<HTMLInputElement>(null);
   const inputB = useRef<HTMLInputElement>(null);
@@ -110,6 +112,7 @@ export function Seo03Demo() {
       summary: computeLosses(parsed),
       host: dominantHost(parsed.rows),
     };
+    slotStore.clear();
     setSlots({});
     setView(
       outcome.summary.top.length === 0
@@ -169,11 +172,11 @@ export function Seo03Demo() {
         finish(parsedFile.data, false);
         return;
       }
-      const next = { ...slots, [slot]: { name: file.name, data: parsedFile.data } };
-      if (next.a && next.b) {
-        finish(joinPeriods(next.a.data, next.b.data), false);
+      const put = slotStore.put(slot, { name: file.name, data: parsedFile.data });
+      if (put.complete) {
+        finish(joinPeriods(put.a.data, put.b.data), false);
       } else {
-        setSlots(next);
+        setSlots(put.slots);
         setView({ phase: "empty" });
       }
     } catch (error) {
@@ -182,6 +185,7 @@ export function Seo03Demo() {
   };
 
   const loadSample = async () => {
+    slotStore.clear();
     setSlots({});
     const started = Date.now();
     setView({
@@ -198,6 +202,7 @@ export function Seo03Demo() {
 
   const reset = () => {
     // Drop every reference to the uploaded data.
+    slotStore.clear();
     setSlots({});
     setView({ phase: "empty" });
     if (inputA.current) inputA.current.value = "";

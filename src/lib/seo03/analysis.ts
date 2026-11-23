@@ -167,11 +167,22 @@ export function computeLosses(data: Pick<ParsedExport, "rows">, limit = 3): Loss
 }
 
 /**
+ * Invisible characters a spreadsheet may skip before reading a formula:
+ * zero-width (U+200B–U+200F), bidi embeddings/overrides (U+202A–U+202E),
+ * bidi isolates (U+2066–U+2069) and the BOM / zero-width no-break space.
+ */
+const LEADING_INVISIBLE = /^[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]+/;
+
+/** = + - @ TAB CR, plus their fullwidth forms ＝ ＋ － ＠ (U+FF1D, FF0B, FF0D, FF20). */
+const FORMULA_START = /^[=+\-@\t\r\uFF1D\uFF0B\uFF0D\uFF20]/;
+
+/**
  * Neutralizes spreadsheet formula injection (OWASP CSV injection) in TEXT
- * cells: anything starting with = + - @ TAB or CR gets a leading apostrophe.
+ * cells: anything that starts with a formula character, after skipping leading
+ * invisible characters, gets a leading apostrophe. The value is kept as is.
  */
 export function sanitizeCell(value: string): string {
-  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  return FORMULA_START.test(value.replace(LEADING_INVISIBLE, "")) ? `'${value}` : value;
 }
 
 type ReportCell = { text: string } | { num: number | null; digits?: number };

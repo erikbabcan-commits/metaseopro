@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   MAX_DATA_ROWS,
   MAX_FILE_BYTES,
@@ -13,6 +13,7 @@ import {
 } from "./csv";
 import {
   dominantHost,
+  joinPeriods,
   localizePeriodLabel,
   normalizePageKey,
   parseCompareExport,
@@ -28,6 +29,7 @@ import {
   sanitizeCell,
 } from "./analysis";
 import { SAMPLE_PERIOD_A_CSV, SAMPLE_PERIOD_B_CSV } from "./sample";
+import { createSlotStore } from "./slots";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixture = (name: string) => readFileSync(join(here, "__fixtures__", name), "utf8");
@@ -329,6 +331,47 @@ describe("seo03 report export (formula injection, spec §6.4)", () => {
     expect(sanitizeCell("https://eshop-priklad.sk/")).toBe("https://eshop-priklad.sk/");
   });
 
+  it.each([
+    ["zero-width space", "\u200B=1+1"],
+    ["zero-width joiner", "\u200D+cmd"],
+    ["RTL mark", "\u200F-2+3"],
+    ["RTL override", "\u202E@SUM(A1)"],
+    ["LTR embedding", "\u202A=1"],
+    ["isolate", "\u2066=1"],
+    ["pop isolate", "\u2069=1"],
+    ["BOM", "\uFEFF=1"],
+    ["several invisibles", "\u200B\u2067\uFEFF=1"],
+  ])("neutralizes a formula hidden behind a leading %s", (_, v) => {
+    expect(sanitizeCell(v)).toBe(`'${v}`);
+  });
+
+  it.each(["\uFF1D1+1", "\uFF0Bcmd", "\uFF0D2+3", "\uFF20SUM(A1)", "\u200B\uFF1D1"])(
+    "neutralizes fullwidth formula start %j",
+    (v) => {
+      expect(sanitizeCell(v)).toBe(`'${v}`);
+    },
+  );
+
+  it("leaves safe text behind invisible characters unchanged", () => {
+    expect(sanitizeCell("\u200Bhttps://eshop-priklad.sk/")).toBe("\u200Bhttps://eshop-priklad.sk/");
+    expect(sanitizeCell("a=b")).toBe("a=b");
+  });
+
+  it("escapes zero-width, bidi and fullwidth formula cells from a CSV fixture", () => {
+    const csv = buildReportCsv(
+      computeLosses(parseCompareExport(fixture("injection-unicode.csv")), 10),
+    );
+    const lines = csv.slice(1).trim().split("\r\n");
+    expect(lines).toHaveLength(9);
+    const pages = lines.slice(1).map((line) => parseCsv(line, { delimiter: ";" })[0][1]);
+    const hostile = pages.filter((p) => !p.includes("eshop-priklad.sk/ok"));
+    expect(hostile).toHaveLength(7);
+    for (const page of hostile) expect(page.startsWith("'")).toBe(true);
+    expect(pages).toContain("\u200Bhttps://eshop-priklad.sk/ok");
+    expect(pages).toContain("'\uFF1D1+1");
+    expect(pages).toContain("'\u202E+cmd");
+  });
+
   it("escapes hostile page cells but keeps negative numbers numeric", () => {
     const csv = buildReportCsv(computeLosses(parseCompareExport(fixture("injection.csv")), 5));
     expect(csv.startsWith("\uFEFF")).toBe(true);
@@ -370,6 +413,55 @@ describe("seo03 report export (formula injection, spec §6.4)", () => {
 });
 
 describe("seo03 privacy: uploaded CSV is never stored, sent or logged", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("runs parse, analysis and export without touching network, storage, cookies or console", () => {
+    const fetchSpy = vi.fn();
+    const xhrSpy = vi.fn();
+    const beaconSpy = vi.fn();
+    const localSet = vi.fn();
+    const sessionSet = vi.fn();
+    const idbOpen = vi.fn();
+    const cookieSet = vi.fn();
+    const fakeDocument = {};
+    Object.defineProperty(fakeDocument, "cookie", { get: () => "", set: cookieSet });
+    vi.stubGlobal("fetch", fetchSpy);
+    vi.stubGlobal("XMLHttpRequest", xhrSpy);
+    vi.stubGlobal("navigator", { sendBeacon: beaconSpy });
+    vi.stubGlobal("localStorage", { setItem: localSet, getItem: vi.fn() });
+    vi.stubGlobal("sessionStorage", { setItem: sessionSet, getItem: vi.fn() });
+    vi.stubGlobal("indexedDB", { open: idbOpen });
+    vi.stubGlobal("document", fakeDocument);
+    const consoleSpies = (["log", "info", "warn", "error", "debug", "trace", "table"] as const).map(
+      (m) => vi.spyOn(console, m).mockImplementation(() => {}),
+    );
+
+    // Happy path: two single-period uploads joined, then compare export, then report.
+    const store = createSlotStore<ReturnType<typeof parseExportFile>>();
+    store.put("a", parseExportFile(fixture("sample-period-a.csv")));
+    const put = store.put("b", parseExportFile(fixture("sample-period-b.csv")));
+    expect(put.complete).toBe(true);
+    if (!put.complete || put.a.kind !== "single" || put.b.kind !== "single") throw new Error();
+    const joined = joinPeriods(put.a.data, put.b.data);
+    const summary = computeLosses(joined);
+    expect(summary.top).toHaveLength(3);
+    dominantHost(joined.rows);
+    buildReportCsv(summary);
+    buildReportCsv(computeLosses(parseCompareExport(fixture("combined-two-periods.csv"))));
+    buildReportCsv(computeLosses(parseCompareExport(fixture("injection-unicode.csv"))));
+    // Error paths must stay silent too.
+    expect(caught(() => parseExportFile(fixture("broken-missing-columns.csv")))).toBeDefined();
+    expect(caught(() => assertFileSize(MAX_FILE_BYTES + 1))).toBeDefined();
+
+    for (const spy of [fetchSpy, xhrSpy, beaconSpy, localSet, sessionSet, idbOpen, cookieSet]) {
+      expect(spy).not.toHaveBeenCalled();
+    }
+    for (const spy of consoleSpies) expect(spy).not.toHaveBeenCalled();
+  });
+
   const sources = [
     ...readdirSync(here)
       .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
@@ -382,5 +474,34 @@ describe("seo03 privacy: uploaded CSV is never stored, sent or logged", () => {
     const src = readFileSync(file, "utf8");
     expect(src).not.toMatch(/localStorage|sessionStorage|indexedDB|document\.cookie|caches\./);
     expect(src).not.toMatch(/\bconsole\.|fetch\(|XMLHttpRequest|sendBeacon|supabase/);
+  });
+});
+
+describe("seo03 period A/B slots (concurrent uploads)", () => {
+  const parseLater = (csv: string, ms: number) =>
+    new Promise<ReturnType<typeof parseExportFile>>((resolve) =>
+      setTimeout(() => resolve(parseExportFile(csv)), ms),
+    );
+
+  it("keeps both files when A and B finish parsing almost at once", async () => {
+    const store = createSlotStore<ReturnType<typeof parseExportFile>>();
+    const results = await Promise.all([
+      parseLater(SAMPLE_PERIOD_A_CSV, 5).then((a) => store.put("a", a)),
+      parseLater(SAMPLE_PERIOD_B_CSV, 0).then((b) => store.put("b", b)),
+    ]);
+    const done = results.filter((r) => r.complete);
+    expect(done).toHaveLength(1);
+    expect(results[1]).toEqual({ complete: false, slots: { b: expect.anything() } });
+    // Store is emptied once both periods were handed over.
+    expect(store.get()).toEqual({});
+  });
+
+  it("replaces a slot that is uploaded again and clears on reset", () => {
+    const store = createSlotStore<string>();
+    expect(store.put("a", "first")).toEqual({ complete: false, slots: { a: "first" } });
+    expect(store.put("a", "second")).toEqual({ complete: false, slots: { a: "second" } });
+    store.clear();
+    expect(store.put("b", "b")).toEqual({ complete: false, slots: { b: "b" } });
+    expect(store.put("a", "a")).toEqual({ complete: true, a: "a", b: "b" });
   });
 });
