@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { ErrorComponentProps } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -13,7 +14,7 @@ import appCss from "../styles.css?url";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ViewerRoleProvider } from "@/hooks/use-viewer-role";
 import { SITE } from "@/lib/i18n";
-import { PwaLaunchExperience } from "@/components/PwaLaunchExperience";
+import { clearPwaBadge } from "@/lib/pwa-badging";
 import { IosInstallPrompt } from "@/components/IosInstallPrompt";
 
 function NotFoundComponent() {
@@ -162,11 +163,14 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  useEffect(() => {
+    void clearPwaBadge();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ViewerRoleProvider>
-          <PwaLaunchExperience />
           <IosInstallPrompt />
           <Outlet />
         </ViewerRoleProvider>
