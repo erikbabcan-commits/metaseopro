@@ -3,6 +3,14 @@
     {
       "source": "/~oauth/:path*",
       "destination": "https://seo4web.lovable.app/~oauth/:path*"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/public/sitemap"
+    },
+    {
+      "source": "/api/public/sitemap.xml",
+      "destination": "/api/public/sitemap"
     }
   ]
 }

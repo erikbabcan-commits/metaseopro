@@ -1,8 +1,11 @@
 User-agent: *
 Allow: /
+Allow: /api/public/sitemap
+Allow: /api/public/sitemap.xml
 Disallow: /settings/
 Disallow: /dashboard
 Disallow: /history
 Disallow: /api/
 
-Sitemap: https://seo.vorkei.com/api/public/sitemap.xml
+Sitemap: https://seo.vorkei.com/api/public/sitemap
+Sitemap: https://seo.vorkei.com/sitemap.xml

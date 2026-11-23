@@ -12,7 +12,7 @@ import {
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ViewerRoleProvider } from "@/hooks/use-viewer-role";
-import { SITE, pageUrl } from "@/lib/i18n";
+import { SITE } from "@/lib/i18n";
 import { PwaLaunchExperience } from "@/components/PwaLaunchExperience";
 import { IosInstallPrompt } from "@/components/IosInstallPrompt";
 
@@ -126,10 +126,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", type: "image/png", sizes: "32x32", href: "/icons/icon-32.png" },
       { rel: "icon", type: "image/png", sizes: "16x16", href: "/icons/icon-16.png" },
       { rel: "canonical", href: SITE },
-      { rel: "alternate", hrefLang: "sk", href: pageUrl("sk", "/") },
-      { rel: "alternate", hrefLang: "en", href: pageUrl("en", "/") },
-      { rel: "alternate", hrefLang: "de", href: pageUrl("de", "/") },
-      { rel: "alternate", hrefLang: "x-default", href: pageUrl("sk", "/") },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
