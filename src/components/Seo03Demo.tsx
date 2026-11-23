@@ -240,7 +240,7 @@ export function Seo03Demo() {
   return (
     <div className="flex min-h-screen min-h-dvh flex-col bg-page-bg font-sans text-foreground">
       <header className="border-b border-border print:hidden">
-        <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-3 px-4 py-2 md:px-6">
+        <div className="mx-auto flex max-w-[1080px] flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-2 md:px-6">
           <Link
             to="/"
             className={`flex min-w-0 items-center gap-2 rounded-md ${FOCUS}`}
@@ -252,7 +252,11 @@ export function Seo03Demo() {
             <span className="font-display text-lg font-semibold max-[359px]:hidden">SEO4WEB</span>
             <span className="truncate text-sm text-muted-foreground">90-sekundová ukážka</span>
           </Link>
-          {sample && <SampleBadge />}
+          {sample && (
+            <div className="max-[479px]:basis-full max-[479px]:pb-1">
+              <SampleBadge />
+            </div>
+          )}
         </div>
       </header>
 
@@ -354,12 +358,15 @@ function Intro() {
   );
 }
 
-function Limits() {
+/** `withPrivacy` is off on the empty state, where the shield line below says it once. */
+function Limits({ withPrivacy = true }: { withPrivacy?: boolean }) {
   return (
     <ul className="mt-5 list-inside list-disc space-y-1 text-sm text-muted-foreground">
       <li>Najviac {formatMb(MAX_FILE_BYTES)} MB na súbor</li>
       <li>Najviac {intFmt.format(MAX_DATA_ROWS)} riadkov</li>
-      <li>CSV ostáva len v prehliadači — nič sa neodosiela, neukladá ani neloguje</li>
+      {withPrivacy && (
+        <li>CSV ostáva len v prehliadači — nič sa neodosiela, neukladá ani neloguje</li>
+      )}
     </ul>
   );
 }
@@ -497,10 +504,11 @@ function EmptyState({
       <Button size="lg" className={`mt-5 w-full sm:w-auto ${FOCUS}`} onClick={onSample}>
         Použiť ukážkové dáta
       </Button>
-      <Limits />
+      <Limits withPrivacy={false} />
       <p className="mt-4 flex items-start gap-2 text-sm text-secondary-foreground">
         <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-        Súbor sa spracuje len vo vašom prehliadači. Na server nejde ani kópia, ani náhľad obsahu.
+        Súbor sa spracuje len vo vašom prehliadači. Na server nejde ani kópia, ani náhľad obsahu a
+        nič sa neukladá ani neloguje.
       </p>
       <HowTo />
       <p className="mt-5 text-sm text-muted-foreground">
@@ -694,6 +702,12 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** A page absent from one period's export has no CTR or position there; say so instead of "—". */
+const MISSING_IN_EXPORT = "v exporte chýba";
+function missingOr(page: PageLoss, period: "previous" | "current", value: string): string {
+  return page.missingIn === period ? MISSING_IN_EXPORT : value;
+}
+
 function PageBlock({ page, variant }: { page: PageLoss; variant: "card" | "paper" }) {
   return (
     <article
@@ -732,10 +746,13 @@ function PageBlock({ page, variant }: { page: PageLoss; variant: "card" | "paper
           label="Impresie"
           value={`${fmtInt(page.previous.impressions)} → ${fmtInt(page.current.impressions)}`}
         />
-        <Metric label="CTR" value={`${fmtCtr(page.previous.ctr)} → ${fmtCtr(page.current.ctr)}`} />
+        <Metric
+          label="CTR"
+          value={`${missingOr(page, "previous", fmtCtr(page.previous.ctr))} → ${missingOr(page, "current", fmtCtr(page.current.ctr))}`}
+        />
         <Metric
           label="Pozícia"
-          value={`${fmtPos(page.previous.position)} → ${fmtPos(page.current.position)}`}
+          value={`${missingOr(page, "previous", fmtPos(page.previous.position))} → ${missingOr(page, "current", fmtPos(page.current.position))}`}
         />
       </dl>
       <div className="mt-4 rounded-lg bg-info-subtle p-3 ring-1 ring-info-border">
