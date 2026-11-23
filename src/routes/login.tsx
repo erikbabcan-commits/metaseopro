@@ -97,12 +97,32 @@ function LoginPage() {
       // Persist the post-login target in sessionStorage (survives the OAuth broker
       // round-trip); the callback URL stays on the current app origin, clean of params.
       rememberLoginRedirect(redirect);
-      const result = await lovable.auth.signInWithOAuth(provider, {
-        redirect_uri: authCallbackUrl(),
-      });
-      if (result.error) throw result.error;
-      if (result.redirected) return;
-      // The auth listener navigates only after the helper has set the session.
+
+      let lovableFailed = false;
+      try {
+        const result = await lovable.auth.signInWithOAuth(provider, {
+          redirect_uri: authCallbackUrl(),
+        });
+        if (result.error) {
+          lovableFailed = true;
+        } else if (result.redirected) {
+          return;
+        }
+      } catch {
+        lovableFailed = true;
+      }
+
+      // Fallback: If Lovable broker fails (e.g. on custom production domain seo.vorkei.com),
+      // directly initiate Supabase OAuth flow
+      if (lovableFailed) {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: authCallbackUrl(),
+          },
+        });
+        if (error) throw error;
+      }
     } catch (error) {
       toast.error(translateAuthError(error));
     } finally {
