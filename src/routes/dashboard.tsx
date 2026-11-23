@@ -1156,7 +1156,9 @@ function CtrBooster({
             ))}
           </ul>
           {/* Terminal Box for AI Output */}
-          <div className="min-h-[220px] rounded-xl bg-zinc-950 border border-zinc-800 p-5 shadow-xl text-zinc-100 flex flex-col justify-between">
+          <div className="min-h-[220px] rounded-xl bg-[#171717] border border-zinc-800/80 p-5 shadow-2xl text-zinc-100 flex flex-col justify-between relative overflow-hidden ring-1 ring-white/5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)]">
+            {/* Subtle top polish specular sheen */}
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
             {!active ? (
               <div className="flex flex-col items-center justify-center py-12 text-center text-zinc-400">
                 <Sparkles className="size-8 mb-2 text-zinc-500" />

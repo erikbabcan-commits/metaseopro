@@ -208,7 +208,8 @@ export function BillingInvoiceSection() {
 
   if (loading || loadedUserId !== user.id) {
     return (
-      <div className="rounded-xl border border-[#2c2c2c] bg-[#212121] p-6 flex items-center justify-center gap-3 text-zinc-400 text-sm shadow-xl shadow-black/40">
+      <div className="rounded-xl border border-zinc-700/60 bg-[#262626] p-6 flex items-center justify-center gap-3 text-zinc-300 text-sm shadow-xl relative overflow-hidden ring-1 ring-white/5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
         <Loader2 className="size-4 animate-spin motion-reduce:animate-none text-emerald-400" />
         <span>Načítavam fakturačné údaje a predplatné…</span>
       </div>
@@ -218,7 +219,8 @@ export function BillingInvoiceSection() {
   return (
     <div className="space-y-6">
       {/* 1. Header Card: Current Plan & Invoice Download */}
-      <div className="rounded-xl border border-[#2c2c2c] bg-[#212121] p-5 md:p-6 shadow-xl shadow-black/40">
+      <div className="rounded-xl border border-zinc-700/60 bg-[#262626] p-5 md:p-6 shadow-xl relative overflow-hidden ring-1 ring-white/5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -236,7 +238,7 @@ export function BillingInvoiceSection() {
                       ? "border-amber-500/40 bg-amber-500/10 text-amber-400 font-bold"
                       : plan === "pro"
                         ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-bold"
-                        : "border-[#333333] bg-[#262626] text-zinc-400"
+                        : "border-zinc-700 bg-zinc-800 text-zinc-300"
                   }
                 >
                   {PLANS[plan].name}
@@ -291,7 +293,7 @@ export function BillingInvoiceSection() {
 
         {/* Invoice Summary Pill */}
         {lastInvoiceNumber && (
-          <div className="mt-4 pt-4 border-t border-[#2c2c2c] flex flex-wrap items-center justify-between text-xs text-zinc-400 gap-2">
+          <div className="mt-4 pt-4 border-t border-zinc-700/60 flex flex-wrap items-center justify-between text-xs text-zinc-400 gap-2">
             <span className="flex items-center gap-1.5 font-medium text-zinc-200">
               <CheckCircle2 className="size-4 text-emerald-400" />
               Posledná vystavená faktúra:{" "}
@@ -312,7 +314,8 @@ export function BillingInvoiceSection() {
       </div>
 
       {/* 2. Billing Details Form */}
-      <div className="rounded-xl border border-[#2c2c2c] bg-[#212121] p-5 md:p-6 shadow-xl shadow-black/40">
+      <div className="rounded-xl border border-zinc-700/60 bg-[#262626] p-5 md:p-6 shadow-xl relative overflow-hidden ring-1 ring-white/5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
         <div className="flex items-center gap-2 font-semibold text-sm mb-4 text-white">
           <Building2 className="size-4 text-emerald-400" />
           <span>Firemné fakturačné údaje</span>
@@ -330,7 +333,7 @@ export function BillingInvoiceSection() {
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="napr. Moja SEO Agentúra s.r.o."
-                className="bg-[#1a1a1a] border-[#333333] text-[#f4f4f5] placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500"
+                className="bg-[#1f1f1f] border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500"
               />
             </div>
 
@@ -351,8 +354,8 @@ export function BillingInvoiceSection() {
                 value={ico}
                 onChange={(e) => handleIcoChange(e.target.value)}
                 placeholder="12345678"
-                className={`bg-[#1a1a1a] text-[#f4f4f5] placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500 ${
-                  icoError ? "border-rose-500 focus-visible:ring-rose-500" : "border-[#333333]"
+                className={`bg-[#1f1f1f] text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500 ${
+                  icoError ? "border-rose-500 focus-visible:ring-rose-500" : "border-zinc-700"
                 }`}
               />
               {icoError && (
@@ -379,8 +382,8 @@ export function BillingInvoiceSection() {
                 value={dic}
                 onChange={(e) => handleDicChange(e.target.value)}
                 placeholder="2021234567"
-                className={`bg-[#1a1a1a] text-[#f4f4f5] placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500 ${
-                  dicError ? "border-rose-500 focus-visible:ring-rose-500" : "border-[#333333]"
+                className={`bg-[#1f1f1f] text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500 ${
+                  dicError ? "border-rose-500 focus-visible:ring-rose-500" : "border-zinc-700"
                 }`}
               />
               {dicError && (
@@ -407,8 +410,8 @@ export function BillingInvoiceSection() {
                 value={icDph}
                 onChange={(e) => handleIcDphChange(e.target.value)}
                 placeholder="SK2021234567"
-                className={`bg-[#1a1a1a] text-[#f4f4f5] placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500 ${
-                  icDphError ? "border-rose-500 focus-visible:ring-rose-500" : "border-[#333333]"
+                className={`bg-[#1f1f1f] text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500 ${
+                  icDphError ? "border-rose-500 focus-visible:ring-rose-500" : "border-zinc-700"
                 }`}
               />
               {icDphError ? (
@@ -433,7 +436,7 @@ export function BillingInvoiceSection() {
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="Hlavná 42"
-                className="bg-[#1a1a1a] border-[#333333] text-[#f4f4f5] placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500"
+                className="bg-[#1f1f1f] border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500"
               />
             </div>
 
@@ -447,7 +450,7 @@ export function BillingInvoiceSection() {
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 placeholder="Bratislava"
-                className="bg-[#1a1a1a] border-[#333333] text-[#f4f4f5] placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500"
+                className="bg-[#1f1f1f] border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500"
               />
             </div>
 
@@ -461,7 +464,7 @@ export function BillingInvoiceSection() {
                 value={zip}
                 onChange={(e) => setZip(e.target.value)}
                 placeholder="811 01"
-                className="bg-[#1a1a1a] border-[#333333] text-[#f4f4f5] placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500"
+                className="bg-[#1f1f1f] border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500"
               />
             </div>
 
@@ -474,7 +477,7 @@ export function BillingInvoiceSection() {
                 id="billingCountry"
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
-                className="w-full rounded-md border border-[#333333] bg-[#1a1a1a] text-[#f4f4f5] px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus:border-emerald-500"
+                className="w-full rounded-md border border-zinc-700 bg-[#1f1f1f] text-zinc-100 px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus:border-emerald-500"
               >
                 <option value="Slovensko">Slovenská republika (SK)</option>
                 <option value="Česká republika">Česká republika (CZ)</option>
