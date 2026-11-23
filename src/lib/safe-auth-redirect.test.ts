@@ -59,6 +59,66 @@ describe("safeRedirect — open-redirect cases are rejected to /dashboard", () =
   });
 });
 
+describe("safeRedirect — control characters and backslashes (#18 P3-3)", () => {
+  it.each<[string, string]>([
+    ["/\t/evil.com", "tab then protocol-relative"],
+    ["/\n/evil.com", "newline then protocol-relative"],
+    ["/\r/evil.com", "carriage return then protocol-relative"],
+    ["/\t", "bare /\\t"],
+    ["/\\", "bare /\\ (backslash)"],
+    ["/\\evil.com", "backslash host"],
+    ["/audit\u0000x", "NUL (\\x00)"],
+    ["/audit\u0001", "SOH (\\x01)"],
+    ["/a\u001fb", "unit separator (\\x1F)"],
+    ["/a\u007fb", "DEL (\\x7F)"],
+    ["/audit?domain=a.sk\u000bx", "vertical tab in query"],
+    ["/audit?domain=a.sk\u000cx", "form feed in query"],
+  ])("rejects %j (%s)", (input) => {
+    expect(safeRedirect(input)).toBe("/dashboard");
+  });
+
+  it("still allows normal paths with encoded characters", () => {
+    expect(safeRedirect("/%09/x")).toBe("/%09/x");
+    expect(safeRedirect("/audit?domain=a.sk&x=%0A")).toBe("/audit?domain=a.sk&x=%0A");
+  });
+
+  it("covers every C0 control character and DEL", () => {
+    for (let code = 0; code <= 0x1f; code += 1) {
+      expect(safeRedirect(`/a${String.fromCharCode(code)}b`)).toBe("/dashboard");
+    }
+    expect(safeRedirect(`/a${String.fromCharCode(0x7f)}b`)).toBe("/dashboard");
+  });
+});
+
+describe("safeRedirect — /login loop guard is case-insensitive and decode-aware", () => {
+  it.each<[string, string]>([
+    ["/LOGIN", "upper case"],
+    ["/Login?x=1", "mixed case with query"],
+    ["/login/", "trailing slash"],
+    ["/%6cogin", "encoded l"],
+    ["/%4C%4FGIN", "encoded upper case"],
+    ["/%6C%6f%67%69%6E?x=1", "fully encoded"],
+    ["/%256cogin", "double encoded"],
+    ["/./login", "dot segment"],
+    ["/a/../login", "parent segment"],
+    ["/%2e/login", "encoded dot segment"],
+    ["/%2Flogin", "encoded slash"],
+    ["/login#frag", "fragment"],
+    ["/%", "malformed escape"],
+    ["/%E0%A4%A", "truncated multibyte escape"],
+    ["/audit%zz", "invalid hex escape"],
+  ])("rejects %s (%s)", (input) => {
+    expect(safeRedirect(input)).toBe("/dashboard");
+  });
+
+  it("still allows non-login paths, including a bare % in the query", () => {
+    expect(safeRedirect("/audit?domain=a.sk&x=100%")).toBe("/audit?domain=a.sk&x=100%");
+    expect(safeRedirect("/brief")).toBe("/brief");
+    expect(safeRedirect("/a/login-help-not")).toBe("/a/login-help-not");
+    expect(safeRedirect("/dashboard?next=/login")).toBe("/dashboard?next=/login");
+  });
+});
+
 describe("appOrigin", () => {
   it.each([
     "https://seo4web.lovable.app",

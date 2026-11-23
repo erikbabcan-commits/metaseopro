@@ -73,6 +73,7 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-input-strong: var(--input-strong);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
   --color-chart-1: var(--chart-1);
@@ -109,12 +110,16 @@
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
   --border: oklch(0.89 0.01 165);
-  --input: oklch(0.87 0.012 165);
+  /* Interactive input/dropzone borders. WCAG 1.4.11 ≥3:1 on card, background and muted.
+     Existing `border-input` follows this via --input. SEO-03 uses --input-strong by name. */
+  --input-strong: oklch(0.62 0.012 165);
+  --input: var(--input-strong);
   --ring: oklch(0.52 0.095 165);
   --success: oklch(0.56 0.12 155);
   --success-foreground: oklch(0.37 0.09 155);
   --success-subtle: oklch(0.96 0.025 155);
   --success-border: oklch(0.85 0.065 155);
+  /* --warning is a fill/accent. Text must use --warning-foreground (already ≥4.5:1). */
   --warning: oklch(0.72 0.15 85);
   --warning-foreground: oklch(0.42 0.09 65);
   --warning-subtle: oklch(0.97 0.035 90);
@@ -163,7 +168,8 @@
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.984 0.003 247.858);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  --input-strong: oklch(1 0 0 / 45%);
+  --input: var(--input-strong);
   --ring: oklch(0.551 0.027 264.364);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
@@ -495,3 +501,21 @@ html, body {
 
 .safe-top { padding-top: env(safe-area-inset-top, 0px); }
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+
+/* iOS Safari zooms a focused input/textarea/select whose computed font-size is
+   below 16px. Unlocking viewport zoom is not enough if fields stay at 14px.
+   Under 768px, raise only controls that use the small typography utilities
+   (text-xs / text-sm, typically 12px / 14px). Do not override text-base or
+   text-lg (audit, brief, plan stay at 18px). Desktop typography is unchanged.
+   Radix SelectTrigger is a <button>; iOS does not auto-zoom on it, so it is
+   intentionally left out of this rule. */
+@media (max-width: 767px) {
+  :is(
+      input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="hidden"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]),
+      textarea,
+      select
+    ):is(.text-xs, .text-sm) {
+    font-size: 16px;
+  }
+}

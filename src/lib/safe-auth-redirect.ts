@@ -9,6 +9,35 @@
 export const DEFAULT_APP_ORIGIN = "https://seo4web.lovable.app";
 const REDIRECT_STORAGE_KEY = "seo4web:auth-redirect";
 const DEFAULT_REDIRECT = "/dashboard";
+// eslint-disable-next-line no-control-regex -- intentionally matches C0 controls and DEL
+const CONTROL_CHARS = /[\x00-\x1f\x7f]/;
+
+/**
+ * True when the path points at /login (loop guard). Case-insensitive, evaluated on the
+ * percent-decoded pathname (decoded up to 3 times, so "/%6cogin" and "/%256cogin" match),
+ * with "." / ".." / empty segments resolved. A malformed escape cannot be evaluated,
+ * so it counts as a match and the caller rejects it.
+ */
+function isLoginLoopPath(path: string): boolean {
+  let decoded = path.split(/[?#]/, 1)[0];
+  for (let i = 0; i < 3; i += 1) {
+    let next: string;
+    try {
+      next = decodeURIComponent(decoded);
+    } catch {
+      return true;
+    }
+    if (next === decoded) break;
+    decoded = next;
+  }
+  const stack: string[] = [];
+  for (const segment of decoded.replace(/\\/g, "/").split("/")) {
+    if (segment === "" || segment === ".") continue;
+    if (segment === "..") stack.pop();
+    else stack.push(segment);
+  }
+  return (stack[0] ?? "").toLowerCase().startsWith("login");
+}
 
 export function appOrigin(): string {
   if (typeof window !== "undefined") {
@@ -21,14 +50,17 @@ export function appOrigin(): string {
 /**
  * Returns a safe relative same-origin path, or DEFAULT_REDIRECT.
  * Rejects protocol-relative, absolute, backslash, scheme and userinfo tricks,
- * and any /login path (avoids redirect loops).
+ * control characters (a "/\t/evil.com" style path parses cross-origin in WHATWG URL),
+ * and any /login path, matched case-insensitively after decoding (avoids redirect loops).
  */
 export function safeRedirect(candidate: unknown): string {
   if (typeof candidate !== "string") return DEFAULT_REDIRECT;
+  // Checked on the raw value: trim() would otherwise hide "/\t" as "/".
+  if (CONTROL_CHARS.test(candidate)) return DEFAULT_REDIRECT;
   const path = candidate.trim();
   if (!path.startsWith("/")) return DEFAULT_REDIRECT;
   if (path.startsWith("//")) return DEFAULT_REDIRECT;
-  if (path.startsWith("/login")) return DEFAULT_REDIRECT;
+  if (isLoginLoopPath(path)) return DEFAULT_REDIRECT;
   if (path.includes("\\")) return DEFAULT_REDIRECT;
   if (path.includes("://")) return DEFAULT_REDIRECT;
   if (path.includes("@")) return DEFAULT_REDIRECT;

@@ -5,6 +5,7 @@ type AuthErrorKey =
   | "login.authError.alreadyRegistered"
   | "login.authError.emailNotConfirmed"
   | "login.authError.passwordTooShort"
+  | "login.authError.weakPassword"
   | "login.authError.invalidEmail"
   | "login.authError.rateLimit"
   | "login.authError.generic";
@@ -14,7 +15,7 @@ const CODE_MAP: Record<string, AuthErrorKey> = {
   email_not_confirmed: "login.authError.emailNotConfirmed",
   user_already_exists: "login.authError.alreadyRegistered",
   email_exists: "login.authError.alreadyRegistered",
-  weak_password: "login.authError.passwordTooShort",
+  weak_password: "login.authError.weakPassword",
   over_email_send_rate_limit: "login.authError.rateLimit",
   over_request_rate_limit: "login.authError.rateLimit",
   email_rate_limit_exceeded: "login.authError.rateLimit",
@@ -60,10 +61,12 @@ export function mapAuthErrorKey(error: unknown): AuthErrorKey {
   if (message.includes("email not confirmed")) {
     return "login.authError.emailNotConfirmed";
   }
+  if (message.includes("password is known to be weak")) {
+    return "login.authError.weakPassword";
+  }
   if (
     message.includes("password should be at least") ||
-    message.includes("password is too short") ||
-    message.includes("password is known to be weak")
+    message.includes("password is too short")
   ) {
     return "login.authError.passwordTooShort";
   }
