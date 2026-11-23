@@ -48,6 +48,12 @@ coverage/
 .DS_Store
 Thumbs.db
 *.suo
+
+# Agent skills & local agent caches
+.agents/
+.claude/
+agent/
+skills-lock.json
 *.ntvs*
 *.njsproj
 *.sln
