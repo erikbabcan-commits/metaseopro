@@ -117,28 +117,29 @@ export function OpportunityRadar({
   };
 
   const stateColor: Record<string, string> = {
-    Critical: "bg-rose-500/10 border border-rose-500/20 text-rose-400 font-bold",
-    Opportunity: "bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold",
-    Good: "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold",
-    Protected: "bg-sky-500/10 border border-sky-500/20 text-sky-400 font-bold",
-    "Needs data": "bg-zinc-800 border border-zinc-700 text-zinc-400 font-medium",
+    Critical: "bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 font-bold",
+    Opportunity:
+      "bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold",
+    Good: "bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold",
+    Protected: "bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-bold",
+    "Needs data": "bg-muted border border-border text-muted-foreground font-medium",
   };
 
   return (
     <section className="mt-12">
-      <h2 className="text-lg font-bold text-white font-display">SEO Opportunity Radar</h2>
-      <p className="text-xs text-zinc-400">
+      <h2 className="text-lg font-bold text-foreground font-display">SEO Opportunity Radar</h2>
+      <p className="text-xs text-muted-foreground">
         Stránky zoradené podľa potenciálu rastu (počítajú sa aj stránky s impresiami bez klikov) ·{" "}
-        <span className="font-mono text-zinc-300">{snap.site_url}</span>
+        <span className="font-mono text-foreground font-medium">{snap.site_url}</span>
       </p>
       {ranked.length === 0 ? (
-        <p className="mt-4 rounded-xl bg-[#1f1f1f] border border-[#2c2c2c] p-5 text-sm text-zinc-400 shadow-xl shadow-black/40">
+        <p className="mt-4 rounded-xl bg-card border border-border p-5 text-sm text-muted-foreground shadow-xs">
           Žiadne stránky s dostatkom dát. Spusti nový live sken v Decay Radar.
         </p>
       ) : (
-        <div className="mt-4 overflow-x-auto rounded-xl bg-[#1f1f1f] border border-[#2c2c2c] shadow-xl shadow-black/40">
+        <div className="mt-4 overflow-x-auto rounded-xl bg-card border border-border shadow-xs">
           <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase tracking-wider font-semibold text-zinc-400 bg-[#181818] border-b border-[#282828]">
+            <thead className="text-left text-xs uppercase tracking-wider font-semibold text-muted-foreground bg-muted/50 border-b border-border">
               <tr>
                 <th className="p-3.5">URL</th>
                 <th className="p-3.5">Skóre</th>
@@ -154,11 +155,11 @@ export function OpportunityRadar({
               {ranked.slice(0, 20).map((p, pIdx) => (
                 <tr
                   key={`${p.url}-${pIdx}`}
-                  className="border-t border-[#262626] hover:bg-[#252525] transition-colors align-top"
+                  className="border-t border-border/60 hover:bg-muted/40 transition-colors align-top"
                 >
                   <td className="p-3.5 max-w-[260px]">
-                    <div className="truncate font-semibold text-white">{p.path}</div>
-                    <div className="text-xs text-zinc-400 mt-0.5">{p.action}</div>
+                    <div className="truncate font-semibold text-foreground">{p.path}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{p.action}</div>
                   </td>
                   <td className="p-3.5">
                     <span
@@ -167,20 +168,20 @@ export function OpportunityRadar({
                       {p.score}
                     </span>
                   </td>
-                  <td className="p-3.5 tabular-nums text-zinc-200">{p.impressions}</td>
-                  <td className="p-3.5 tabular-nums text-zinc-200">{p.clicks}</td>
-                  <td className="p-3.5 tabular-nums text-zinc-200">{p.position.toFixed(1)}</td>
-                  <td className="p-3.5 text-xs text-zinc-300">
-                    <span className="font-medium text-white">{p.intent}</span>
+                  <td className="p-3.5 tabular-nums text-foreground/80">{p.impressions}</td>
+                  <td className="p-3.5 tabular-nums text-foreground/80">{p.clicks}</td>
+                  <td className="p-3.5 tabular-nums text-foreground/80">{p.position.toFixed(1)}</td>
+                  <td className="p-3.5 text-xs text-foreground/80">
+                    <span className="font-semibold text-foreground">{p.intent}</span>
                     <br />
-                    <span className="text-zinc-400">{PAGE_TYPE_LABEL[p.pageType]}</span>
+                    <span className="text-muted-foreground">{PAGE_TYPE_LABEL[p.pageType]}</span>
                   </td>
                   <td className="p-3.5">
                     <div className="flex flex-wrap gap-1">
                       {p.categories.map((c, cIdx) => (
                         <span
                           key={`${c}-${cIdx}`}
-                          className="rounded bg-zinc-800 border border-zinc-700/60 px-1.5 py-0.5 text-[11px] text-zinc-300"
+                          className="rounded bg-muted border border-border px-1.5 py-0.5 text-[11px] text-foreground"
                         >
                           {CATEGORY_LABEL[c]}
                         </span>
@@ -192,7 +193,7 @@ export function OpportunityRadar({
                       variant="studio"
                       size="studio"
                       onClick={() => optimize(p.url)}
-                      className="rounded-md bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white transition-colors shadow-sm"
+                      className="rounded-md bg-primary hover:bg-primary/90 px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors shadow-xs"
                     >
                       Optimalizovať
                     </Button>
@@ -200,7 +201,7 @@ export function OpportunityRadar({
                       variant="studio"
                       size="studio"
                       onClick={() => track(p.url)}
-                      className="ml-2 rounded-md border border-[#383838] bg-[#222222] hover:bg-[#2a2a2a] text-zinc-200 px-3 py-1.5 text-xs transition-colors"
+                      className="ml-2 rounded-md border border-border bg-card hover:bg-muted text-foreground px-3 py-1.5 text-xs transition-colors shadow-xs"
                     >
                       Sledovať zmenu
                     </Button>
@@ -209,7 +210,7 @@ export function OpportunityRadar({
                         variant="studio"
                         size="studio"
                         onClick={() => onDeploy(p.url, "", p.path)}
-                        className="ml-2 rounded-md bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1.5 text-xs font-medium text-white transition-colors shadow-sm"
+                        className="ml-2 rounded-md bg-primary hover:bg-primary/90 px-2.5 py-1.5 text-xs font-medium text-primary-foreground transition-colors shadow-xs"
                         title="1-Click nasadenie do WordPressu"
                       >
                         <Rocket className="size-3.5" />
@@ -224,17 +225,17 @@ export function OpportunityRadar({
       )}
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl bg-[#212121] border border-[#2c2c2c] p-5 shadow-xl shadow-black/40">
-          <h3 className="font-bold text-sm text-white font-display">Riziko kanibalizácie</h3>
+        <div className="rounded-xl bg-card border border-border p-5 shadow-xs">
+          <h3 className="font-bold text-sm text-foreground font-display">Riziko kanibalizácie</h3>
           {cannibal.length === 0 ? (
-            <p className="mt-2 text-xs text-zinc-400">
+            <p className="mt-2 text-xs text-muted-foreground">
               Nenašli sa stránky súperiace o rovnaký dopyt.
             </p>
           ) : (
-            <ul className="mt-2 space-y-2 text-xs text-zinc-300">
+            <ul className="mt-2 space-y-2 text-xs text-foreground/80">
               {cannibal.slice(0, 8).map((c, cIdx) => (
                 <li key={`${c.query}-${cIdx}`}>
-                  <b className="text-emerald-400">„{c.query}“</b> →{" "}
+                  <b className="text-primary font-semibold">„{c.query}“</b> →{" "}
                   {c.urls
                     .map((u) => {
                       try {
@@ -249,16 +250,18 @@ export function OpportunityRadar({
             </ul>
           )}
         </div>
-        <div className="rounded-xl bg-[#212121] border border-[#2c2c2c] p-5 shadow-xl shadow-black/40">
-          <h3 className="font-bold text-sm text-white font-display">Návrhy interných odkazov</h3>
+        <div className="rounded-xl bg-card border border-border p-5 shadow-xs">
+          <h3 className="font-bold text-sm text-foreground font-display">
+            Návrhy interných odkazov
+          </h3>
           {links.length === 0 ? (
-            <p className="mt-2 text-xs text-zinc-400">Zatiaľ žiadne návrhy.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Zatiaľ žiadne návrhy.</p>
           ) : (
-            <ul className="mt-2 space-y-2 text-xs text-zinc-300">
+            <ul className="mt-2 space-y-2 text-xs text-foreground/80">
               {links.map((l, i) => (
                 <li key={`link-${l.source}-${l.target}-${i}`}>
-                  <b className="text-white">[{l.anchor}]</b>: {l.source} → {l.target}{" "}
-                  <span className="text-zinc-400">
+                  <b className="text-foreground">[{l.anchor}]</b>: {l.source} → {l.target}{" "}
+                  <span className="text-muted-foreground">
                     ({l.priority}) {l.reason}
                   </span>
                 </li>
@@ -268,15 +271,17 @@ export function OpportunityRadar({
         </div>
       </div>
 
-      <div className="mt-6 rounded-xl bg-[#212121] border border-[#2c2c2c] p-5 shadow-xl shadow-black/40">
-        <h3 className="font-bold text-sm text-white font-display">Sledované zmeny (pred / po)</h3>
+      <div className="mt-6 rounded-xl bg-card border border-border p-5 shadow-xs">
+        <h3 className="font-bold text-sm text-foreground font-display">
+          Sledované zmeny (pred / po)
+        </h3>
         {exps.length === 0 ? (
-          <p className="mt-2 text-xs text-zinc-400">
+          <p className="mt-2 text-xs text-muted-foreground">
             Klikni na „Sledovať zmenu" po úprave stránky — porovnáme výsledok s ďalšími skenmi.
           </p>
         ) : (
           <table className="mt-3 w-full text-xs">
-            <thead className="text-left text-zinc-400 border-b border-[#282828] pb-2 font-semibold text-[11px] uppercase tracking-wider">
+            <thead className="text-left text-muted-foreground border-b border-border pb-2 font-semibold text-[11px] uppercase tracking-wider">
               <tr>
                 <th className="py-2">Stránka</th>
                 <th>Od</th>
@@ -302,9 +307,9 @@ export function OpportunityRadar({
                 return (
                   <tr
                     key={`${e.id}-${eIdx}`}
-                    className="border-t border-[#282828] hover:bg-[#252525] transition-colors"
+                    className="border-t border-border/60 hover:bg-muted/40 transition-colors"
                   >
-                    <td className="py-2.5 font-medium text-white">
+                    <td className="py-2.5 font-medium text-foreground">
                       {(() => {
                         try {
                           return new URL(e.page_url).pathname;
@@ -313,20 +318,20 @@ export function OpportunityRadar({
                         }
                       })()}
                     </td>
-                    <td className="text-zinc-400">{e.implemented_at}</td>
-                    <td className="text-zinc-300">
+                    <td className="text-muted-foreground">{e.implemented_at}</td>
+                    <td className="text-foreground/80">
                       {e.baseline.clicks} kl · {e.baseline.position?.toFixed?.(1)}
                     </td>
-                    <td className="text-zinc-300">
+                    <td className="text-foreground/80">
                       {now ? `${now.clicks} kl · ${now.position.toFixed(1)}` : "—"}
                     </td>
                     <td
                       className={
                         verdict.startsWith("IMPROVED")
-                          ? "text-emerald-400 font-semibold"
+                          ? "text-emerald-600 dark:text-emerald-400 font-semibold"
                           : verdict.startsWith("DECLINED")
-                            ? "text-rose-400 font-semibold"
-                            : "text-zinc-400"
+                            ? "text-rose-600 dark:text-rose-400 font-semibold"
+                            : "text-muted-foreground"
                       }
                     >
                       {verdict}
