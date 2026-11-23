@@ -1,0 +1,6 @@
+Top pages,2026-08-01 - 2026-08-28 Clicks,2026-09-01 - 2026-09-28 Clicks
+"=HYPERLINK(""http://evil.example"")",50,0
++cmd,40,1
+-2+3,30,0
+@SUM(A1),20,0
+"	tab",10,0
