@@ -187,10 +187,9 @@ function Index() {
 
   const submitDomain = (event: React.FormEvent) => {
     event.preventDefault();
-    const error = domainInputError(domain);
     const normalized = parseDomainInput(domain);
-    if (error || !normalized) {
-      setDomainError(error ?? "Zadajte platnú doménu, napríklad example.sk.");
+    if (!normalized) {
+      setDomainError(domainInputError(domain));
       return;
     }
     setDomainError(null);
