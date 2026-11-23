@@ -19,8 +19,12 @@ export function PwaLaunchExperience() {
     // Clear home screen badge on app launch
     clearPwaBadge();
 
-    // Haptic pulse on cold start (if device supports)
-    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    // Haptic pulse on app launch (only if user has already interacted with the frame)
+    if (
+      typeof navigator !== "undefined" &&
+      "vibrate" in navigator &&
+      navigator.userActivation?.hasBeenActive
+    ) {
       try {
         navigator.vibrate([15, 30, 20]);
       } catch {
