@@ -49,7 +49,9 @@ function AuditPage() {
   const [report, setReport] = useState("");
   const [status, setStatus] = useState<"idle" | "streaming" | "done">("idle");
   const [paywallOpen, setPaywallOpen] = useState(false);
-  const { isAdmin } = useViewerRole();
+  const { isAdmin, plan } = useViewerRole();
+  const hasPaid = isAdmin || (plan !== null && plan !== "free");
+  const maxAllowedDomains = hasPaid ? 5 : 3;
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -89,7 +91,10 @@ function AuditPage() {
   const addFromInput = () => {
     const parsed = parseDomains(input);
     if (parsed.length === 0) return;
-    const merged = Array.from(new Set([...domains, ...parsed])).slice(0, 5);
+    if (domains.length + parsed.length > 3 && !hasPaid) {
+      setPaywallOpen(true);
+    }
+    const merged = Array.from(new Set([...domains, ...parsed])).slice(0, maxAllowedDomains);
     setDomains(merged);
     setInput("");
   };
@@ -99,12 +104,15 @@ function AuditPage() {
   };
 
   const start = async () => {
-    const all = Array.from(new Set([...domains, ...parseDomains(input)])).slice(0, 5);
+    const all = Array.from(new Set([...domains, ...parseDomains(input)])).slice(
+      0,
+      maxAllowedDomains,
+    );
     if (all.length === 0) {
       toast.error("Zadaj aspoň jednu doménu.");
       return;
     }
-    if (all.length > 3 && !isAdmin) {
+    if (all.length > 3 && !hasPaid) {
       setPaywallOpen(true);
       return;
     }
@@ -207,7 +215,7 @@ function AuditPage() {
                     htmlFor="domains"
                     className="text-xs font-medium tracking-normalr text-muted-foreground uppercase"
                   >
-                    Domény ({domains.length}/5)
+                    Domény ({domains.length}/{maxAllowedDomains})
                   </label>
 
                   {domains.length > 0 && (
@@ -246,7 +254,7 @@ function AuditPage() {
                       }
                     }}
                     onBlur={addFromInput}
-                    disabled={status === "streaming" || domains.length >= 5}
+                    disabled={status === "streaming" || domains.length >= maxAllowedDomains}
                     maxLength={500}
                     className="w-full border-none bg-transparent text-lg placeholder:text-muted-foreground focus:ring-0 focus:outline-none disabled:opacity-60"
                     placeholder={
