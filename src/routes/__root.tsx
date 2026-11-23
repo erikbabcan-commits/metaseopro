@@ -16,6 +16,7 @@ import { ViewerRoleProvider } from "@/hooks/use-viewer-role";
 import { SITE } from "@/lib/i18n";
 import { clearPwaBadge } from "@/lib/pwa-badging";
 import { IosInstallPrompt } from "@/components/IosInstallPrompt";
+import { TopBarLaserLoader } from "@/components/TopBarLaserLoader";
 
 function NotFoundComponent() {
   return (
@@ -171,6 +172,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ViewerRoleProvider>
+          <TopBarLaserLoader />
           <IosInstallPrompt />
           <Outlet />
         </ViewerRoleProvider>
