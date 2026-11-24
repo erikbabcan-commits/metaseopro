@@ -1,8 +1,17 @@
 import Stripe from "stripe";
 
+/**
+ * Sanitizes raw environment key by trimming and removing wrapping quotes.
+ */
+function sanitizeKey(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  const cleaned = raw.replace(/^["'\s]+|["'\s]+$/g, "").trim();
+  return cleaned || undefined;
+}
+
 /** The API version comes from the locked Stripe SDK, never an `as never` override. */
 export function getStripeClient(): Stripe | null {
-  const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
+  const secretKey = sanitizeKey(process.env.STRIPE_SECRET_KEY);
   if (!secretKey) return null;
   if (!/^(?:sk|rk)_(?:test|live)_/.test(secretKey)) {
     throw new Error("Stripe secret key má neplatný formát.");
@@ -15,7 +24,7 @@ export function getStripeClient(): Stripe | null {
 }
 
 export function stripeLivemode(): boolean {
-  const key = process.env.STRIPE_SECRET_KEY?.trim();
+  const key = sanitizeKey(process.env.STRIPE_SECRET_KEY);
   if (!key || !/^(?:sk|rk)_(?:test|live)_/.test(key)) {
     throw new Error("Stripe nie je nakonfigurovaný.");
   }
