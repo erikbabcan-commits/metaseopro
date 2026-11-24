@@ -433,10 +433,11 @@ BEGIN
   IF to_regprocedure('public.has_agency_plan(uuid)') IS NOT NULL THEN
     EXECUTE $definition$
       CREATE OR REPLACE FUNCTION public.has_agency_plan(_user_id uuid)
-      RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $body$
-        SELECT EXISTS (SELECT 1 FROM public.subscriptions
-          WHERE user_id=_user_id AND plan='agency' AND status IN ('active','trialing')
-            AND current_period_end>now())
+      RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $body$
+        SELECT COALESCE(_user_id = (SELECT auth.uid()), false)
+          AND EXISTS (SELECT 1 FROM public.subscriptions
+            WHERE user_id=_user_id AND plan='agency' AND status IN ('active','trialing')
+              AND current_period_end>pg_catalog.now())
       $body$
     $definition$;
   END IF;

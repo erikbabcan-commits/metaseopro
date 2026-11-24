@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { GeneratePlanSchema } from "@/lib/decay-schema";
 import { DECAY_SYSTEM_PROMPT, buildDecayUserPrompt } from "@/lib/decay-prompt";
 import { requireUser } from "@/lib/api-auth.server";
-import { checkViewerRateLimit } from "@/lib/viewer-role.server";
+import { checkViewerRateLimit, hasViewerPaidAccess, isUnlimited } from "@/lib/viewer-role.server";
 
 const MAX_BODY_BYTES = 16 * 1024;
 
@@ -52,6 +52,26 @@ export const Route = createFileRoute("/api/decay-generate-plan")({
           }
           const parsed = GeneratePlanSchema.safeParse(raw);
           if (!parsed.success) return err(400, "Neplatný vstup pre generovanie plánu.");
+
+          if (!parsed.data.demo) {
+            const isSuperadmin = isUnlimited({ id: auth.userId });
+            if (!isSuperadmin) {
+              const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+              const { data: sub } = await supabaseAdmin
+                .from("subscriptions")
+                .select("plan, status, current_period_end")
+                .eq("user_id", auth.userId)
+                .maybeSingle();
+
+              const hasPaid = hasViewerPaidAccess({ id: auth.userId }, sub, Date.now());
+              if (!hasPaid) {
+                return err(
+                  403,
+                  "Generovanie AI plánu záchrany pre live domény vyžaduje predplatné Pro alebo Agency. Vo verzii Free môžeš skúšať demo scenáre.",
+                );
+              }
+            }
+          }
 
           const apiKey = getMistralApiKey();
           if (!apiKey) return err(500, "MISTRAL_API_KEY nie je nakonfigurovaný.");

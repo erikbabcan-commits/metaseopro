@@ -585,6 +585,7 @@ describe("billing PostgreSQL migration", () => {
     ).toBe("blocked");
   });
   it("requires a future period for the agency SQL entitlement helper", async () => {
+    await db.query("SELECT set_config('request.jwt.claim.sub', $1, false)", [user1]);
     await db.query(
       "UPDATE public.subscriptions SET plan='agency',status='active',current_period_end=NULL WHERE user_id=$1",
       [user1],
