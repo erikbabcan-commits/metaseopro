@@ -271,10 +271,19 @@
 .app-header {
   position: sticky;
   top: 0;
-  z-index: 30;
+  z-index: 40;
   background: color-mix(in oklab, var(--background) 94%, transparent);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border);
+  padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
+  touch-action: manipulation;
+}
+
+@media (min-width: 768px) {
+  .app-header {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
 }
 .brand-mark {
   background: var(--primary);
@@ -440,7 +449,8 @@ main a.block.rounded-lg:hover {
    PWA & iOS Mobile Standalone Optimizations (Native Feel)
    ========================================================================== */
 @media (display-mode: standalone) {
-  html, body {
+  html,
+  body {
     overscroll-behavior-y: none;
     -webkit-overflow-scrolling: touch;
   }
@@ -459,21 +469,34 @@ main a.block.rounded-lg:hover {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-
 /* Native app feel (all modes) */
-html, body {
+html,
+body {
   overscroll-behavior: none;
 }
 
 @media (hover: none) and (pointer: coarse) {
-  body, body * {
+  body,
+  body * {
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
   }
   /* Keep forms and SEO results selectable/copyable */
-  input, textarea, select, [contenteditable="true"], [contenteditable="true"] *,
-  pre, pre *, code, .prose, .prose *, td, td *, .selectable, .selectable * {
+  input,
+  textarea,
+  select,
+  [contenteditable="true"],
+  [contenteditable="true"] *,
+  pre,
+  pre *,
+  code,
+  .prose,
+  .prose *,
+  td,
+  td *,
+  .selectable,
+  .selectable * {
     -webkit-user-select: text !important;
     user-select: text !important;
     -webkit-touch-callout: default !important;
@@ -493,47 +516,64 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 
-.safe-top { padding-top: env(safe-area-inset-top, 0px); }
-.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
 
 /* ==========================================================================
    Tactile High-Contrast Focus & Active Typing States (Studio Grade)
    ========================================================================== */
-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]),
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not(
+    [type="button"]
+  ),
 textarea,
 select {
   border-color: var(--border);
-  transition: border-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1),
-              background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    border-color 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):hover,
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not(
+    [type="button"]
+  ):hover,
 textarea:hover,
 select:hover {
   border-color: oklch(0.65 0.05 165);
 }
 
-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):focus,
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not(
+    [type="button"]
+  ):focus,
 textarea:focus,
 select:focus,
-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):focus-visible,
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not(
+    [type="button"]
+  ):focus-visible,
 textarea:focus-visible,
 select:focus-visible {
   border-color: var(--primary) !important;
-  box-shadow: 0 0 0 1px var(--primary),
-              0 0 0 3.5px oklch(0.38 0.075 165 / 0.18),
-              0 1px 3px rgba(0, 0, 0, 0.06) !important;
+  box-shadow:
+    0 0 0 1px var(--primary),
+    0 0 0 3.5px oklch(0.38 0.075 165 / 0.18),
+    0 1px 3px rgba(0, 0, 0, 0.06) !important;
   outline: none !important;
 }
 
 /* While user is actively typing in input/textarea (enhanced high contrast) */
-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):focus:not(:placeholder-shown),
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not(
+    [type="button"]
+  ):focus:not(:placeholder-shown),
 textarea:focus:not(:placeholder-shown) {
   border-color: var(--primary) !important;
-  box-shadow: 0 0 0 1.5px var(--primary),
-              0 0 0 4.5px oklch(0.38 0.075 165 / 0.22),
-              0 2px 6px oklch(0.38 0.075 165 / 0.1) !important;
+  box-shadow:
+    0 0 0 1.5px var(--primary),
+    0 0 0 4.5px oklch(0.38 0.075 165 / 0.22),
+    0 2px 6px oklch(0.38 0.075 165 / 0.1) !important;
 }
 
 /* ==========================================================================
@@ -564,5 +604,3 @@ textarea:focus:not(:placeholder-shown) {
   --duration-snappy: 180ms;
   --duration-glide: 320ms;
 }
-
-

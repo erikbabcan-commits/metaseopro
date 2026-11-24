@@ -241,7 +241,7 @@ export function AppHeader() {
   const isAgencyActive = pathname.startsWith("/settings/agency");
 
   return (
-    <header className="app-header mb-8 px-4 md:px-6 border-b border-border/40 bg-background/95 backdrop-blur-md sticky top-0 z-40">
+    <header className="app-header mb-8 px-4 md:px-6 border-b border-border/40 bg-background/95 backdrop-blur-md sticky top-0 z-40 pt-[calc(env(safe-area-inset-top,0px)+10px)] md:pt-[env(safe-area-inset-top,0px)] touch-manipulation">
       <div className="mx-auto flex min-h-14 max-w-screen-xl items-center justify-between gap-2 lg:min-h-16 lg:gap-4">
         {/* Brand Logo */}
         <Link
@@ -568,7 +568,7 @@ export function AppHeader() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-9 lg:hidden"
+                className="size-10 lg:hidden touch-manipulation"
                 aria-label="Otvoriť navigáciu"
               >
                 <Menu className="size-5" />
@@ -576,7 +576,7 @@ export function AppHeader() {
             </SheetTrigger>
             <SheetContent
               side="right"
-              className="w-80 sm:w-96 p-0 bg-background border-border flex flex-col justify-between"
+              className="w-80 sm:w-96 p-0 bg-background border-border flex flex-col justify-between pt-[calc(env(safe-area-inset-top,0px)+10px)] pb-[calc(env(safe-area-inset-bottom,0px)+12px)]"
             >
               <div className="flex flex-col flex-1 overflow-y-auto">
                 <SheetHeader className="p-5 border-b border-border/60 flex flex-row items-center justify-between text-left">
