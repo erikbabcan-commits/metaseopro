@@ -6,6 +6,18 @@ vi.mock("./api-auth.server", () => ({
   requireUser: async () => ({ ok: true, userId: "fixture-user" }),
 }));
 vi.mock("./snapshots.server", () => ({ saveDecaySnapshot: vi.fn(async () => "snapshot") }));
+vi.mock("@/integrations/supabase/client.server", () => ({
+  supabaseAdmin: {
+    from: (table: string) => ({
+      select: () => ({
+        eq: () =>
+          table === "subscriptions"
+            ? { maybeSingle: async () => ({ data: null }) }
+            : Promise.resolve({ data: [] }),
+      }),
+    }),
+  },
+}));
 
 type Post = (args: { request: Request }) => Promise<Response>;
 const post = (Route.options as unknown as { server: { handlers: { POST: Post } } }).server.handlers

@@ -170,7 +170,7 @@ export function TactileFloatingNav() {
                   className={`size-4 sm:size-4.5 mb-1 transition-all duration-200 ${
                     activeIndex === 3
                       ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]"
-                    : ""
+                      : ""
                   }`}
                 />
                 {/* Live GSC decay pulse dot */}
