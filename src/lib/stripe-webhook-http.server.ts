@@ -1,3 +1,4 @@
+import { readBoundedBytes, BodyTooLargeError } from "./request-body.server";
 import Stripe from "stripe";
 import { reconcileStripeEvent, StripeReconciliationError } from "./stripe-reconciliation.server";
 
@@ -13,31 +14,12 @@ class WebhookBodyError extends Error {
 }
 
 export async function readStripeWebhookBody(request: Request): Promise<string> {
-  const announced = Number(request.headers.get("content-length") ?? "0");
-  if (announced > STRIPE_WEBHOOK_MAX_BYTES) throw new WebhookBodyError(413, "PAYLOAD_TOO_LARGE");
-  const reader = request.body?.getReader();
-  if (!reader) return "";
-  const chunks: Uint8Array[] = [];
-  let bytes = 0;
+  let raw;
   try {
-    for (;;) {
-      const result = await reader.read();
-      if (result.done) break;
-      bytes += result.value.byteLength;
-      if (bytes > STRIPE_WEBHOOK_MAX_BYTES) {
-        await reader.cancel().catch(() => undefined);
-        throw new WebhookBodyError(413, "PAYLOAD_TOO_LARGE");
-      }
-      chunks.push(result.value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  const raw = new Uint8Array(bytes);
-  let offset = 0;
-  for (const chunk of chunks) {
-    raw.set(chunk, offset);
-    offset += chunk.byteLength;
+    raw = await readBoundedBytes(request, STRIPE_WEBHOOK_MAX_BYTES);
+  } catch (error) {
+    if (error instanceof BodyTooLargeError) throw new WebhookBodyError(413, "PAYLOAD_TOO_LARGE");
+    throw error;
   }
   try {
     // Preserve valid UTF-8 bytes exactly (including a BOM). No JSON reserialization before verification.

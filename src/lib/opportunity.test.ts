@@ -3,12 +3,33 @@ import {
   classifyIntent,
   experimentVerdict,
   isEligible,
+  isBranded,
+  scorePage,
   rankOpportunities,
   textPixelWidth,
   titleWarnings,
 } from "./opportunity";
 
 describe("opportunity engine", () => {
+  it("ignores brand terms that normalize to an empty string", () => {
+    expect(isBranded("cenník", ["---"])).toBe(false);
+    expect(classifyIntent("cenník", ["---"])).toBe("COMMERCIAL");
+    expect(isBranded("Žilina servis", ["zilina"])).toBe(true);
+  });
+  it("does not infer a top ten rank or a rank gain from a missing position", () => {
+    const page = scorePage({
+      url: "https://example.test/",
+      clicks: 15,
+      clicksPrev: 10,
+      impressions: 50,
+      impressionsPrev: 50,
+      position: 0,
+      positionPrev: 12,
+      queries: [],
+    });
+    expect(page.deltaPosition).toBe(0);
+    expect(page.categories).not.toContain("PROTECT_WINNER");
+  });
   it("keeps zero-click pages with impressions", () => {
     expect(isEligible({ clicks: 0, impressions: 654 })).toBe(true);
     expect(isEligible({ clicks: 0, impressions: 5 })).toBe(false);

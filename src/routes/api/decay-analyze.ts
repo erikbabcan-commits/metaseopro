@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AnalyzeDecaySchema } from "@/lib/decay-schema";
 import { buildLiveDataset, runDecayAnalysis } from "@/lib/decay-analyze.server";
-import { isGscConfigured, assertUserPropertyAccess } from "@/lib/gsc.server";
+import { isGscConfigured } from "@/lib/gsc.server";
 import { requireUser } from "@/lib/api-auth.server";
 import { checkViewerRateLimit } from "@/lib/viewer-role.server";
 import { saveDecaySnapshot } from "@/lib/snapshots.server";
+import { readBoundedBytes, BodyTooLargeError } from "@/lib/request-body.server";
 
 const MAX_BODY_BYTES = 8 * 1024;
 
@@ -47,8 +48,11 @@ export const Route = createFileRoute("/api/decay-analyze")({
 
           let raw: unknown;
           try {
-            raw = await request.json();
-          } catch {
+            raw = JSON.parse(
+              new TextDecoder().decode(await readBoundedBytes(request, MAX_BODY_BYTES)),
+            );
+          } catch (error) {
+            if (error instanceof BodyTooLargeError) return err(413, "Vstup je príliš veľký.");
             return err(400, "Neplatný JSON.");
           }
           const parsed = AnalyzeDecaySchema.safeParse(raw);
@@ -60,9 +64,7 @@ export const Route = createFileRoute("/api/decay-analyze")({
             if (!isGscConfigured())
               return err(409, "Google Search Console nie je pripojený. Použi demo režim.");
             try {
-              // Multi-tenant isolation: verify user has permissions for this specific property
-              await assertUserPropertyAccess(auth.userId, parsed.data.siteUrl, auth.email);
-              dataset = await buildLiveDataset(parsed.data.siteUrl);
+              dataset = await buildLiveDataset(auth.userId, parsed.data.siteUrl);
             } catch (e) {
               const msg = (e as Error).message;
               if (msg === "GSC_USER_UNAUTHORIZED_FOR_PROPERTY")
@@ -74,7 +76,7 @@ export const Route = createFileRoute("/api/decay-analyze")({
                 return err(403, "Táto property nie je overená pre pripojený účet.");
               if (msg === "GSC_FORBIDDEN")
                 return err(403, "Pripojený Google účet nemá prístup k tejto property.");
-              console.error("live decay error:", e);
+              console.error("Live decay analysis failed");
               return err(502, "Google Search Console nevrátilo dáta. Skús to znova.");
             }
           } else {
