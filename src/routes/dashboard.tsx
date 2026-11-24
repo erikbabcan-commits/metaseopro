@@ -34,6 +34,9 @@ import { ClientReportModal } from "@/components/ClientReportModal";
 import { BillingInvoiceSection } from "@/components/BillingInvoiceSection";
 import { CmsDeployDialog } from "@/components/CmsDeployDialog";
 import { setPwaBadge } from "@/lib/pwa-badging";
+import { TactileKpiSlider, type KpiSlideItem } from "@/components/TactileKpiSlider";
+import { TactileSegmentedBar, type SegmentedTabKey } from "@/components/TactileSegmentedBar";
+import { LaserBorderCard } from "@/components/LaserBorderCard";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -153,6 +156,7 @@ function DashboardPage() {
   const [deployTitle, setDeployTitle] = useState("");
   const [deployCurrentTitle, setDeployCurrentTitle] = useState("");
   const [deployMetaDesc, setDeployMetaDesc] = useState("");
+  const [segmentedTab, setSegmentedTab] = useState<SegmentedTabKey>("dashboard");
 
   const handleOpenDeploy = (targetUrl: string, markdown?: string, currentTitle?: string) => {
     setDeployTargetUrl(targetUrl);
@@ -374,11 +378,68 @@ function DashboardPage() {
     if (!error) setSnaps((p) => p.filter((s) => s.id !== id));
   };
 
+  const kpiSlides: KpiSlideItem[] = useMemo(() => {
+    if (!latest) return [];
+    const metrics = latest.metrics_summary;
+    const clicksDiff = (metrics.clicksNow ?? 0) - (metrics.clicksPrev ?? 0);
+    const impDiff = (metrics.impressionsNow ?? 0) - (metrics.impressionsPrev ?? 0);
+    const posDiff = Number(
+      ((metrics.avgPositionNow ?? 0) - (metrics.avgPositionPrev ?? 0)).toFixed(1),
+    );
+
+    return [
+      {
+        id: "clicks",
+        title: "Kliknutia (90 dní)",
+        value: fmt(metrics.clicksNow ?? 0),
+        badge: {
+          text: `${clicksDiff >= 0 ? "+" : ""}${fmt(clicksDiff)} klikov`,
+          isPositive: clicksDiff >= 0,
+        },
+        subtitle: `${fmt(metrics.clicksPrev ?? 0)} predtým`,
+        reportHref: "#radar",
+      },
+      {
+        id: "impressions",
+        title: "Google Impresie (SERP)",
+        value: fmt(metrics.impressionsNow ?? 0),
+        badge: {
+          text: `${impDiff >= 0 ? "+" : ""}${fmt(impDiff)} zobrazení`,
+          isPositive: impDiff >= 0,
+        },
+        subtitle: `${fmt(metrics.impressionsPrev ?? 0)} v min. období`,
+        reportHref: "#radar",
+      },
+      {
+        id: "health",
+        title: "SEO Health Index",
+        value: `${healthIndex(metrics)}/100`,
+        badge: {
+          text: `${metrics.critical ?? 0} kritických zraniteľností`,
+          isPositive: (metrics.critical ?? 0) === 0,
+        },
+        subtitle: `Priem. pozícia: ${(metrics.avgPositionNow ?? 0).toFixed(1)} (${posDiff > 0 ? "pokles o " : "zlepšenie o "}${Math.abs(posDiff)})`,
+        reportHref: "#radar",
+      },
+    ];
+  }, [latest]);
+
   return (
     <div className="min-h-screen bg-page-bg text-foreground font-sans antialiased selection:bg-primary/20 selection:text-primary">
       <AppHeader />
       <Toaster />
       <main className="mx-auto max-w-screen-xl px-6 pb-20">
+        {/* Tactile Segmented Bar: [ Dashboard ] [ Status ] [ Projects ] */}
+        <TactileSegmentedBar
+          activeTab={segmentedTab}
+          onTabChange={setSegmentedTab}
+          counts={{
+            dashboard: siteSnaps.length,
+            status: latest?.metrics_summary.critical ?? 0,
+            projects: sites.length,
+          }}
+        />
+
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
@@ -487,8 +548,13 @@ function DashboardPage() {
           </section>
         ) : (
           <>
-            {/* KPI */}
-            <section className="mt-8 grid grid-cols-2 gap-3.5 md:grid-cols-4">
+            {/* Tactile Swipable KPI Card Slider (with 3 pagination dots) */}
+            <div className="mt-8 mb-4">
+              <TactileKpiSlider slides={kpiSlides} />
+            </div>
+
+            {/* Standard KPI Grid */}
+            <section className="mt-4 grid grid-cols-2 gap-3.5 md:grid-cols-4">
               <Kpi
                 label="Kliky (90 dní)"
                 value={fmt(m.clicksNow ?? 0)}
@@ -1155,10 +1221,8 @@ function CtrBooster({
               </li>
             ))}
           </ul>
-          {/* Terminal Box for AI Output */}
-          <div className="min-h-[220px] rounded-xl bg-[#171717] border border-zinc-800/80 p-5 shadow-2xl text-zinc-100 flex flex-col justify-between relative overflow-hidden ring-1 ring-white/5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)]">
-            {/* Subtle top polish specular sheen */}
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+          {/* Terminal Box for AI Output wrapped with Laser Border Beam */}
+          <LaserBorderCard className="min-h-[220px]">
             {!active ? (
               <div className="flex flex-col items-center justify-center py-12 text-center text-zinc-400">
                 <Sparkles className="size-8 mb-2 text-zinc-500" />
@@ -1216,7 +1280,7 @@ function CtrBooster({
                 </div>
               </>
             )}
-          </div>
+          </LaserBorderCard>
         </div>
       )}
     </section>
