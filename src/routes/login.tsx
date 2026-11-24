@@ -97,12 +97,32 @@ function LoginPage() {
       // Persist the post-login target in sessionStorage (survives the OAuth broker
       // round-trip); the callback URL stays on the current app origin, clean of params.
       rememberLoginRedirect(redirect);
-      const result = await lovable.auth.signInWithOAuth(provider, {
-        redirect_uri: authCallbackUrl(),
-      });
-      if (result.error) throw result.error;
-      if (result.redirected) return;
-      // The auth listener navigates only after the helper has set the session.
+
+      let lovableFailed = false;
+      try {
+        const result = await lovable.auth.signInWithOAuth(provider, {
+          redirect_uri: authCallbackUrl(),
+        });
+        if (result.error) {
+          lovableFailed = true;
+        } else if (result.redirected) {
+          return;
+        }
+      } catch {
+        lovableFailed = true;
+      }
+
+      // Fallback: If Lovable broker fails (e.g. on custom production domain seo.vorkei.com),
+      // directly initiate Supabase OAuth flow
+      if (lovableFailed) {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: authCallbackUrl(),
+          },
+        });
+        if (error) throw error;
+      }
     } catch (error) {
       toast.error(translateAuthError(error));
     } finally {
@@ -121,7 +141,7 @@ function LoginPage() {
   };
 
   return (
-    <div className="auth-page flex min-h-screen items-center justify-center px-6 py-12">
+    <div className="auth-page flex min-h-[100dvh] items-center justify-center px-6 py-12 pt-[calc(env(safe-area-inset-top,0px)+1.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)]">
       <Toaster />
       <div className="w-full max-w-md">
         <Link to="/" className="mb-10 inline-flex items-center gap-3" aria-label="SEO4WEB — úvod">

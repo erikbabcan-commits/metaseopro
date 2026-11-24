@@ -1,6 +1,7 @@
 // Generic SSE streaming helper for endpoints that proxy
 // OpenAI-compatible chat completions streams.
 import { supabase } from "@/integrations/supabase/client";
+import { startLaserProgress, stopLaserProgress } from "./laser-loader";
 
 export async function streamSSE({
   url,
@@ -17,77 +18,82 @@ export async function streamSSE({
   onDone: () => void;
   onError: (msg: string) => void;
 }) {
-  let resp: Response;
+  startLaserProgress();
   try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (session?.access_token) {
-      headers["Authorization"] = `Bearer ${session.access_token}`;
-    }
-    resp = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-      signal,
-    });
-  } catch (e) {
-    if ((e as Error).name === "AbortError") return;
-    onError("Nepodarilo sa spojiť so serverom.");
-    return;
-  }
-
-  if (!resp.ok || !resp.body) {
+    let resp: Response;
     try {
-      const data = await resp.json();
-      onError(data.error ?? "Chyba pri generovaní.");
-    } catch {
-      onError("Chyba pri generovaní.");
-    }
-    return;
-  }
-
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let done = false;
-
-  try {
-    while (!done) {
-      const { done: streamDone, value } = await reader.read();
-      if (streamDone) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      let nl: number;
-      while ((nl = buffer.indexOf("\n")) !== -1) {
-        let line = buffer.slice(0, nl);
-        buffer = buffer.slice(nl + 1);
-        if (line.endsWith("\r")) line = line.slice(0, -1);
-        if (!line || line.startsWith(":")) continue;
-        if (!line.startsWith("data: ")) continue;
-        const json = line.slice(6).trim();
-        if (json === "[DONE]") {
-          done = true;
-          break;
-        }
-        try {
-          const parsed = JSON.parse(json);
-          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-          if (content) onDelta(content);
-        } catch {
-          buffer = line + "\n" + buffer;
-          break;
-        }
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
       }
-    }
-  } catch (e) {
-    if ((e as Error).name !== "AbortError") {
-      onError("Spojenie sa prerušilo.");
+      resp = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        signal,
+      });
+    } catch (e) {
+      if ((e as Error).name === "AbortError") return;
+      onError("Nepodarilo sa spojiť so serverom.");
       return;
     }
-    return;
-  }
 
-  onDone();
+    if (!resp.ok || !resp.body) {
+      try {
+        const data = await resp.json();
+        onError(data.error ?? "Chyba pri generovaní.");
+      } catch {
+        onError("Chyba pri generovaní.");
+      }
+      return;
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let done = false;
+
+    try {
+      while (!done) {
+        const { done: streamDone, value } = await reader.read();
+        if (streamDone) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let nl: number;
+        while ((nl = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, nl);
+          buffer = buffer.slice(nl + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (!line || line.startsWith(":")) continue;
+          if (!line.startsWith("data: ")) continue;
+          const json = line.slice(6).trim();
+          if (json === "[DONE]") {
+            done = true;
+            break;
+          }
+          try {
+            const parsed = JSON.parse(json);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) onDelta(content);
+          } catch {
+            buffer = line + "\n" + buffer;
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      if ((e as Error).name !== "AbortError") {
+        onError("Spojenie sa prerušilo.");
+        return;
+      }
+      return;
+    }
+
+    onDone();
+  } finally {
+    stopLaserProgress();
+  }
 }

@@ -68,6 +68,29 @@ describe("GSC comparison regressions", () => {
     });
   });
 
+  it("preserves a missing historical rank for both a new page and its query", async () => {
+    vi.stubEnv("LOVABLE_API_KEY", "fixture");
+    vi.stubEnv("GOOGLE_SEARCH_CONSOLE_API_KEY", "fixture");
+    const current = { clicks: 4, impressions: 30, position: 8 };
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          Response.json({ rows: [{ ...current, keys: ["https://example.test/new"] }] }),
+        )
+        .mockResolvedValueOnce(Response.json({ rows: [] }))
+        .mockResolvedValueOnce(Response.json({ rows: [{ ...current, keys: ["new query"] }] }))
+        .mockResolvedValueOnce(Response.json({ rows: [] })),
+    );
+    const [page] = await fetchLiveDecayRows("https://example.test/");
+    expect(page).toMatchObject({
+      positionNow: 8,
+      positionPrev: 0,
+      topQueries: [{ positionNow: 8, positionPrev: 0 }],
+    });
+  });
+
   it("enforces multi-tenant isolation so unauthorized users cannot access competitor properties", async () => {
     vi.stubEnv("LOVABLE_API_KEY", "test-only");
     vi.stubEnv("GOOGLE_SEARCH_CONSOLE_API_KEY", "test-only");

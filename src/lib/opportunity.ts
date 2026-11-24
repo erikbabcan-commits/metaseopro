@@ -217,7 +217,7 @@ const LOCATIONS = [
 export function classifyIntent(query: string, brandTerms: string[] = []): Intent {
   const q = norm(query);
   if (!q) return "MIXED";
-  if (brandTerms.some((b) => b && q.includes(norm(b)))) return "NAVIGATIONAL";
+  if (isBranded(query, brandTerms)) return "NAVIGATIONAL";
   const has = (list: string[]) => list.some((k) => q.includes(k));
   const pricing = has(PRICING);
   const info = INFO.some((k) => (q + " ").startsWith(k) || q.includes(" " + k.trim() + " "));
@@ -233,7 +233,10 @@ export function classifyIntent(query: string, brandTerms: string[] = []): Intent
 
 export function isBranded(query: string, brandTerms: string[]): boolean {
   const q = norm(query);
-  return brandTerms.some((b) => b && q.includes(norm(b)));
+  return brandTerms.some((brand) => {
+    const term = norm(brand);
+    return term.length > 0 && q.includes(term);
+  });
 }
 
 export function dominantIntent(queries: OppQuery[], brandTerms: string[] = []): Intent {
@@ -297,7 +300,8 @@ export function scorePage(p: OppPage, brandTerms: string[] = []): ScoredOpp {
   const brandImpr = p.queries
     .filter((q) => isBranded(q.query, brandTerms))
     .reduce((a, q) => a + q.impressions, 0);
-  const deltaPosition = p.positionPrev > 0 ? Number((p.position - p.positionPrev).toFixed(1)) : 0;
+  const deltaPosition =
+    p.position > 0 && p.positionPrev > 0 ? Number((p.position - p.positionPrev).toFixed(1)) : 0;
   const imprGrowth =
     p.impressionsPrev > 0
       ? (p.impressions - p.impressionsPrev) / p.impressionsPrev
@@ -333,7 +337,7 @@ export function scorePage(p: OppPage, brandTerms: string[] = []): ScoredOpp {
 
   // ---- categories ----
   const cats: Category[] = [];
-  const winner = p.clicks >= 10 && p.position <= 10;
+  const winner = p.clicks >= 10 && p.position > 0 && p.position <= 10;
   if (winner) cats.push("PROTECT_WINNER");
   if (p.impressions >= 100 && p.clicks === 0) cats.push("HIGH_IMPRESSIONS_ZERO_CLICKS");
   if (p.position >= 4 && p.position <= 10 && c < exp) cats.push("QUICK_WIN");

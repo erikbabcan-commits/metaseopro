@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useViewerRole } from "@/hooks/use-viewer-role";
 import { generateContentPlan, checkContentPlanAccess } from "@/lib/content-plan.functions";
 import { saveOutput } from "@/lib/outputs.functions";
+import { startLaserProgress, stopLaserProgress } from "@/lib/laser-loader";
 
 export const Route = createFileRoute("/plan")({
   head: () => ({
@@ -76,6 +77,7 @@ function PlanPage() {
     }
     setStatus("generating");
     setPlan("");
+    startLaserProgress();
     try {
       const res = await generate({ data: { niche, goal, extra } });
       setPlan(res.plan);
@@ -107,6 +109,8 @@ function PlanPage() {
         toast.error(msg);
       }
       setStatus("idle");
+    } finally {
+      stopLaserProgress();
     }
   };
 
@@ -270,7 +274,12 @@ function PlanPage() {
       </main>
 
       {status === "done" && plan && (
-        <div className="fixed bottom-4 left-1/2 flex flex-wrap justify-center max-w-[calc(100vw-1rem)] -translate-x-1/2 gap-2 rounded-full bg-primary p-2 text-primary-foreground shadow-2xl ring-1 ring-border/10">
+        <div
+          className="fixed left-1/2 flex flex-wrap justify-center max-w-[calc(100vw-1rem)] -translate-x-1/2 gap-2 rounded-full bg-primary p-2 text-primary-foreground shadow-2xl ring-1 ring-border/10 z-40 transition-all duration-200"
+          style={{
+            bottom: "calc(5.75rem + env(safe-area-inset-bottom, 0px))",
+          }}
+        >
           <Button
             variant="studio"
             size="studio"

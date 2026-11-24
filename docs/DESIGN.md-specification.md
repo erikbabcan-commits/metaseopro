@@ -32,12 +32,19 @@ components:
 ---
 
 ## Overview
+
 ## Colors
+
 ## Typography
+
 ## Layout
+
 ## Elevation & Depth
+
 ## Shapes
+
 ## Components
+
 ## Do's and Don'ts
 ```
 
@@ -46,11 +53,11 @@ The `##` headings that are present must appear in that order. Unknown headings a
 ## Token schema
 
 ```yaml
-version: <string>          # optional, current: "alpha"
+version: <string> # optional, current: "alpha"
 name: <string>
-description: <string>      # optional
+description: <string> # optional
 colors:
-  <token-name>: <Color>    # hex, rgb(), oklch(), or a named CSS color
+  <token-name>: <Color> # hex, rgb(), oklch(), or a named CSS color
 typography:
   <token-name>:
     fontFamily: <string>
@@ -77,7 +84,7 @@ Token references use `{path.to.token}`. Valid component properties: `backgroundC
 
 ## How to write the prose
 
-From the design-md skill. Tokens say *what*. Prose says *why*.
+From the design-md skill. Tokens say _what_. Prose says _why_.
 
 - Name each color by character, then give the hex, then the job. Example: Deep Forest (`#0B4F38`) — primary actions.
 - Translate geometry into physical language, and keep the exact value in parentheses. `8px` is a subtly rounded corner, not "rounded-lg".

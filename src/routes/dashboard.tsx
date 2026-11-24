@@ -22,6 +22,7 @@ import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { streamSSE } from "@/lib/stream-sse";
+import { startLaserProgress, stopLaserProgress } from "@/lib/laser-loader";
 import { handoffToWriter } from "@/lib/refresh-handoff";
 import { OpportunityRadar } from "@/components/OpportunityRadar";
 import { AppHeader } from "@/components/AppHeader";
@@ -34,6 +35,9 @@ import { ClientReportModal } from "@/components/ClientReportModal";
 import { BillingInvoiceSection } from "@/components/BillingInvoiceSection";
 import { CmsDeployDialog } from "@/components/CmsDeployDialog";
 import { setPwaBadge } from "@/lib/pwa-badging";
+import { TactileKpiSlider, type KpiSlideItem } from "@/components/TactileKpiSlider";
+import { TactileSegmentedBar, type SegmentedTabKey } from "@/components/TactileSegmentedBar";
+import { LaserBorderCard } from "@/components/LaserBorderCard";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -153,6 +157,7 @@ function DashboardPage() {
   const [deployTitle, setDeployTitle] = useState("");
   const [deployCurrentTitle, setDeployCurrentTitle] = useState("");
   const [deployMetaDesc, setDeployMetaDesc] = useState("");
+  const [segmentedTab, setSegmentedTab] = useState<SegmentedTabKey>("dashboard");
 
   const handleOpenDeploy = (targetUrl: string, markdown?: string, currentTitle?: string) => {
     setDeployTargetUrl(targetUrl);
@@ -254,6 +259,7 @@ function DashboardPage() {
     setScanning(true);
     setScanError("");
     setScanStage("Analyzujem dáta zo Search Console…");
+    startLaserProgress();
     try {
       const {
         data: { session },
@@ -287,6 +293,7 @@ function DashboardPage() {
     } catch (error) {
       setScanError(error instanceof Error ? error.message : "Analýza sa nepodarila.");
     } finally {
+      stopLaserProgress();
       setScanning(false);
     }
   };
@@ -294,27 +301,27 @@ function DashboardPage() {
   const propertyPicker = (
     <div className="space-y-4">
       {propertiesBusy ? (
-        <p role="status" className="flex items-center gap-2 text-sm text-zinc-400">
-          <Loader2 className="size-4 animate-spin text-emerald-400 motion-reduce:animate-none" />
+        <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin text-primary motion-reduce:animate-none" />
           Načítavam overené weby…
         </p>
       ) : propertiesError ? (
         <div className="space-y-3">
-          <p role="alert" className="text-sm text-rose-400">
+          <p role="alert" className="text-sm text-rose-500">
             {propertiesError}
           </p>
           <Button
             variant="outline"
             onClick={() => setPropertiesRetry((n) => n + 1)}
-            className="border-[#333333] bg-[#222222] text-zinc-200 hover:bg-[#2a2a2a] hover:border-[#444444]"
+            className="border-border bg-card text-foreground hover:bg-muted"
           >
-            <RefreshCw className="size-3.5 text-emerald-400" />
+            <RefreshCw className="size-3.5 text-primary" />
             Skúsiť znova
           </Button>
         </div>
       ) : (
         <label className="block space-y-2 text-left text-sm">
-          <span className="font-medium text-zinc-300">Overený web v Search Console</span>
+          <span className="font-medium text-foreground">Overený web v Search Console</span>
           <select
             aria-label="Overený web v Search Console"
             value={selectedProperty}
@@ -323,10 +330,10 @@ function DashboardPage() {
               setSelectedProperty(e.target.value);
               setScanError("");
             }}
-            className="w-full min-w-0 rounded-lg border border-[#333333] bg-[#1a1a1a] px-3.5 py-2 text-sm text-[#f4f4f5] focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            className="w-full min-w-0 rounded-lg border border-border bg-card px-3.5 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
             {properties.map((url) => (
-              <option key={url} value={url} className="bg-[#1a1a1a] text-[#f4f4f5]">
+              <option key={url} value={url} className="bg-card text-foreground">
                 {url}
               </option>
             ))}
@@ -334,14 +341,14 @@ function DashboardPage() {
         </label>
       )}
       {scanError && (
-        <p role="alert" className="text-left text-sm text-rose-400">
+        <p role="alert" className="text-left text-sm text-rose-500">
           {scanError}
         </p>
       )}
       <Button
         disabled={scanning || propertiesBusy || !selectedProperty || !!propertiesError}
         onClick={runScan}
-        className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm transition-all"
+        className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-sm transition-all"
       >
         {scanning ? (
           <Loader2 className="animate-spin motion-reduce:animate-none" />
@@ -351,7 +358,7 @@ function DashboardPage() {
         {scanning ? "Prebieha sken…" : "Spustiť sken"}
       </Button>
       {scanning && (
-        <p role="status" aria-live="polite" className="text-sm text-zinc-400">
+        <p role="status" aria-live="polite" className="text-sm text-muted-foreground">
           {scanStage}
         </p>
       )}
@@ -374,17 +381,74 @@ function DashboardPage() {
     if (!error) setSnaps((p) => p.filter((s) => s.id !== id));
   };
 
+  const kpiSlides: KpiSlideItem[] = useMemo(() => {
+    if (!latest) return [];
+    const metrics = latest.metrics_summary;
+    const clicksDiff = (metrics.clicksNow ?? 0) - (metrics.clicksPrev ?? 0);
+    const impDiff = (metrics.impressionsNow ?? 0) - (metrics.impressionsPrev ?? 0);
+    const posDiff = Number(
+      ((metrics.avgPositionNow ?? 0) - (metrics.avgPositionPrev ?? 0)).toFixed(1),
+    );
+
+    return [
+      {
+        id: "clicks",
+        title: "Kliknutia (90 dní)",
+        value: fmt(metrics.clicksNow ?? 0),
+        badge: {
+          text: `${clicksDiff >= 0 ? "+" : ""}${fmt(clicksDiff)} klikov`,
+          isPositive: clicksDiff >= 0,
+        },
+        subtitle: `${fmt(metrics.clicksPrev ?? 0)} predtým`,
+        reportHref: "#radar",
+      },
+      {
+        id: "impressions",
+        title: "Google Impresie (SERP)",
+        value: fmt(metrics.impressionsNow ?? 0),
+        badge: {
+          text: `${impDiff >= 0 ? "+" : ""}${fmt(impDiff)} zobrazení`,
+          isPositive: impDiff >= 0,
+        },
+        subtitle: `${fmt(metrics.impressionsPrev ?? 0)} v min. období`,
+        reportHref: "#radar",
+      },
+      {
+        id: "health",
+        title: "SEO Health Index",
+        value: `${healthIndex(metrics)}/100`,
+        badge: {
+          text: `${metrics.critical ?? 0} kritických zraniteľností`,
+          isPositive: (metrics.critical ?? 0) === 0,
+        },
+        subtitle: `Priem. pozícia: ${(metrics.avgPositionNow ?? 0).toFixed(1)} (${posDiff > 0 ? "pokles o " : "zlepšenie o "}${Math.abs(posDiff)})`,
+        reportHref: "#radar",
+      },
+    ];
+  }, [latest]);
+
   return (
-    <div className="dark min-h-screen bg-[#171717] text-[#e2e8f0] font-sans antialiased selection:bg-emerald-500/20 selection:text-emerald-300">
+    <div className="min-h-screen bg-page-bg text-foreground font-sans antialiased selection:bg-primary/20 selection:text-primary">
       <AppHeader />
       <Toaster />
       <main className="mx-auto max-w-screen-xl px-6 pb-20">
+        {/* Tactile Segmented Bar: [ Dashboard ] [ Status ] [ Projects ] */}
+        <TactileSegmentedBar
+          activeTab={segmentedTab}
+          onTabChange={setSegmentedTab}
+          counts={{
+            dashboard: siteSnaps.length,
+            status: latest?.metrics_summary.critical ?? 0,
+            projects: sites.length,
+          }}
+        />
+
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
               SEO veliace centrum
             </p>
-            <h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-white md:text-4xl">
+            <h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-foreground md:text-4xl">
               Dashboard
             </h1>
           </div>
@@ -394,10 +458,10 @@ function DashboardPage() {
                 aria-label="Vybraný web"
                 value={site}
                 onChange={(e) => setSite(e.target.value)}
-                className="min-w-0 max-w-full rounded-lg border border-[#333333] bg-[#1a1a1a] px-3.5 py-2 text-sm font-medium text-[#f4f4f5] shadow-inner focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                className="min-w-0 max-w-full rounded-lg border border-border bg-card px-3.5 py-2 text-sm font-medium text-foreground shadow-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 {sites.map((s) => (
-                  <option key={s} value={s} className="bg-[#1a1a1a] text-[#f4f4f5]">
+                  <option key={s} value={s} className="bg-card text-foreground">
                     {s}
                   </option>
                 ))}
@@ -414,28 +478,28 @@ function DashboardPage() {
                 setScanError("");
                 setScanOpen(true);
               }}
-              className="gap-1.5 rounded-lg border border-[#333333] bg-[#222222] text-[#f4f4f5] hover:bg-[#2a2a2a] hover:border-[#444444] transition-all shadow-sm"
+              className="gap-1.5 rounded-lg border border-border bg-card text-foreground hover:bg-muted transition-all shadow-xs"
             >
-              <Plus className="size-4 text-emerald-400" />
+              <Plus className="size-4 text-primary" />
               Analyzovať ďalší web
             </Button>
             {latest && (
               <Button
                 variant="outline"
                 onClick={() => setReportModalOpen(true)}
-                className="gap-1.5 rounded-lg border border-[#333333] bg-[#222222] text-[#f4f4f5] hover:bg-[#2a2a2a] hover:border-[#444444] transition-all shadow-sm"
+                className="gap-1.5 rounded-lg border border-border bg-card text-foreground hover:bg-muted transition-all shadow-xs"
               >
-                <FileText className="size-4 text-emerald-400" />
+                <FileText className="size-4 text-primary" />
                 Stiahnuť klientsky report (PDF)
               </Button>
             )}
             {!isAdmin && (
               <Button
                 onClick={() => setPaywallOpen(true)}
-                className="gap-1.5 rounded-lg bg-white text-zinc-950 font-semibold hover:bg-zinc-200 transition-all shadow-md active:scale-[0.98]"
+                className="gap-1.5 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all shadow-sm active:scale-[0.98]"
               >
-                <Sparkles className="size-4 text-amber-500" />
-                Aktivovať Pro (39 €)
+                <Sparkles className="size-4 text-amber-300" />
+                Aktivovať Pro (29 €)
               </Button>
             )}
           </div>
@@ -448,7 +512,7 @@ function DashboardPage() {
           }}
         >
           <DialogContent
-            className="max-w-[calc(100%-2rem)] sm:max-w-lg border border-[#3a3a3a] bg-[#212121] text-[#f4f4f5] shadow-2xl"
+            className="max-w-[calc(100%-2rem)] sm:max-w-lg border border-border bg-card text-foreground shadow-2xl"
             aria-describedby={undefined}
             onEscapeKeyDown={(e) => {
               if (scanning) e.preventDefault();
@@ -458,7 +522,7 @@ function DashboardPage() {
             }}
           >
             <DialogHeader>
-              <DialogTitle className="text-white font-display text-lg">
+              <DialogTitle className="text-foreground font-display text-lg">
                 Analyzovať ďalší web
               </DialogTitle>
             </DialogHeader>
@@ -467,156 +531,198 @@ function DashboardPage() {
         </Dialog>
 
         {busy ? (
-          <p className="mt-10 text-sm text-zinc-400">Načítavam…</p>
+          <div className="mt-8 space-y-4">
+            <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4 animate-pulse">
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="h-28 rounded-xl bg-card border border-border shadow-xs p-5 space-y-2"
+                >
+                  <div className="h-3 w-20 bg-muted rounded" />
+                  <div className="h-7 w-28 bg-muted rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
         ) : !latest ? (
-          <section className="mx-auto mt-10 max-w-lg space-y-5 rounded-xl border border-[#2c2c2c] bg-[#1f1f1f] p-8 shadow-xl shadow-black/40">
-            <p className="text-zinc-300 font-medium">Zatiaľ nemáš žiadne uložené snapshoty.</p>
+          <section className="mx-auto mt-10 max-w-lg space-y-5 rounded-xl border border-border bg-card p-8 shadow-sm">
+            <p className="text-foreground/80 font-medium">Zatiaľ nemáš žiadne uložené snapshoty.</p>
             {!scanOpen && propertyPicker}
           </section>
         ) : (
           <>
-            {/* KPI */}
-            <section className="mt-8 grid grid-cols-2 gap-3.5 md:grid-cols-4">
-              <Kpi
-                label="Kliky (90 dní)"
-                value={fmt(m.clicksNow ?? 0)}
-                delta={<Delta value={(m.clicksNow ?? 0) - (m.clicksPrev ?? 0)} />}
-              />
-              <Kpi
-                label="Impresie"
-                value={fmt(m.impressionsNow ?? 0)}
-                delta={<Delta value={(m.impressionsNow ?? 0) - (m.impressionsPrev ?? 0)} />}
-              />
-              <Kpi
-                label="Priem. pozícia"
-                value={(m.avgPositionNow ?? 0).toFixed(1)}
-                delta={
-                  <Delta
-                    invert
-                    value={Number(((m.avgPositionNow ?? 0) - (m.avgPositionPrev ?? 0)).toFixed(1))}
+            {(segmentedTab === "dashboard" || segmentedTab === "status") && (
+              <>
+                {/* Tactile Swipable KPI Card Slider (with 3 pagination dots) */}
+                <div className="mt-8 mb-4">
+                  <TactileKpiSlider slides={kpiSlides} />
+                </div>
+
+                {/* Standard KPI Grid */}
+                <section className="mt-4 grid grid-cols-2 gap-3.5 md:grid-cols-4">
+                  <Kpi
+                    label="Kliky (90 dní)"
+                    value={fmt(m.clicksNow ?? 0)}
+                    delta={<Delta value={(m.clicksNow ?? 0) - (m.clicksPrev ?? 0)} />}
                   />
-                }
-              />
-              <Kpi
-                label="Health index"
-                value={`${healthIndex(m)}/100`}
-                delta={
-                  <span className="text-zinc-400">
-                    <strong className="text-rose-400">{m.critical ?? 0}</strong> kritických ·{" "}
-                    <strong className="text-amber-400">{m.declining ?? 0}</strong> klesá
+                  <Kpi
+                    label="Impresie"
+                    value={fmt(m.impressionsNow ?? 0)}
+                    delta={<Delta value={(m.impressionsNow ?? 0) - (m.impressionsPrev ?? 0)} />}
+                  />
+                  <Kpi
+                    label="Priem. pozícia"
+                    value={(m.avgPositionNow ?? 0).toFixed(1)}
+                    delta={
+                      <Delta
+                        invert
+                        value={Number(
+                          ((m.avgPositionNow ?? 0) - (m.avgPositionPrev ?? 0)).toFixed(1),
+                        )}
+                      />
+                    }
+                  />
+                  <Kpi
+                    label="Health index"
+                    value={`${healthIndex(m)}/100`}
+                    delta={
+                      <span className="text-muted-foreground">
+                        <strong className="text-rose-500 font-semibold">{m.critical ?? 0}</strong>{" "}
+                        kritických ·{" "}
+                        <strong className="text-amber-500 font-semibold">{m.declining ?? 0}</strong>{" "}
+                        klesá
+                      </span>
+                    }
+                  />
+                </section>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Posledný snapshot:{" "}
+                  <span className="font-semibold text-foreground">
+                    {fmtDate(latest.created_at)}
                   </span>
-                }
-              />
-            </section>
-            <p className="mt-3 text-xs text-zinc-400">
-              Posledný snapshot:{" "}
-              <span className="font-semibold text-zinc-200">{fmtDate(latest.created_at)}</span>
-            </p>
-            <dl
-              aria-label="Porovnávané obdobia GSC"
-              className="mt-3 flex flex-wrap gap-x-8 gap-y-2 rounded-xl bg-[#1c1c1c] border border-[#2a2a2a] px-5 py-3 text-sm shadow-inner"
-            >
-              <div>
-                <dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">
-                  Aktuálne obdobie (90 dní)
-                </dt>
-                <dd className="font-semibold text-white mt-0.5">
-                  {latest.raw_data?.periodNow || "Dátumy nie sú dostupné"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">
-                  Predchádzajúce obdobie (90 dní)
-                </dt>
-                <dd className="font-semibold text-white mt-0.5">
-                  {latest.raw_data?.periodPrev || "Dátumy nie sú dostupné"}
-                </dd>
-              </div>
-            </dl>
-
-            {user && (
-              <OpportunityRadar snap={latest} userId={user.id} onDeploy={handleOpenDeploy} />
-            )}
-            <Explorer snap={latest} />
-            <CtrBooster snap={latest} onDeploy={handleOpenDeploy} />
-
-            {/* Snapshots */}
-            <section className="mt-12">
-              <h2 className="text-lg font-bold text-white font-display">Uložené snapshoty</h2>
-              <ul className="mt-3 divide-y divide-[#282828] rounded-xl bg-[#1f1f1f] border border-[#2c2c2c] shadow-xl shadow-black/40 overflow-hidden">
-                {siteSnaps.map((s) => (
-                  <li
-                    key={s.id}
-                    className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 text-sm hover:bg-[#252525] transition-colors"
-                  >
-                    <div>
-                      <p className="font-semibold text-white">{fmtDate(s.created_at)}</p>
-                      <p className="text-xs text-zinc-400 mt-0.5">
-                        {s.type} · {s.metrics_summary.pages ?? 0} URL
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs">
-                      <span className="font-medium text-zinc-200">
-                        {fmt(s.metrics_summary.clicksNow ?? 0)} klikov
-                      </span>
-                      <span className="text-zinc-400">
-                        poz. {(s.metrics_summary.avgPositionNow ?? 0).toFixed(1)}
-                      </span>
-                      <span className="rounded bg-zinc-800 px-2 py-0.5 text-zinc-300 border border-zinc-700/60 font-medium">
-                        health {healthIndex(s.metrics_summary)}/100
-                      </span>
-                      <Button
-                        variant="studio"
-                        size="studio"
-                        onClick={() => remove(s.id)}
-                        aria-label="Zmazať"
-                        className="text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md p-1.5 transition-colors"
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            {/* Diff */}
-            <section className="mt-12">
-              <h2 className="text-lg font-bold text-white font-display">Porovnávač snapshotov</h2>
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-                <SnapSelect label="Starší (A)" value={aId} onChange={setAId} snaps={siteSnaps} />
-                <span className="text-zinc-500">→</span>
-                <SnapSelect label="Novší (B)" value={bId} onChange={setBId} snaps={siteSnaps} />
-              </div>
-              {siteSnaps.length < 2 && (
-                <p className="mt-3 text-sm text-zinc-400">
-                  Na porovnanie potrebuješ aspoň 2 snapshoty. Spusti ďalšiu live analýzu neskôr.
                 </p>
-              )}
-              {a && b && a.id !== b.id && <DiffView a={a} b={b} />}
-            </section>
+                <dl
+                  aria-label="Porovnávané obdobia GSC"
+                  className="mt-3 flex flex-wrap gap-x-8 gap-y-2 rounded-xl bg-muted/40 border border-border px-5 py-3 text-sm shadow-xs"
+                >
+                  <div>
+                    <dt className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Aktuálne obdobie (90 dní)
+                    </dt>
+                    <dd className="font-semibold text-foreground mt-0.5">
+                      {latest.raw_data?.periodNow || "Dátumy nie sú dostupné"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Predchádzajúce obdobie (90 dní)
+                    </dt>
+                    <dd className="font-semibold text-foreground mt-0.5">
+                      {latest.raw_data?.periodPrev || "Dátumy nie sú dostupné"}
+                    </dd>
+                  </div>
+                </dl>
+
+                {user && (
+                  <OpportunityRadar snap={latest} userId={user.id} onDeploy={handleOpenDeploy} />
+                )}
+                <Explorer snap={latest} />
+                <CtrBooster snap={latest} onDeploy={handleOpenDeploy} />
+              </>
+            )}
+
+            {(segmentedTab === "dashboard" || segmentedTab === "projects") && (
+              <>
+                {/* Snapshots */}
+                <section className="mt-12">
+                  <h2 className="text-lg font-bold text-foreground font-display">
+                    Uložené snapshoty
+                  </h2>
+                  <ul className="mt-3 divide-y divide-border rounded-xl bg-card border border-border shadow-xs overflow-hidden">
+                    {siteSnaps.map((s) => (
+                      <li
+                        key={s.id}
+                        className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 text-sm hover:bg-muted/40 transition-colors"
+                      >
+                        <div>
+                          <p className="font-semibold text-foreground">{fmtDate(s.created_at)}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {s.type} · {s.metrics_summary.pages ?? 0} URL
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs">
+                          <span className="font-medium text-foreground">
+                            {fmt(s.metrics_summary.clicksNow ?? 0)} klikov
+                          </span>
+                          <span className="text-muted-foreground">
+                            poz. {(s.metrics_summary.avgPositionNow ?? 0).toFixed(1)}
+                          </span>
+                          <span className="rounded bg-muted px-2 py-0.5 text-foreground border border-border font-medium">
+                            health {healthIndex(s.metrics_summary)}/100
+                          </span>
+                          <Button
+                            variant="studio"
+                            size="studio"
+                            onClick={() => remove(s.id)}
+                            aria-label="Zmazať"
+                            className="text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-md p-1.5 transition-colors"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+
+                {/* Diff */}
+                <section className="mt-12">
+                  <h2 className="text-lg font-bold text-foreground font-display">
+                    Porovnávač snapshotov
+                  </h2>
+                  <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                    <SnapSelect
+                      label="Starší (A)"
+                      value={aId}
+                      onChange={setAId}
+                      snaps={siteSnaps}
+                    />
+                    <span className="text-muted-foreground">→</span>
+                    <SnapSelect label="Novší (B)" value={bId} onChange={setBId} snaps={siteSnaps} />
+                  </div>
+                  {siteSnaps.length < 2 && (
+                    <p className="mt-3 text-sm text-muted-foreground">
+                      Na porovnanie potrebuješ aspoň 2 snapshoty. Spusti ďalšiu live analýzu neskôr.
+                    </p>
+                  )}
+                  {a && b && a.id !== b.id && <DiffView a={a} b={b} />}
+                </section>
+              </>
+            )}
           </>
         )}
 
         {/* Fakturačné údaje a história platieb */}
-        <section className="mt-14 border-t border-[#2c2c2c] pt-8">
-          <div className="mb-6">
-            <h2 className="text-xl font-bold text-white font-display">
-              Fakturačné údaje a história platieb
-            </h2>
-            <p className="text-xs text-zinc-400 mt-1">
-              Správa firemných údajov a prístup k faktúram za predplatné cez Stripe.
-            </p>
-          </div>
-          <BillingInvoiceSection />
-        </section>
+        {(segmentedTab === "dashboard" || segmentedTab === "projects") && (
+          <section className="mt-14 border-t border-border pt-8">
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-foreground font-display">
+                Fakturačné údaje a história platieb
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Správa firemných údajov a prístup k faktúram za predplatné cez Stripe.
+              </p>
+            </div>
+            <BillingInvoiceSection />
+          </section>
+        )}
       </main>
 
       <PaywallModal
         open={paywallOpen}
         onOpenChange={setPaywallOpen}
         title="Odomknite neobmedzený počet webov s balíkom Pro"
-        description="Bezplatný plán umožňuje sledovanie 1 webu. S balíkom Pro (39 € / mes.) získate sledovanie až 5 webov, neobmedzený Decay Radar a WordPress exporty."
+        description="Bezplatný plán umožňuje sledovanie 1 webu. S balíkom Pro (29 € / mes.) získate sledovanie až 5 webov, neobmedzený Decay Radar a WordPress exporty."
       />
 
       <ClientReportModal
@@ -642,9 +748,11 @@ function DashboardPage() {
 
 function Kpi({ label, value, delta }: { label: string; value: string; delta: React.ReactNode }) {
   return (
-    <div className="rounded-xl bg-[#212121] p-5 border border-[#2c2c2c] shadow-xl shadow-black/40 hover:border-[#383838] transition-all duration-200">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">{label}</p>
-      <p className="mt-2 font-display text-3xl font-bold tracking-tight text-white">{value}</p>
+    <div className="rounded-xl bg-card p-5 border border-border shadow-xs hover:border-primary/40 hover:shadow-sm transition-all duration-200">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-2 font-display text-3xl font-bold tracking-tight text-foreground">{value}</p>
       <div className="mt-2.5 flex items-center text-xs">{delta}</div>
     </div>
   );
@@ -663,14 +771,16 @@ function SnapSelect({
 }) {
   return (
     <label className="flex items-center gap-2">
-      <span className="text-zinc-400 text-xs uppercase tracking-wider font-medium">{label}</span>
+      <span className="text-muted-foreground text-xs uppercase tracking-wider font-medium">
+        {label}
+      </span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-lg border border-[#333333] bg-[#1a1a1a] px-3 py-1.5 text-xs text-[#f4f4f5] focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
+        className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
       >
         {snaps.map((s) => (
-          <option key={s.id} value={s.id} className="bg-[#1a1a1a] text-[#f4f4f5]">
+          <option key={s.id} value={s.id} className="bg-card text-foreground">
             {fmtDate(s.created_at)}
           </option>
         ))}
@@ -759,13 +869,13 @@ function DiffView({ a, b }: { a: Snapshot; b: Snapshot }) {
 
 function DiffTable({ title, lines }: { title: string; lines: Line[] }) {
   return (
-    <div className="overflow-hidden rounded-xl bg-[#1f1f1f] border border-[#2c2c2c] shadow-xl shadow-black/40">
-      <div className="border-b border-[#2c2c2c] bg-[#181818] px-4 py-3 text-sm font-semibold text-white font-display">
+    <div className="overflow-hidden rounded-xl bg-card border border-border shadow-xs">
+      <div className="border-b border-border bg-muted/40 px-4 py-3 text-sm font-semibold text-foreground font-display">
         {title}
       </div>
       <div className="max-h-[480px] overflow-auto">
         <table className="w-full text-xs">
-          <thead className="sticky top-0 bg-[#161616] text-zinc-400 border-b border-[#282828] text-[11px] uppercase tracking-wider font-semibold">
+          <thead className="sticky top-0 bg-muted/70 text-muted-foreground border-b border-border text-[11px] uppercase tracking-wider font-semibold">
             <tr>
               <th className="px-3.5 py-2.5 text-left">{title}</th>
               <th className="px-2 text-right">Kliky A→B</th>
@@ -776,7 +886,7 @@ function DiffTable({ title, lines }: { title: string; lines: Line[] }) {
           <tbody>
             {lines.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-3.5 py-6 text-center text-zinc-400">
+                <td colSpan={4} className="px-3.5 py-6 text-center text-muted-foreground">
                   Žiadne dáta.
                 </td>
               </tr>
@@ -789,21 +899,21 @@ function DiffTable({ title, lines }: { title: string; lines: Line[] }) {
               return (
                 <tr
                   key={`${title}-${l.key || "row"}-${idx}`}
-                  className={"border-t border-[#262626] hover:bg-[#252525] transition-colors " + bg}
+                  className={"border-t border-border/60 hover:bg-muted/40 transition-colors " + bg}
                 >
                   <td
-                    className="max-w-[220px] truncate px-3.5 py-2.5 font-medium text-zinc-200"
+                    className="max-w-[220px] truncate px-3.5 py-2.5 font-medium text-foreground"
                     title={l.key}
                   >
                     {l.key.replace(/^https?:\/\/[^/]+/, "") || "/"}
                   </td>
-                  <td className="px-2 text-right text-zinc-300 tabular-nums">
+                  <td className="px-2 text-right text-foreground/80 tabular-nums">
                     {fmt(l.aClicks)} → {fmt(l.bClicks)}
                   </td>
                   <td className="px-2 text-right">
                     <Delta value={d} />
                   </td>
-                  <td className="px-3.5 text-right text-zinc-300 tabular-nums">
+                  <td className="px-3.5 text-right text-foreground/80 tabular-nums">
                     {l.bPos != null ? l.bPos.toFixed(1) : "—"}{" "}
                     {pd !== 0 && <Delta invert value={pd} />}
                   </td>
@@ -867,8 +977,10 @@ function Explorer({ snap }: { snap: Snapshot }) {
     <section className="mt-12">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-white font-display">Všetky URL a kľúčové slová</h2>
-          <p className="text-xs text-zinc-400">
+          <h2 className="text-lg font-bold text-foreground font-display">
+            Všetky URL a kľúčové slová
+          </h2>
+          <p className="text-xs text-muted-foreground">
             {rows.length} URL z posledného snapshotu · klikni na riadok pre dopyty
           </p>
         </div>
@@ -877,34 +989,34 @@ function Explorer({ snap }: { snap: Snapshot }) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Hľadať URL alebo dopyt…"
-            className="rounded-lg border border-[#333333] bg-[#1a1a1a] px-3.5 py-1.5 text-xs text-[#f4f4f5] placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
+            className="rounded-lg border border-border bg-card px-3.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
           />
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
-            className="rounded-lg border border-[#333333] bg-[#1a1a1a] px-3 py-1.5 text-xs text-[#f4f4f5] focus:border-emerald-500"
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground focus:border-primary"
           >
-            <option value="decay" className="bg-[#1a1a1a]">
+            <option value="decay" className="bg-card text-foreground">
               Najväčší prepad
             </option>
-            <option value="clicks" className="bg-[#1a1a1a]">
+            <option value="clicks" className="bg-card text-foreground">
               Kliky
             </option>
-            <option value="impressions" className="bg-[#1a1a1a]">
+            <option value="impressions" className="bg-card text-foreground">
               Impresie
             </option>
-            <option value="position" className="bg-[#1a1a1a]">
+            <option value="position" className="bg-card text-foreground">
               Najlepšia pozícia
             </option>
-            <option value="ctr" className="bg-[#1a1a1a]">
+            <option value="ctr" className="bg-card text-foreground">
               Najnižší CTR
             </option>
           </select>
         </div>
       </div>
-      <div className="mt-3 overflow-x-auto rounded-xl bg-[#1f1f1f] border border-[#2c2c2c] shadow-xl shadow-black/40">
+      <div className="mt-3 overflow-x-auto rounded-xl bg-card border border-border shadow-xs">
         <table className="w-full min-w-[760px] text-xs">
-          <thead className="bg-[#181818] text-zinc-400 border-b border-[#282828] text-[11px] uppercase tracking-wider font-semibold">
+          <thead className="bg-muted/50 text-muted-foreground border-b border-border text-[11px] uppercase tracking-wider font-semibold">
             <tr>
               <th className="px-3.5 py-2.5 text-left">URL / dopyt</th>
               <th className="px-2 text-right">Kliky</th>
@@ -918,7 +1030,7 @@ function Explorer({ snap }: { snap: Snapshot }) {
           <tbody>
             {list.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3.5 py-6 text-center text-zinc-400">
+                <td colSpan={7} className="px-3.5 py-6 text-center text-muted-foreground">
                   Nič sa nenašlo.
                 </td>
               </tr>
@@ -928,36 +1040,38 @@ function Explorer({ snap }: { snap: Snapshot }) {
               return (
                 <Fragment key={`${r.url}-${rIdx}`}>
                   <tr
-                    className="cursor-pointer border-t border-[#262626] hover:bg-[#252525] transition-colors"
+                    className="cursor-pointer border-t border-border/60 hover:bg-muted/40 transition-colors"
                     onClick={() => setOpen((o) => ({ ...o, [r.url]: !isOpen }))}
                   >
                     <td className="max-w-[280px] px-3.5 py-2.5">
                       <span
-                        className="flex items-center gap-1.5 truncate font-medium text-zinc-200"
+                        className="flex items-center gap-1.5 truncate font-medium text-foreground"
                         title={r.url}
                       >
                         {isOpen ? (
-                          <ChevronDown className="size-3.5 shrink-0 text-emerald-400" />
+                          <ChevronDown className="size-3.5 shrink-0 text-primary" />
                         ) : (
-                          <ChevronRight className="size-3.5 shrink-0 text-zinc-500" />
+                          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
                         )}
                         {path(r.url)}
                       </span>
                     </td>
-                    <td className="px-2 text-right text-zinc-200 tabular-nums">
+                    <td className="px-2 text-right text-foreground font-medium tabular-nums">
                       {fmt(r.clicksNow)} <Delta value={r.clicksNow - r.clicksPrev} />
                     </td>
-                    <td className="px-2 text-right text-zinc-300 tabular-nums">
+                    <td className="px-2 text-right text-muted-foreground tabular-nums">
                       {fmt(r.impressionsNow)}
                     </td>
-                    <td className="px-2 text-right text-zinc-300 tabular-nums">
+                    <td className="px-2 text-right text-muted-foreground tabular-nums">
                       {ctrOf(r.clicksNow, r.impressionsNow).toFixed(1)} %
                     </td>
-                    <td className="px-2 text-right text-zinc-300 tabular-nums">
+                    <td className="px-2 text-right text-muted-foreground tabular-nums">
                       {r.positionNow.toFixed(1)}{" "}
                       <Delta invert value={Number((r.positionNow - r.positionPrev).toFixed(1))} />
                     </td>
-                    <td className="px-2 text-right font-mono text-zinc-300">{r.decayScore}</td>
+                    <td className="px-2 text-right font-mono text-foreground font-semibold">
+                      {r.decayScore}
+                    </td>
                     <td className="px-3.5 py-2.5 text-right">
                       <Button
                         variant="studio"
@@ -966,7 +1080,7 @@ function Explorer({ snap }: { snap: Snapshot }) {
                           e.stopPropagation();
                           refresh(r);
                         }}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 text-[11px] font-medium text-white transition-colors shadow-sm"
+                        className="inline-flex items-center gap-1.5 rounded-md bg-primary hover:bg-primary/90 px-2.5 py-1 text-[11px] font-medium text-primary-foreground transition-colors shadow-xs"
                       >
                         <FileText className="size-3" /> Aktualizovať článok
                       </Button>
@@ -976,17 +1090,17 @@ function Explorer({ snap }: { snap: Snapshot }) {
                     r.topQueries.map((x, xIdx) => (
                       <tr
                         key={`${r.url}-${x.query || "empty"}-${xIdx}`}
-                        className="bg-[#161616]/90 text-zinc-300 border-t border-[#222222]"
+                        className="bg-muted/30 text-muted-foreground border-t border-border/40"
                       >
-                        <td className="py-2 pl-10 pr-3 font-mono text-[11px] text-zinc-400">
+                        <td className="py-2 pl-10 pr-3 font-mono text-[11px] text-foreground">
                           „{x.query}“
                         </td>
-                        <td className="px-2 text-right tabular-nums">
+                        <td className="px-2 text-right tabular-nums text-foreground">
                           {fmt(x.clicksNow)} <Delta value={x.clicksNow - x.clicksPrev} />
                         </td>
-                        <td className="px-2 text-right text-zinc-500">—</td>
-                        <td className="px-2 text-right text-zinc-500">—</td>
-                        <td className="px-2 text-right tabular-nums">
+                        <td className="px-2 text-right text-muted-foreground">—</td>
+                        <td className="px-2 text-right text-muted-foreground">—</td>
+                        <td className="px-2 text-right tabular-nums text-foreground">
                           {x.positionNow.toFixed(1)}{" "}
                           <Delta
                             invert
@@ -1072,37 +1186,37 @@ function CtrBooster({
 
   return (
     <section className="mt-12">
-      <h2 className="flex items-center gap-2 text-lg font-bold text-white font-display">
-        <Sparkles className="size-4 text-amber-400" /> CTR Booster
+      <h2 className="flex items-center gap-2 text-lg font-bold text-foreground font-display">
+        <Sparkles className="size-4 text-amber-500" /> CTR Booster
       </h2>
-      <p className="text-xs text-zinc-400">
+      <p className="text-xs text-muted-foreground">
         Stránky, ktoré Google často zobrazuje, ale ľudia na ne klikajú menej, než je pri ich pozícii
         bežné.
       </p>
       {candidates.length === 0 ? (
-        <p className="mt-3 rounded-xl bg-[#1f1f1f] border border-[#2c2c2c] p-5 text-sm text-zinc-400 shadow-xl shadow-black/40">
+        <p className="mt-3 rounded-xl bg-card border border-border p-5 text-sm text-muted-foreground shadow-xs">
           Žiadne stránky s podpriemerným CTR. Výborné!
         </p>
       ) : (
         <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-          <ul className="divide-y divide-[#282828] rounded-xl bg-[#1f1f1f] border border-[#2c2c2c] shadow-xl shadow-black/40 overflow-hidden">
+          <ul className="divide-y divide-border rounded-xl bg-card border border-border shadow-xs overflow-hidden">
             {candidates.map(({ r, ctr, exp }, idx) => (
               <li
                 key={`${r.url}-${idx}`}
                 className={
-                  "flex items-center justify-between gap-3 px-4 py-3.5 text-sm transition-colors hover:bg-[#252525] " +
-                  (active === r.url ? "bg-[#282828] border-l-2 border-emerald-500" : "")
+                  "flex items-center justify-between gap-3 px-4 py-3.5 text-sm transition-colors hover:bg-muted/40 " +
+                  (active === r.url ? "bg-muted/60 border-l-2 border-primary" : "")
                 }
               >
                 <div className="min-w-0">
-                  <p className="truncate font-semibold text-white" title={r.url}>
+                  <p className="truncate font-semibold text-foreground" title={r.url}>
                     {path(r.url)}
                   </p>
-                  <p className="text-xs text-zinc-400 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     poz.{" "}
-                    <span className="text-zinc-200 font-medium">{r.positionNow.toFixed(1)}</span> ·{" "}
-                    {fmt(r.impressionsNow)} impr. · CTR{" "}
-                    <span className="text-rose-400 font-semibold">{ctr.toFixed(1)} %</span> (bežne ~
+                    <span className="text-foreground font-medium">{r.positionNow.toFixed(1)}</span>{" "}
+                    · {fmt(r.impressionsNow)} impr. · CTR{" "}
+                    <span className="text-rose-500 font-semibold">{ctr.toFixed(1)} %</span> (bežne ~
                     {exp} %)
                   </p>
                 </div>
@@ -1112,7 +1226,7 @@ function CtrBooster({
                     size="studio"
                     disabled={busy}
                     onClick={() => run(r, ctr)}
-                    className="rounded-md bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-50 transition-colors shadow-sm"
+                    className="rounded-md bg-primary hover:bg-primary/90 px-2.5 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50 transition-colors shadow-xs"
                   >
                     Navrhnúť title + popis
                   </Button>
@@ -1121,7 +1235,7 @@ function CtrBooster({
                       variant="studio"
                       size="studio"
                       onClick={() => onDeploy(r.url, "", r.title)}
-                      className="rounded-md border border-[#383838] bg-[#222222] hover:bg-[#2a2a2a] p-1.5 text-emerald-400 transition-colors shadow-sm"
+                      className="rounded-md border border-border bg-card hover:bg-muted p-1.5 text-primary transition-colors shadow-xs"
                       title="🚀 Nasadiť do WordPressu"
                     >
                       <Rocket className="size-3.5" />
@@ -1131,18 +1245,18 @@ function CtrBooster({
               </li>
             ))}
           </ul>
-          {/* Terminal Box for AI Output */}
-          <div className="min-h-[220px] rounded-xl bg-[#141414] border border-[#2c2c2c] p-5 shadow-2xl shadow-black/60 flex flex-col justify-between">
+          {/* Terminal Box for AI Output wrapped with Laser Border Beam */}
+          <LaserBorderCard className="min-h-[220px]">
             {!active ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center text-zinc-500">
-                <Sparkles className="size-8 mb-2 text-zinc-600" />
+              <div className="flex flex-col items-center justify-center py-12 text-center text-zinc-400">
+                <Sparkles className="size-8 mb-2 text-zinc-500" />
                 <p className="text-sm">
                   Vyber stránku vľavo a AI navrhne 3 varianty title a meta popisu.
                 </p>
               </div>
             ) : (
               <>
-                <div className="mb-3 flex items-center justify-between border-b border-[#282828] pb-3 text-xs">
+                <div className="mb-3 flex items-center justify-between border-b border-zinc-800 pb-3 text-xs">
                   <div className="flex items-center gap-2">
                     <span className="flex gap-1.5">
                       <span className="size-2.5 rounded-full bg-rose-500/80" />
@@ -1162,7 +1276,7 @@ function CtrBooster({
                           navigator.clipboard.writeText(out);
                           toast.success("Skopírované");
                         }}
-                        className="inline-flex items-center gap-1 rounded-md border border-[#333333] bg-[#222222] px-2.5 py-1 text-xs text-zinc-300 hover:text-white hover:bg-[#2a2a2a] transition-colors"
+                        className="inline-flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-200 hover:text-white hover:bg-zinc-700 transition-colors"
                       >
                         <Copy className="size-3" /> Kopírovať
                       </Button>
@@ -1185,12 +1299,12 @@ function CtrBooster({
                     Generujem optimalizované návrhy…
                   </div>
                 )}
-                <div className="prose prose-invert prose-sm max-w-none font-mono text-xs text-[#e2e8f0] leading-relaxed">
+                <div className="prose prose-invert prose-sm max-w-none font-mono text-xs text-zinc-200 leading-relaxed">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{out}</ReactMarkdown>
                 </div>
               </>
             )}
-          </div>
+          </LaserBorderCard>
         </div>
       )}
     </section>

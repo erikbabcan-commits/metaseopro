@@ -20,9 +20,26 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
             },
           });
         }
+        let stripe = null;
+        try {
+          stripe = getStripeClient();
+        } catch (err) {
+          console.error("[Stripe Webhook] Stripe initialization error:", err);
+          return new Response(JSON.stringify({ error: "BILLING_WEBHOOK_NOT_CONFIGURED" }), {
+            status: 503,
+            headers: {
+              "Content-Type": "application/json",
+              "Retry-After": "5",
+            },
+          });
+        }
+
         return handleStripeWebhook(request, {
-          stripe: getStripeClient(),
-          webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+          stripe,
+          webhookSecret: process.env.STRIPE_WEBHOOK_SECRET?.replace(
+            /^["'\s]+|["'\s]+$/g,
+            "",
+          ).trim(),
         });
       },
     },

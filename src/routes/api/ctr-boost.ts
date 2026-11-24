@@ -1,4 +1,4 @@
-import { AI_CHAT_URL, AI_DEFAULT_MODEL } from "@/lib/ai-provider";
+import { AI_CHAT_URL, AI_DEFAULT_MODEL, getMistralApiKey } from "@/lib/ai-provider";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireUser } from "@/lib/api-auth.server";
@@ -55,7 +55,7 @@ export const Route = createFileRoute("/api/ctr-boost")({
           if (!parsed.success) return err(400, "Neplatný vstup.");
           const i = parsed.data;
 
-          const apiKey = process.env.MISTRAL_API_KEY;
+          const apiKey = getMistralApiKey();
           if (!apiKey) return err(500, "AI nie je nakonfigurované.");
 
           const userPrompt = [

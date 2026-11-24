@@ -23,6 +23,7 @@ import {
 import { AppHeader } from "@/components/AppHeader";
 import { useAuth } from "@/hooks/use-auth";
 import { streamSSE } from "@/lib/stream-sse";
+import { startLaserProgress, stopLaserProgress } from "@/lib/laser-loader";
 import { handoffToWriter } from "@/lib/refresh-handoff";
 import { saveOutput } from "@/lib/outputs.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -202,6 +203,7 @@ function DecayPage() {
     setDataset(null);
     setSelected(null);
     setPlan("");
+    startLaserProgress();
     try {
       const {
         data: { session },
@@ -228,6 +230,8 @@ function DecayPage() {
     } catch (e) {
       setErrorMsg((e as Error).message || "Analýza zlyhala.");
       setPhase("error");
+    } finally {
+      stopLaserProgress();
     }
   };
 
@@ -778,7 +782,7 @@ function DecayPage() {
         open={paywallOpen}
         onOpenChange={setPaywallOpen}
         title="Odomknite Decay Radar s balíkom Pro"
-        description="V bezplatnej verzii môžete generovať záchranný plán pre prvé 3 podstránky. Pre záchranu všetkých klesajúcich URL a WordPress export aktivujte balík Pro (39 € / mes.)."
+        description="V bezplatnej verzii môžete generovať záchranný plán pre prvé 3 podstránky. Pre záchranu všetkých klesajúcich URL a WordPress export aktivujte balík Pro (29 € / mes.)."
       />
     </div>
   );

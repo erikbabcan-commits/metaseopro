@@ -1,10 +1,11 @@
-import { AI_CHAT_URL, AI_DEFAULT_MODEL } from "@/lib/ai-provider";
+import { AI_CHAT_URL, AI_DEFAULT_MODEL, getMistralApiKey } from "@/lib/ai-provider";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { AUDIT_SYSTEM_PROMPT } from "@/lib/audit-prompt";
 import { getCachedDomainSnapshot, SemrushError, type DomainSnapshot } from "@/lib/semrush.server";
 import { requireUser } from "@/lib/api-auth.server";
-import { checkViewerRateLimit } from "@/lib/viewer-role.server";
+import { checkViewerRateLimit, hasViewerPaidAccess, isUnlimited } from "@/lib/viewer-role.server";
+import { PLANS } from "@/lib/slovak-billing";
 
 const MAX_BODY_BYTES = 8 * 1024;
 
@@ -83,6 +84,26 @@ export const Route = createFileRoute("/api/audit-domains")({
             ? normalizeDomain(parsed.data.yourDomain)
             : null;
 
+          if (normalized.length > PLANS.free.maxAuditUrls) {
+            const isSuperadmin = isUnlimited({ id: auth.userId });
+            if (!isSuperadmin) {
+              const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+              const { data: sub } = await supabaseAdmin
+                .from("subscriptions")
+                .select("plan, status, current_period_end")
+                .eq("user_id", auth.userId)
+                .maybeSingle();
+
+              const hasPaid = hasViewerPaidAccess({ id: auth.userId }, sub, Date.now());
+              if (!hasPaid) {
+                return err(
+                  403,
+                  `Analýza viac ako ${PLANS.free.maxAuditUrls} domén naraz vyžaduje predplatné Pro alebo Agency. Vo verzii Free môžeš analyzovať najviac ${PLANS.free.maxAuditUrls} domény.`,
+                );
+              }
+            }
+          }
+
           if (!process.env.SEMRUSH_API_KEY) {
             return err(
               503,
@@ -102,7 +123,7 @@ export const Route = createFileRoute("/api/audit-domains")({
             throw e;
           }
 
-          const apiKey = process.env.MISTRAL_API_KEY;
+          const apiKey = getMistralApiKey();
           if (!apiKey) return err(500, "MISTRAL_API_KEY nie je nakonfigurovaný.");
 
           const userPrompt =

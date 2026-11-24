@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { ErrorComponentProps } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -12,13 +13,15 @@ import {
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ViewerRoleProvider } from "@/hooks/use-viewer-role";
-import { SITE, pageUrl } from "@/lib/i18n";
-import { PwaLaunchExperience } from "@/components/PwaLaunchExperience";
+import { SITE } from "@/lib/i18n";
+import { clearPwaBadge } from "@/lib/pwa-badging";
 import { IosInstallPrompt } from "@/components/IosInstallPrompt";
+import { TopBarLaserLoader } from "@/components/TopBarLaserLoader";
+import { TactileFloatingNav } from "@/components/TactileFloatingNav";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
@@ -43,7 +46,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)] pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
           This page didn't load
@@ -117,15 +120,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "apple-touch-icon", sizes: "180x180", href: "/icons/apple-touch-icon-180.png" },
+      { rel: "icon", href: "/favicon.ico", sizes: "any" },
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
-      { rel: "icon", type: "image/png", sizes: "32x32", href: "/icons/icon-32.png" },
-      { rel: "icon", type: "image/png", sizes: "16x16", href: "/icons/icon-16.png" },
+      { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32x32.png" },
+      { rel: "icon", type: "image/png", sizes: "16x16", href: "/favicon-16x16.png" },
+      { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
       { rel: "canonical", href: SITE },
-      { rel: "alternate", hrefLang: "sk", href: pageUrl("sk", "/") },
-      { rel: "alternate", hrefLang: "en", href: pageUrl("en", "/") },
-      { rel: "alternate", hrefLang: "de", href: pageUrl("de", "/") },
-      { rel: "alternate", hrefLang: "x-default", href: pageUrl("sk", "/") },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -161,13 +161,18 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  useEffect(() => {
+    void clearPwaBadge();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ViewerRoleProvider>
-          <PwaLaunchExperience />
+          <TopBarLaserLoader />
           <IosInstallPrompt />
           <Outlet />
+          <TactileFloatingNav />
         </ViewerRoleProvider>
       </AuthProvider>
     </QueryClientProvider>
