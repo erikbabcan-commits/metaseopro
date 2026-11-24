@@ -10,6 +10,7 @@ import { ArrowDown, Check, Copy, Rocket, RotateCcw, Square } from "lucide-react"
 import { AppHeader } from "@/components/AppHeader";
 import { useAuth } from "@/hooks/use-auth";
 import { streamSSE } from "@/lib/stream-sse";
+import { startLaserProgress, stopLaserProgress } from "@/lib/laser-loader";
 import { saveOutput } from "@/lib/outputs.functions";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -172,6 +173,7 @@ function RaketaPage() {
 
     // STEP 1 + 2: analyze (validate + scan + compare)
     let analysisData: RaketaAnalysis;
+    startLaserProgress();
     try {
       setPhase("scanning");
       const {
@@ -207,6 +209,8 @@ function RaketaPage() {
       setErrorMsg((e as Error).message || "Analýza webu zlyhala.");
       setPhase("error");
       return;
+    } finally {
+      stopLaserProgress();
     }
 
     // STEP 3 + 4: generate output (streamed)
