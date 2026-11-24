@@ -21,7 +21,9 @@ import {
   X,
   ArrowUpRight,
   ShieldCheck,
+  Copy,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -492,6 +494,21 @@ export function AppHeader() {
                       <span className="text-[11px] text-muted-foreground">Balík:</span>
                       <ViewerBadge isAdmin={isAdmin} plan={userPlan} />
                     </div>
+                    {user.id && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void navigator.clipboard.writeText(user.id);
+                          toast.success("User UID skopírované do schránky!");
+                        }}
+                        className="mt-1.5 flex items-center justify-between w-full text-[10px] text-muted-foreground hover:text-foreground font-mono bg-muted/60 hover:bg-muted px-1.5 py-0.5 rounded transition-colors group cursor-pointer"
+                        title="Klikni pre skopírovanie tvojho User UID"
+                      >
+                        <span className="truncate max-w-[140px]">UID: {user.id}</span>
+                        <Copy className="size-2.5 opacity-60 group-hover:opacity-100 shrink-0 ml-1" />
+                      </button>
+                    )}
                   </div>
 
                   <DropdownMenuItem asChild>
@@ -573,26 +590,44 @@ export function AppHeader() {
 
                 {/* User Status in Drawer */}
                 {user && (
-                  <div className="p-4 bg-muted/40 border-b border-border/60 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-foreground truncate">{user.email}</p>
-                      <div className="mt-1">
-                        <ViewerBadge isAdmin={isAdmin} plan={userPlan} />
+                  <div className="p-4 bg-muted/40 border-b border-border/60 flex flex-col gap-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-foreground truncate">
+                          {user.email}
+                        </p>
+                        <div className="mt-1">
+                          <ViewerBadge isAdmin={isAdmin} plan={userPlan} />
+                        </div>
                       </div>
+                      {!isAdmin && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setMobileOpen(false);
+                            setPaywallOpen(true);
+                          }}
+                          className="h-7 text-xs gap-1"
+                        >
+                          <Sparkles className="size-3 text-primary" />
+                          Upgrade
+                        </Button>
+                      )}
                     </div>
-                    {!isAdmin && (
-                      <Button
-                        variant="outline"
-                        size="sm"
+                    {user.id && (
+                      <button
+                        type="button"
                         onClick={() => {
-                          setMobileOpen(false);
-                          setPaywallOpen(true);
+                          void navigator.clipboard.writeText(user.id);
+                          toast.success("User UID skopírované do schránky!");
                         }}
-                        className="h-7 text-xs gap-1"
+                        className="flex items-center justify-between w-full text-[10px] text-muted-foreground hover:text-foreground font-mono bg-background/80 hover:bg-background px-2 py-1 rounded border border-border/40 transition-colors group cursor-pointer"
+                        title="Klikni pre skopírovanie tvojho User UID"
                       >
-                        <Sparkles className="size-3 text-primary" />
-                        Upgrade
-                      </Button>
+                        <span className="truncate max-w-[200px]">UID: {user.id}</span>
+                        <Copy className="size-3 opacity-60 group-hover:opacity-100 shrink-0 ml-1" />
+                      </button>
                     )}
                   </div>
                 )}
