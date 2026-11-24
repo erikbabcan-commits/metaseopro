@@ -1,4 +1,4 @@
-import { AI_CHAT_URL, AI_DEFAULT_MODEL } from "@/lib/ai-provider";
+import { AI_CHAT_URL, AI_DEFAULT_MODEL, getMistralApiKey } from "@/lib/ai-provider";
 import { createFileRoute } from "@tanstack/react-router";
 import { GeneratePlanSchema } from "@/lib/decay-schema";
 import { DECAY_SYSTEM_PROMPT, buildDecayUserPrompt } from "@/lib/decay-prompt";
@@ -53,7 +53,7 @@ export const Route = createFileRoute("/api/decay-generate-plan")({
           const parsed = GeneratePlanSchema.safeParse(raw);
           if (!parsed.success) return err(400, "Neplatný vstup pre generovanie plánu.");
 
-          const apiKey = process.env.MISTRAL_API_KEY;
+          const apiKey = getMistralApiKey();
           if (!apiKey) return err(500, "MISTRAL_API_KEY nie je nakonfigurovaný.");
 
           const userPrompt = buildDecayUserPrompt({
