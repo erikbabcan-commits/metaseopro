@@ -158,13 +158,23 @@ async function lineItems(
     billingError("PRICE_INVALID", "Nakonfigurované Price ID má neplatný formát.");
   const price = await stripe.prices.retrieve(priceId, { expand: ["product"] });
   const product = price.product;
+  const isAmountValid =
+    price.unit_amount === config.priceMonthly * 100 ||
+    (input.plan === "pro" && (price.unit_amount === 2900 || price.unit_amount === 3900)) ||
+    (input.plan === "agency" && (price.unit_amount === 29000 || price.unit_amount === 8900));
+  const isIntervalValid =
+    input.plan === "pro"
+      ? price.recurring?.interval === "month"
+      : price.recurring?.interval === "month" || price.recurring?.interval === "year";
+
   if (
     !price.active ||
     price.livemode !== deps.livemode ||
     price.type !== "recurring" ||
     price.currency !== "eur" ||
-    price.unit_amount !== config.priceMonthly * 100 ||
-    price.recurring?.interval !== "month" ||
+    !isAmountValid ||
+    !isIntervalValid ||
+    !price.recurring ||
     price.recurring.interval_count !== 1 ||
     price.recurring.usage_type !== "licensed" ||
     price.billing_scheme !== "per_unit" ||

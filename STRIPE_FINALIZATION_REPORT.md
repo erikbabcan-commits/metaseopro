@@ -4,13 +4,13 @@ Dátum kontroly: **16. 11. 2026**, časové údaje nižšie sú v Europe/Bratisl
 
 ## Verdikt
 
-| Oblasť | Stav | Dôkaz a hranica výsledku |
-| --- | --- | --- |
-| **A. Kód pripravený** | **PASS** | Uzamknutá inštalácia, 451/451 testov, TypeScript, build, zmenené zdrojové súbory bez lint chýb. Existujúca schválená lint výnimka je uvedená nižšie. |
-| **B. Databáza pripravená** | **BLOCKED** | Opravené SQL a lokálne PGlite kontroly prešli. História, aplikovanie migrácie, grants/RLS/RPC a dáta správneho živého projektu neboli prístupné. |
-| **C. Testovacie platby overené** | **BLOCKED** | Nebol dostupný prihlásený testovací účet ani izolované nakonfigurované Stripe/DB prostredie. Fixtures nie sú platba. |
-| **D. Produkčná konfigurácia overená** | **FAIL** | Nasadený webhook vrátil `503 {"error":"BILLING_WEBHOOK_NOT_CONFIGURED"}`. Ostatné live nastavenia, portál a publikovaný commit zostávajú BLOCKED. |
-| **E. Reálna platba overená** | **BLOCKED** | Nebola vykonaná ani osobitne schválená suma, účet a platobný prostriedok. |
+| Oblasť                                | Stav        | Dôkaz a hranica výsledku                                                                                                                             |
+| ------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A. Kód pripravený**                 | **PASS**    | Uzamknutá inštalácia, 451/451 testov, TypeScript, build, zmenené zdrojové súbory bez lint chýb. Existujúca schválená lint výnimka je uvedená nižšie. |
+| **B. Databáza pripravená**            | **BLOCKED** | Opravené SQL a lokálne PGlite kontroly prešli. História, aplikovanie migrácie, grants/RLS/RPC a dáta správneho živého projektu neboli prístupné.     |
+| **C. Testovacie platby overené**      | **BLOCKED** | Nebol dostupný prihlásený testovací účet ani izolované nakonfigurované Stripe/DB prostredie. Fixtures nie sú platba.                                 |
+| **D. Produkčná konfigurácia overená** | **FAIL**    | Nasadený webhook vrátil `503 {"error":"BILLING_WEBHOOK_NOT_CONFIGURED"}`. Ostatné live nastavenia, portál a publikovaný commit zostávajú BLOCKED.    |
+| **E. Reálna platba overená**          | **BLOCKED** | Nebola vykonaná ani osobitne schválená suma, účet a platobný prostriedok.                                                                            |
 
 **Kód možno integrovať po CI; prijímanie produkčných platieb tým nie je schválené ani overené.**
 
@@ -26,17 +26,17 @@ Dátum kontroly: **16. 11. 2026**, časové údaje nižšie sú v Europe/Bratisl
 
 ## Skutočne zmenené súbory
 
-| Súbor | Zmena |
-| --- | --- |
-| `.env` | Odstránené iba tri duplicitné `SUPABASE_*` aliasy pridané v `4bd53b6`. Tri pôvodné verejné `VITE_SUPABASE_*` hodnoty zostali presne zachované. |
-| `src/lib/billing-checkout.server.ts` | Nový nákup po skončení historického predplatného s opätovným overením Stripe session a subscription. |
-| `src/lib/billing-checkout.test.ts` | Regresie pre návratový nákup, vlastníctvo, režim, unsettled payment, opakovanú operáciu a výpadok overenia. |
-| `src/lib/billing-migration.test.ts` | Silnejšie katalógové, oprávňovacie, FK, lease a checkout lifecycle kontroly. |
-| `supabase/migrations/20261116031733_stripe_billing_reconciliation.sql` | Päť nových tabuliek bez FK do `auth.users`; explicitné oprávnenia hneď po CREATE TABLE. |
-| `docs/STRIPE_DB_CHECKS.sql` | Nový read-only preflight/postmigration skript s agregovanými výsledkami. |
-| `docs/stripe.env.example` | Odstránené prázdne assignmenty rezervovaných `SUPABASE_*`; pokyn zachovať runtime bindings. |
-| `docs/STRIPE_PRODUCTION_RUNBOOK.md` | Aktualizované nasadenie, reálne prístupy, test/live izolácia, obnova a odovzdanie. |
-| `STRIPE_FINALIZATION_REPORT.md` | Tento report a konkrétne zostávajúce kroky. |
+| Súbor                                                                  | Zmena                                                                                                                                          |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.env`                                                                 | Odstránené iba tri duplicitné `SUPABASE_*` aliasy pridané v `4bd53b6`. Tri pôvodné verejné `VITE_SUPABASE_*` hodnoty zostali presne zachované. |
+| `src/lib/billing-checkout.server.ts`                                   | Nový nákup po skončení historického predplatného s opätovným overením Stripe session a subscription.                                           |
+| `src/lib/billing-checkout.test.ts`                                     | Regresie pre návratový nákup, vlastníctvo, režim, unsettled payment, opakovanú operáciu a výpadok overenia.                                    |
+| `src/lib/billing-migration.test.ts`                                    | Silnejšie katalógové, oprávňovacie, FK, lease a checkout lifecycle kontroly.                                                                   |
+| `supabase/migrations/20261116031733_stripe_billing_reconciliation.sql` | Päť nových tabuliek bez FK do `auth.users`; explicitné oprávnenia hneď po CREATE TABLE.                                                        |
+| `docs/STRIPE_DB_CHECKS.sql`                                            | Nový read-only preflight/postmigration skript s agregovanými výsledkami.                                                                       |
+| `docs/stripe.env.example`                                              | Odstránené prázdne assignmenty rezervovaných `SUPABASE_*`; pokyn zachovať runtime bindings.                                                    |
+| `docs/STRIPE_PRODUCTION_RUNBOOK.md`                                    | Aktualizované nasadenie, reálne prístupy, test/live izolácia, obnova a odovzdanie.                                                             |
+| `STRIPE_FINALIZATION_REPORT.md`                                        | Tento report a konkrétne zostávajúce kroky.                                                                                                    |
 
 Žiadna zmena cenníka, dependencies, lockfile, generovaných integračných typov ani UI redesign. Pôvodný ZIP/patch sa neaplikoval znova. Produkčné secrets sa nemenili.
 
@@ -70,18 +70,18 @@ Odstránené sú len tieto tri aliasy. Frontendové hodnoty, správny backend re
 
 Lokálne prostredie: Bun **1.4.4**, Node **24.22.1**, uzamknutý Stripe SDK **23.1.0**, jeho default API verzia **2026-10-28.endive**. To nepreukazuje verziu nakonfigurovanú na dashboard webhook endpointe.
 
-| Kontrola | Výsledok |
-| --- | --- |
-| `bun install --frozen-lockfile` | PASS, exit 0; bez zmeny lockfile. |
-| `bunx vitest run` | PASS, **451/451**, 31 testových súborov, 0 zlyhaní. |
-| `bunx tsc --noEmit` | PASS, exit 0. |
-| ESLint troch zmenených zdrojových TS súborov | PASS, 0 chýb / 0 varovaní. |
-| `bun run lint` | **FAIL s už schválenou výnimkou**: 349 existujúcich chýb / 9 varovaní. Všetky diagnostiky sa zhodovali s predchádzajúcim overeným release, nielen počet. |
-| `bun run build` | PASS, exit 0. |
-| `git diff --check` a staged diff | PASS. |
-| Checkout suite | 64 testov PASS; Stripe fixtures, žiadna externá platba. |
-| PGlite migration suite | 18 testov PASS; constraints, grants, RLS, RPC, vlastníctvo, lease, rollback a retry. |
-| Read-only SQL inspection skript | PASS pred aj po migrácii v samostatnom lokálnom PGlite; 18 výsledkov vrátane transakčných príkazov, `transaction_read_only=on`, žiadne mutačné RPC volanie. |
+| Kontrola                                     | Výsledok                                                                                                                                                    |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bun install --frozen-lockfile`              | PASS, exit 0; bez zmeny lockfile.                                                                                                                           |
+| `bunx vitest run`                            | PASS, **451/451**, 31 testových súborov, 0 zlyhaní.                                                                                                         |
+| `bunx tsc --noEmit`                          | PASS, exit 0.                                                                                                                                               |
+| ESLint troch zmenených zdrojových TS súborov | PASS, 0 chýb / 0 varovaní.                                                                                                                                  |
+| `bun run lint`                               | **FAIL s už schválenou výnimkou**: 349 existujúcich chýb / 9 varovaní. Všetky diagnostiky sa zhodovali s predchádzajúcim overeným release, nielen počet.    |
+| `bun run build`                              | PASS, exit 0.                                                                                                                                               |
+| `git diff --check` a staged diff             | PASS.                                                                                                                                                       |
+| Checkout suite                               | 64 testov PASS; Stripe fixtures, žiadna externá platba.                                                                                                     |
+| PGlite migration suite                       | 18 testov PASS; constraints, grants, RLS, RPC, vlastníctvo, lease, rollback a retry.                                                                        |
+| Read-only SQL inspection skript              | PASS pred aj po migrácii v samostatnom lokálnom PGlite; 18 výsledkov vrátane transakčných príkazov, `transaction_read_only=on`, žiadne mutačné RPC volanie. |
 
 Rozdelenie existujúcich lint chýb: `types.ts` 314, `previewAuthStorage.ts` 31, `IosInstallPrompt.tsx` 3, `__root.tsx` 1. Tieto súbory sa nemenili. Výnimku na 349 existujúcich chýb vlastník udelil už pred touto úlohou; nepridala sa nová výnimka a pravidlá sa nevypínali.
 
@@ -89,29 +89,29 @@ Vitest vypísal pri existujúcom HTTP teste `Dev server not reachable, skipping 
 
 ## Forenzná kontrola existujúcej implementácie
 
-| Invariant | Lokálny výsledok | Nasadený tok |
-| --- | --- | --- |
-| Checkout bez konfigurácie bezpečne zlyhá | PASS v kóde/testoch; nevyrába demo úspech. | BLOCKED, prihlásený checkout nebol spustený. |
-| Server určuje user/customer mapping a cenu | PASS v kóde/testoch; klient nevolí cudzie ID ani sumu. | BLOCKED, produkčné mapovania neprístupné. |
-| Návraty zostávajú na povolenom SITE_URL | PASS v validatoroch a negatívnych testoch. | BLOCKED, reálny portal/checkout nebol vytvorený. |
-| Webhook overuje podpis nad pôvodným telom | PASS v HTTP testoch implementácie. | BLOCKED config gate 503 pred overením podpisu. |
-| URL `payment=success` sama nedáva oprávnenie | PASS v existujúcej serverovej politike/testoch. | BLOCKED, reálna DB/UI neoverená. |
-| Platené oprávnenie vyžaduje aktívny stav a budúce obdobie | PASS v policy a SQL testoch. | BLOCKED, historické platené účty neprístupné. |
-| Existujúce predplatné nevytvorí druhý checkout | PASS fixtures; kontrola pod lease a pred ním ostáva. | BLOCKED, reálny súbeh nebol vykonaný. |
-| Retry a webhook duplicity sú idempotentné | PASS fixtures/PGlite vrátane strateného finalize. | BLOCKED, skutočné Stripe retry neoverené. |
+| Invariant                                                 | Lokálny výsledok                                       | Nasadený tok                                     |
+| --------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------ |
+| Checkout bez konfigurácie bezpečne zlyhá                  | PASS v kóde/testoch; nevyrába demo úspech.             | BLOCKED, prihlásený checkout nebol spustený.     |
+| Server určuje user/customer mapping a cenu                | PASS v kóde/testoch; klient nevolí cudzie ID ani sumu. | BLOCKED, produkčné mapovania neprístupné.        |
+| Návraty zostávajú na povolenom SITE_URL                   | PASS v validatoroch a negatívnych testoch.             | BLOCKED, reálny portal/checkout nebol vytvorený. |
+| Webhook overuje podpis nad pôvodným telom                 | PASS v HTTP testoch implementácie.                     | BLOCKED config gate 503 pred overením podpisu.   |
+| URL `payment=success` sama nedáva oprávnenie              | PASS v existujúcej serverovej politike/testoch.        | BLOCKED, reálna DB/UI neoverená.                 |
+| Platené oprávnenie vyžaduje aktívny stav a budúce obdobie | PASS v policy a SQL testoch.                           | BLOCKED, historické platené účty neprístupné.    |
+| Existujúce predplatné nevytvorí druhý checkout            | PASS fixtures; kontrola pod lease a pred ním ostáva.   | BLOCKED, reálny súbeh nebol vykonaný.            |
+| Retry a webhook duplicity sú idempotentné                 | PASS fixtures/PGlite vrátane strateného finalize.      | BLOCKED, skutočné Stripe retry neoverené.        |
 
 ## Databáza a prístupy
 
-| Kontrola | Stav | Pozorovanie |
-| --- | --- | --- |
-| Identifikátory od vlastníka | ZAZNAMENANÉ | Lovable UUID `5e26db04-467c-4652-a9dc-c945b160d77c`; backend ref `pwftbssvdbjoblmhdeax`. |
-| Lovable projekt cez konektor | BLOCKED | Lookup uvedeného UUID vrátil 404/project_not_found. |
-| Supabase backend cez konektor | BLOCKED | Lookup uvedeného ref odmietol oprávnenie. Žiadny náhradný projekt nebol použitý. |
-| Reálna história migrácií a subscriptions | BLOCKED | Neboli dostupné; duplicity, obdobia a historické mapovania sa nevymýšľali. |
-| Opravená migrácia pripravená | PASS lokálne | Repozitár obsahuje konkrétny SQL diff a rozšírené testy. |
-| Migrácia aplikovaná v izolovanom hosted test prostredí | BLOCKED | PGlite nie je hosted prostredie. |
-| Produkčná migrácia aplikovaná a overená | BLOCKED | Bez autorizovaného prístupu a osobitného súhlasu sa nevykonala. |
-| Reálne RLS/grants/RPC a privilegovaný runtime | BLOCKED | Lokálne PASS, ale reálna DB a runtime cesta nie sú overené. |
+| Kontrola                                               | Stav         | Pozorovanie                                                                              |
+| ------------------------------------------------------ | ------------ | ---------------------------------------------------------------------------------------- |
+| Identifikátory od vlastníka                            | ZAZNAMENANÉ  | Lovable UUID `5e26db04-467c-4652-a9dc-c945b160d77c`; backend ref `pwftbssvdbjoblmhdeax`. |
+| Lovable projekt cez konektor                           | BLOCKED      | Lookup uvedeného UUID vrátil 404/project_not_found.                                      |
+| Supabase backend cez konektor                          | BLOCKED      | Lookup uvedeného ref odmietol oprávnenie. Žiadny náhradný projekt nebol použitý.         |
+| Reálna história migrácií a subscriptions               | BLOCKED      | Neboli dostupné; duplicity, obdobia a historické mapovania sa nevymýšľali.               |
+| Opravená migrácia pripravená                           | PASS lokálne | Repozitár obsahuje konkrétny SQL diff a rozšírené testy.                                 |
+| Migrácia aplikovaná v izolovanom hosted test prostredí | BLOCKED      | PGlite nie je hosted prostredie.                                                         |
+| Produkčná migrácia aplikovaná a overená                | BLOCKED      | Bez autorizovaného prístupu a osobitného súhlasu sa nevykonala.                          |
+| Reálne RLS/grants/RPC a privilegovaný runtime          | BLOCKED      | Lokálne PASS, ale reálna DB a runtime cesta nie sú overené.                              |
 
 Verejná URL presmerovala na Lovable auth bridge s identifikátorom `lovp_6661rtv7wd9zqs9cyx1vhxeb5h`. Aj read-only lookup tohto pozorovaného ID vrátil 404. **Ekvivalencia s UUID od vlastníka nie je potvrdená**; nesmie sa podľa toho zameniť cieľ migrácie.
 
@@ -121,12 +121,12 @@ Lovable dokumentuje `SUPABASE_*` ako rezervované platformové hodnoty. Nie je p
 
 Kontrola **16. 11. 2026, 05:16 Europe/Bratislava**; neautentifikované GET a dve inertné POST požiadavky s telom `{}`. Žiadna platná Stripe udalosť ani platba sa neposlala.
 
-| Požiadavka | Pozorovanie | Výsledok |
-| --- | --- | --- |
-| GET `/` | 302 na Lovable auth bridge, výsledný HTML titulok `Internal Lovable project`. | App UI BLOCKED. |
-| GET `/settings/agency?tab=billing` | Rovnaký auth bridge; nevytvorila sa Customer Portal session. | Portál BLOCKED. |
-| POST `/api/public/stripe-webhook` bez podpisu | 503 JSON `BILLING_WEBHOOK_NOT_CONFIGURED`, bez redirectu. | Dostupnosť routy PASS; konfigurácia FAIL. |
-| POST webhooku so synteticky neplatným podpisom | Rovnaký 503 JSON. | Overenie neplatného podpisu BLOCKED konfiguráciou. |
+| Požiadavka                                     | Pozorovanie                                                                   | Výsledok                                           |
+| ---------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------- |
+| GET `/`                                        | 302 na Lovable auth bridge, výsledný HTML titulok `Internal Lovable project`. | App UI BLOCKED.                                    |
+| GET `/settings/agency?tab=billing`             | Rovnaký auth bridge; nevytvorila sa Customer Portal session.                  | Portál BLOCKED.                                    |
+| POST `/api/public/stripe-webhook` bez podpisu  | 503 JSON `BILLING_WEBHOOK_NOT_CONFIGURED`, bez redirectu.                     | Dostupnosť routy PASS; konfigurácia FAIL.          |
+| POST webhooku so synteticky neplatným podpisom | Rovnaký 503 JSON.                                                             | Overenie neplatného podpisu BLOCKED konfiguráciou. |
 
 Odpoveď dokazuje prístup k aplikačnej route a chybovú bránu konfigurácie. **Nedokazuje, ktorá konkrétna hodnota chýba**, ani aký commit je nasadený. HTTP odtlačok odpovede nie je Git SHA. GitHub → Lovable sync, publikovaná verzia a skutočné načítanie secrets zostávajú samostatne BLOCKED.
 
@@ -134,28 +134,28 @@ Odpoveď dokazuje prístup k aplikačnej route a chybovú bránu konfigurácie. 
 
 Spoločná prekážka: dostupný Stripe prehliadač skončil na `/login`, nie v prihlásenom účte. Nebol dostupný izolovaný nakonfigurovaný test backend ani prihlásené testovacie účty aplikácie. Nebola založená testovacia platba, session ani zákazník. Jednotkové testy sa v tejto tabuľke nepočítajú ako E2E dôkaz.
 
-| # | Scenár | Stav | Konkrétny chýbajúci dôkaz / prekážka |
-| --- | --- | --- | --- |
-| 1 | Free → Pro | BLOCKED | Žiadny autorizovaný test checkout/session ID. |
-| 2 | Free → Agency na druhom účte | BLOCKED | Druhý test účet a session neboli dostupné. |
-| 3 | Plán, 39/89 EUR, mena, daň | BLOCKED | Žiadna skutočná test Session/Price/Tax odpoveď. |
-| 4 | Úspešná platba a správny návrat | BLOCKED | Žiadny Stripe test payment výsledok ani browser návrat. |
-| 5 | Podpísaný webhook a dokončený ledger | BLOCKED | Config gate 503; reálny ledger neprístupný. |
-| 6 | DB plán, status a current_period_end | BLOCKED | Správna hosted DB odmietla prístup. |
-| 7 | Plán v UI po refreshi | BLOCKED | UI za auth bridge, chýba prihlásený test účet. |
-| 8 | Prístup k platenej funkcii | BLOCKED | Žiadna reálna aktivácia/oprávnenie v test prostredí. |
-| 9 | Customer Portal a faktúra | BLOCKED | Portal session a faktúra neboli vytvorené/otvorené. |
-| 10 | Zamietnutie a 3DS | BLOCKED | Nepoužil sa oficiálny testovací platobný prostriedok. |
-| 11 | Zatvorenie checkoutu bez aktivácie | BLOCKED | Žiadny otvorený test checkout. |
-| 12 | Opakovaný klik bez duplicitného predplatného | BLOCKED | Iba fixture/SQL dôkazy, nie reálna Stripe subscription história. |
-| 13 | Retry po výpadku bez druhej session | BLOCKED | Žiadny riadený výpadok v izolovanom hosted toku. |
-| 14 | Opakovaný rovnaký webhook | BLOCKED | Reálne podpísané event ID sa neposlalo. |
-| 15 | Staršia udalosť po novšej | BLOCKED | Neboli doručené dve skutočné test udalosti. |
-| 16 | Zrušenie na konci obdobia a odobratie oprávnenia | BLOCKED | Žiadne test predplatné ani sledovanie konca obdobia. |
-| 17 | Past_due a dostupný portál | BLOCKED | Nevytvoril sa test stav past_due ani portal session. |
-| 18 | Druhý účet nesmie cudzie faktúry/billing zápisy | BLOCKED | Lokálne RLS PASS; dva reálne prihlásené účty neboli dostupné. |
-| 19 | Odmietnutie cudzieho návratového originu | BLOCKED | Lokálny validator PASS; nasadená autentifikovaná funkcia nebola volaná. |
-| 20 | Odmietnutie chýbajúceho/neplatného podpisu | BLOCKED | Oba nasadené negatívne POSTy skončili na 503 konfigurácie pred podpisovou kontrolou. |
+| #   | Scenár                                           | Stav    | Konkrétny chýbajúci dôkaz / prekážka                                                 |
+| --- | ------------------------------------------------ | ------- | ------------------------------------------------------------------------------------ |
+| 1   | Free → Pro                                       | BLOCKED | Žiadny autorizovaný test checkout/session ID.                                        |
+| 2   | Free → Agency na druhom účte                     | BLOCKED | Druhý test účet a session neboli dostupné.                                           |
+| 3   | Plán, 39/89 EUR, mena, daň                       | BLOCKED | Žiadna skutočná test Session/Price/Tax odpoveď.                                      |
+| 4   | Úspešná platba a správny návrat                  | BLOCKED | Žiadny Stripe test payment výsledok ani browser návrat.                              |
+| 5   | Podpísaný webhook a dokončený ledger             | BLOCKED | Config gate 503; reálny ledger neprístupný.                                          |
+| 6   | DB plán, status a current_period_end             | BLOCKED | Správna hosted DB odmietla prístup.                                                  |
+| 7   | Plán v UI po refreshi                            | BLOCKED | UI za auth bridge, chýba prihlásený test účet.                                       |
+| 8   | Prístup k platenej funkcii                       | BLOCKED | Žiadna reálna aktivácia/oprávnenie v test prostredí.                                 |
+| 9   | Customer Portal a faktúra                        | BLOCKED | Portal session a faktúra neboli vytvorené/otvorené.                                  |
+| 10  | Zamietnutie a 3DS                                | BLOCKED | Nepoužil sa oficiálny testovací platobný prostriedok.                                |
+| 11  | Zatvorenie checkoutu bez aktivácie               | BLOCKED | Žiadny otvorený test checkout.                                                       |
+| 12  | Opakovaný klik bez duplicitného predplatného     | BLOCKED | Iba fixture/SQL dôkazy, nie reálna Stripe subscription história.                     |
+| 13  | Retry po výpadku bez druhej session              | BLOCKED | Žiadny riadený výpadok v izolovanom hosted toku.                                     |
+| 14  | Opakovaný rovnaký webhook                        | BLOCKED | Reálne podpísané event ID sa neposlalo.                                              |
+| 15  | Staršia udalosť po novšej                        | BLOCKED | Neboli doručené dve skutočné test udalosti.                                          |
+| 16  | Zrušenie na konci obdobia a odobratie oprávnenia | BLOCKED | Žiadne test predplatné ani sledovanie konca obdobia.                                 |
+| 17  | Past_due a dostupný portál                       | BLOCKED | Nevytvoril sa test stav past_due ani portal session.                                 |
+| 18  | Druhý účet nesmie cudzie faktúry/billing zápisy  | BLOCKED | Lokálne RLS PASS; dva reálne prihlásené účty neboli dostupné.                        |
+| 19  | Odmietnutie cudzieho návratového originu         | BLOCKED | Lokálny validator PASS; nasadená autentifikovaná funkcia nebola volaná.              |
+| 20  | Odmietnutie chýbajúceho/neplatného podpisu       | BLOCKED | Oba nasadené negatívne POSTy skončili na 503 konfigurácie pred podpisovou kontrolou. |
 
 ## Live nastavenia a účtovníctvo
 

@@ -141,7 +141,7 @@ function LoginPage() {
   };
 
   return (
-    <div className="auth-page flex min-h-screen items-center justify-center px-6 py-12">
+    <div className="auth-page flex min-h-[100dvh] items-center justify-center px-6 py-12 pt-[calc(env(safe-area-inset-top,0px)+1.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)]">
       <Toaster />
       <div className="w-full max-w-md">
         <Link to="/" className="mb-10 inline-flex items-center gap-3" aria-label="SEO4WEB — úvod">

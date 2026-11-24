@@ -3,10 +3,11 @@ DROP POLICY IF EXISTS "Users update own usage" ON public.content_plan_usage;
 DROP POLICY IF EXISTS "Users insert own usage" ON public.content_plan_usage;
 
 CREATE OR REPLACE FUNCTION public.has_agency_plan(_user_id uuid)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT EXISTS (SELECT 1 FROM public.subscriptions
-    WHERE user_id = _user_id AND plan = 'agency' AND status IN ('active','trialing')
-      AND (current_period_end IS NULL OR current_period_end > now()))
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT COALESCE(_user_id = (SELECT auth.uid()), false)
+    AND EXISTS (SELECT 1 FROM public.subscriptions
+      WHERE user_id = _user_id AND plan = 'agency' AND status IN ('active','trialing')
+        AND (current_period_end IS NULL OR current_period_end > pg_catalog.now()))
 $$;
 REVOKE EXECUTE ON FUNCTION public.has_agency_plan(uuid) FROM anon, public;
 GRANT EXECUTE ON FUNCTION public.has_agency_plan(uuid) TO authenticated;

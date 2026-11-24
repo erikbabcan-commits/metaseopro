@@ -21,7 +21,9 @@ import {
   X,
   ArrowUpRight,
   ShieldCheck,
+  Copy,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -239,14 +241,13 @@ export function AppHeader() {
   const isAgencyActive = pathname.startsWith("/settings/agency");
 
   return (
-    <header className="app-header mb-8 px-4 md:px-6 border-b border-border/40 bg-background/95 backdrop-blur-md sticky top-0 z-40">
+    <header className="app-header mb-8 px-4 md:px-6 border-b border-border/40 bg-background/95 backdrop-blur-md sticky top-0 z-40 pt-[calc(env(safe-area-inset-top,0px)+10px)] md:pt-[env(safe-area-inset-top,0px)] touch-manipulation">
       <div className="mx-auto flex min-h-14 max-w-screen-xl items-center justify-between gap-2 lg:min-h-16 lg:gap-4">
         {/* Brand Logo */}
         <Link
           to="/"
           className="flex shrink-0 items-center gap-2.5 group"
           onClick={() => setMobileOpen(false)}
-          aria-label="SEO4WEB — AI SEO Command Center"
         >
           <span className="brand-mark flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-transform group-hover:scale-105">
             <ChartNoAxesCombined className="size-5" />
@@ -458,9 +459,15 @@ export function AppHeader() {
                 >
                   <Sparkles className="size-3.5 text-primary" />
                   <span className="hidden md:inline">
-                    {userPlan === "agency" ? "Cenník" : "Cenník / Upgrade"}
+                    {userPlan === "agency"
+                      ? "Cenník"
+                      : userPlan === "pro"
+                        ? "Predplatné Pro"
+                        : "Kúpiť Pro"}
                   </span>
-                  <span className="md:hidden">Upgrade</span>
+                  <span className="md:hidden">
+                    {userPlan === "agency" ? "Cenník" : "Kúpiť Pro"}
+                  </span>
                 </Button>
               )}
 
@@ -492,6 +499,21 @@ export function AppHeader() {
                       <span className="text-[11px] text-muted-foreground">Balík:</span>
                       <ViewerBadge isAdmin={isAdmin} plan={userPlan} />
                     </div>
+                    {user.id && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void navigator.clipboard.writeText(user.id);
+                          toast.success("User UID skopírované do schránky!");
+                        }}
+                        className="mt-1.5 flex items-center justify-between w-full text-[10px] text-muted-foreground hover:text-foreground font-mono bg-muted/60 hover:bg-muted px-1.5 py-0.5 rounded transition-colors group cursor-pointer"
+                        title="Klikni pre skopírovanie tvojho User UID"
+                      >
+                        <span className="truncate max-w-[140px]">UID: {user.id}</span>
+                        <Copy className="size-2.5 opacity-60 group-hover:opacity-100 shrink-0 ml-1" />
+                      </button>
+                    )}
                   </div>
 
                   <DropdownMenuItem asChild>
@@ -551,7 +573,7 @@ export function AppHeader() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-9 lg:hidden"
+                className="size-10 lg:hidden touch-manipulation"
                 aria-label="Otvoriť navigáciu"
               >
                 <Menu className="size-5" />
@@ -559,7 +581,7 @@ export function AppHeader() {
             </SheetTrigger>
             <SheetContent
               side="right"
-              className="w-80 sm:w-96 p-0 bg-background border-border flex flex-col justify-between"
+              className="w-80 sm:w-96 p-0 bg-background border-border flex flex-col justify-between pt-[calc(env(safe-area-inset-top,0px)+10px)] pb-[calc(env(safe-area-inset-bottom,0px)+12px)]"
             >
               <div className="flex flex-col flex-1 overflow-y-auto">
                 <SheetHeader className="p-5 border-b border-border/60 flex flex-row items-center justify-between text-left">
@@ -573,26 +595,44 @@ export function AppHeader() {
 
                 {/* User Status in Drawer */}
                 {user && (
-                  <div className="p-4 bg-muted/40 border-b border-border/60 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-foreground truncate">{user.email}</p>
-                      <div className="mt-1">
-                        <ViewerBadge isAdmin={isAdmin} plan={userPlan} />
+                  <div className="p-4 bg-muted/40 border-b border-border/60 flex flex-col gap-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-foreground truncate">
+                          {user.email}
+                        </p>
+                        <div className="mt-1">
+                          <ViewerBadge isAdmin={isAdmin} plan={userPlan} />
+                        </div>
                       </div>
+                      {!isAdmin && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setMobileOpen(false);
+                            setPaywallOpen(true);
+                          }}
+                          className="h-7 text-xs gap-1"
+                        >
+                          <Sparkles className="size-3 text-primary" />
+                          Upgrade
+                        </Button>
+                      )}
                     </div>
-                    {!isAdmin && (
-                      <Button
-                        variant="outline"
-                        size="sm"
+                    {user.id && (
+                      <button
+                        type="button"
                         onClick={() => {
-                          setMobileOpen(false);
-                          setPaywallOpen(true);
+                          void navigator.clipboard.writeText(user.id);
+                          toast.success("User UID skopírované do schránky!");
                         }}
-                        className="h-7 text-xs gap-1"
+                        className="flex items-center justify-between w-full text-[10px] text-muted-foreground hover:text-foreground font-mono bg-background/80 hover:bg-background px-2 py-1 rounded border border-border/40 transition-colors group cursor-pointer"
+                        title="Klikni pre skopírovanie tvojho User UID"
                       >
-                        <Sparkles className="size-3 text-primary" />
-                        Upgrade
-                      </Button>
+                        <span className="truncate max-w-[200px]">UID: {user.id}</span>
+                        <Copy className="size-3 opacity-60 group-hover:opacity-100 shrink-0 ml-1" />
+                      </button>
                     )}
                   </div>
                 )}
@@ -702,7 +742,12 @@ export function AppHeader() {
                       }}
                       className="h-9 gap-1.5 text-xs font-semibold"
                     >
-                      <Sparkles className="size-3.5 text-primary" /> Cenník / Upgrade
+                      <Sparkles className="size-3.5 text-primary" />{" "}
+                      {userPlan === "agency"
+                        ? "Cenník"
+                        : userPlan === "pro"
+                          ? "Predplatné Pro"
+                          : "Kúpiť Pro"}
                     </Button>
                   )}
                 </div>
@@ -721,7 +766,7 @@ export function AppHeader() {
                       search={{ redirect: "/" }}
                       onClick={() => setMobileOpen(false)}
                     >
-                      Prihlásiť sa <ArrowUpRight className="size-3.5" />
+                      Vyskúšať zadarmo <ArrowUpRight className="size-3.5" />
                     </Link>
                   </Button>
                 )}

@@ -1,4 +1,4 @@
-import { AI_CHAT_URL, AI_DEFAULT_MODEL } from "@/lib/ai-provider";
+import { AI_CHAT_URL, AI_DEFAULT_MODEL, getMistralApiKey } from "@/lib/ai-provider";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { AUDIT_SYSTEM_PROMPT } from "@/lib/audit-prompt";
@@ -123,7 +123,7 @@ export const Route = createFileRoute("/api/audit-domains")({
             throw e;
           }
 
-          const apiKey = process.env.MISTRAL_API_KEY;
+          const apiKey = getMistralApiKey();
           if (!apiKey) return err(500, "MISTRAL_API_KEY nie je nakonfigurovaný.");
 
           const userPrompt =

@@ -3,6 +3,7 @@
 Scope: entire repository `youh4ck3dme/metaseopro`. Follow more specific nested AGENTS.md files if present. Treat source code and current tests as authoritative when documentation disagrees.
 
 ## Architecture invariants
+
 - Keep home-screen support manifest-only, with dedicated padded maskable icons; homepage share images belong in its leaf head so they cannot override other pages.
 - TanStack Start v1, React 19, Vite 8, TanStack Router, Tailwind CSS v4, Bun, Cloudflare Workers and Lovable Cloud/Supabase. Verify installed versions against package.json and bun.lock before changing dependencies.
 - Use `@tanstack/react-router` only; never introduce `react-router-dom`. Do not hand-edit generated `src/routeTree.gen.ts`.
@@ -15,6 +16,7 @@ Scope: entire repository `youh4ck3dme/metaseopro`. Follow more specific nested A
 - Preserve Slovak/Czech localization, district-aware SEO logic, `LOCATIONS`, and the existing calibrated `textPixelWidth()` behavior for diacritics.
 
 ## Security invariants
+
 - Never commit credentials, tokens, private keys, admin identity lists, customer data, or production exports. Only verified public/publishable values may be tracked in `.env`; use ignored `.env.local` for local secrets and deployment secret stores for production. A `VITE_` prefix means client-exposed, never secret.
 - Never embed PATs in Git remote URLs or print credentials in logs. Use `gh auth login`, SSH, or a credential manager; check that `git remote -v` contains no tokens.
 - Require authenticated user identity and per-tenant authorization on every GSC property listing and analysis. Use `listUserVerifiedProperties(userId, email)` and `assertUserPropertyAccess(userId, siteUrl, email)`; never trust user-supplied site ownership or expose master connector properties. **Known remediation:** `src/lib/gsc.server.ts` currently includes hardcoded admin email allowlist entries. Remove those in a separate reviewed code change and rely on centrally managed authorization, with negative cross-tenant tests.
@@ -24,6 +26,7 @@ Scope: entire repository `youh4ck3dme/metaseopro`. Follow more specific nested A
 - Do not log raw secrets, access tokens, personal data, or full third-party error bodies that may contain sensitive information.
 
 ## Safe Git workflow
+
 1. Before edits, inspect `git status --short --branch`, `git remote -v`, `git branch --show-current`, and `git fetch origin`. Confirm expected repository and upstream. Never discard or overwrite unrelated local changes.
 2. Prefer a short-lived task branch based on current `origin/main`; use a pull request with review and CI for changes. Do not force-push, auto-resolve conflicts, or rebase a dirty tree. If Lovable requires direct `main` synchronization, use it only when explicitly authorized for that operation and after all gates pass.
 3. Make minimal, scoped changes. Stage explicit paths (`git add -- <paths>`), not indiscriminate `git add .`. Review `git diff --check`, staged diff, and secret exposure before committing.
@@ -40,4 +43,5 @@ Scope: entire repository `youh4ck3dme/metaseopro`. Follow more specific nested A
 6. On conflict, stop and inspect both sides; preserve functional changes deliberately and rerun checks. Never assume a blind `git pull --rebase` is safe.
 
 ## Definition of done
+
 Report changed paths, tests actually executed and results, security implications, commit/PR URL, remaining blockers, and whether Lovable sync and production deploy were independently verified. Never report unexecuted tests as passing.

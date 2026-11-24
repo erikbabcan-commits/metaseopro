@@ -187,10 +187,9 @@ function Index() {
 
   const submitDomain = (event: React.FormEvent) => {
     event.preventDefault();
-    const error = domainInputError(domain);
     const normalized = parseDomainInput(domain);
-    if (error || !normalized) {
-      setDomainError(error ?? "Zadajte platnú doménu, napríklad example.sk.");
+    if (!normalized) {
+      setDomainError(domainInputError(domain));
       return;
     }
     setDomainError(null);
@@ -256,7 +255,7 @@ function Index() {
                     disabled={loading}
                     className="inline-flex min-h-11 min-w-[11rem] shrink-0 items-center justify-center rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Analyzovať web
+                    Spustiť audit
                   </button>
                 </div>
                 {domainError ? (
@@ -274,7 +273,7 @@ function Index() {
                   to={user ? "/brief" : "/login"}
                   className="inline-flex min-h-11 items-center justify-center rounded-[8px] bg-card px-4 py-2.5 text-sm font-medium text-foreground ring-1 ring-border/10 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  {user ? "Vytvoriť SEO brief" : "Začať zadarmo"}
+                  {user ? "Vytvoriť SEO brief" : "Vyskúšať zadarmo"}
                 </Link>
                 <a
                   href="#writer"
@@ -577,7 +576,14 @@ function Index() {
       </main>
 
       {status === "done" && article && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 flex flex-wrap justify-center gap-2 rounded-full bg-primary p-2 text-primary-foreground shadow-2xl ring-1 ring-border/10 max-w-[calc(100vw-1rem)]">
+        <div
+          className="fixed left-1/2 -translate-x-1/2 flex flex-wrap justify-center gap-2 rounded-full bg-primary p-2 text-primary-foreground shadow-2xl ring-1 ring-border/10 max-w-[calc(100vw-1rem)] z-40 transition-all duration-200"
+          style={{
+            bottom: user
+              ? "calc(5.75rem + env(safe-area-inset-bottom, 0px))"
+              : "calc(1rem + env(safe-area-inset-bottom, 0px))",
+          }}
+        >
           <Button
             variant="studio"
             size="studio"

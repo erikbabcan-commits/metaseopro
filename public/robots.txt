@@ -6,6 +6,7 @@ Disallow: /settings/
 Disallow: /dashboard
 Disallow: /history
 Disallow: /api/
+Disallow: /demo/
 
 Sitemap: https://seo.vorkei.com/api/public/sitemap
 Sitemap: https://seo.vorkei.com/sitemap.xml

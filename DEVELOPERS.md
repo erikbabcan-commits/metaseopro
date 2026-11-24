@@ -25,6 +25,7 @@ flowchart TD
 ```
 
 ### Kľúčové technológie:
+
 - **Frontend Framework:** React 19, TanStack Router v1 (type-safe file-based routing) & TanStack Start.
 - **Styling & UI:** Tailwind CSS v3, Shadcn UI / Radix Primitives, Lucide Icons, KaTeX (renderovanie vzorcov).
 - **SSR & Bundler:** Vite v5 + Nitro / Vinxi engine s optimalizovaným SSR streamingom.
@@ -93,22 +94,24 @@ seo4web/
 Aplikácia prísne oddeľuje verejné frontendové premenné od serverových tajomstiev:
 
 ### Verejné Premenné (Client & SSR — bezpečné pre browser):
-| Názov | Popis | Produkčná hodnota |
-|---|---|---|
-| `VITE_SUPABASE_URL` | URL Supabase projektu | `https://pwftbssvdbjoblmhdeax.supabase.co` |
-| `VITE_SUPABASE_PROJECT_ID` | Identifikátor Supabase | `pwftbssvdbjoblmhdeax` |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Verejný anonymný kľúč | `sb_publishable_...` |
+
+| Názov                           | Popis                  | Produkčná hodnota                          |
+| ------------------------------- | ---------------------- | ------------------------------------------ |
+| `VITE_SUPABASE_URL`             | URL Supabase projektu  | `https://pwftbssvdbjoblmhdeax.supabase.co` |
+| `VITE_SUPABASE_PROJECT_ID`      | Identifikátor Supabase | `pwftbssvdbjoblmhdeax`                     |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Verejný anonymný kľúč  | `sb_publishable_...`                       |
 
 ### Serverové Premenné (Vercel & Nitro Server — prísne utajené):
-| Názov | Popis | Poznámka |
-|---|---|---|
-| `STRIPE_SECRET_KEY` | Ostrý API kľúč Stripe (`sk_live_...`) | Používa sa na komunikáciu s platobnou bránou |
-| `STRIPE_WEBHOOK_SECRET` | Podpisový kľúč webhooku (`whsec_...`) | Overuje integritu prichádzajúcich Stripe udalostí |
-| `STRIPE_PRICE_PRO_MONTHLY` | ID Pro mesačnej ceny v Stripe | `price_1UYj6BKy1aN6O8vmSCYFcQIL` (29 €) |
-| `STRIPE_PRICE_AGENCY_MONTHLY` | ID Agency ročnej ceny v Stripe | `price_1UYj6AKy1aN6O8vm0bMEY5c4` (290 €) |
-| `STRIPE_AUTOMATIC_TAX_ENABLED` | Stripe Tax prepínač | Nastavené na `false` (neplatca DPH) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Admin kľúč Supabase (`eyJh...`) | Umožňuje serveru zapisovať stavy predplatného |
-| `SEMRUSH_API_KEY` | API kľúč pre analýzu domén | Voliteľné, doplnené z internej cache |
+
+| Názov                          | Popis                                 | Poznámka                                          |
+| ------------------------------ | ------------------------------------- | ------------------------------------------------- |
+| `STRIPE_SECRET_KEY`            | Ostrý API kľúč Stripe (`sk_live_...`) | Používa sa na komunikáciu s platobnou bránou      |
+| `STRIPE_WEBHOOK_SECRET`        | Podpisový kľúč webhooku (`whsec_...`) | Overuje integritu prichádzajúcich Stripe udalostí |
+| `STRIPE_PRICE_PRO_MONTHLY`     | ID Pro mesačnej ceny v Stripe         | `price_1UYj6BKy1aN6O8vmSCYFcQIL` (29 €)           |
+| `STRIPE_PRICE_AGENCY_MONTHLY`  | ID Agency ročnej ceny v Stripe        | `price_1UYj6AKy1aN6O8vm0bMEY5c4` (290 €)          |
+| `STRIPE_AUTOMATIC_TAX_ENABLED` | Stripe Tax prepínač                   | Nastavené na `false` (neplatca DPH)               |
+| `SUPABASE_SERVICE_ROLE_KEY`    | Admin kľúč Supabase (`eyJh...`)       | Umožňuje serveru zapisovať stavy predplatného     |
+| `SEMRUSH_API_KEY`              | API kľúč pre analýzu domén            | Voliteľné, doplnené z internej cache              |
 
 ---
 
@@ -157,6 +160,7 @@ Platebný subsystém SEO4WEB bol navrhnutý tak, aby eliminoval bežné zlyhania
 ## 6. Mobilné Štandardy & 100dvh Responzivita
 
 Komponent `ClientReportModal.tsx` spĺňa najprísnejšie požiadavky na mobilnú použiteľnosť (iOS Safari / Android Chrome):
+
 - **Dynamická výška (100dvh):** Použitie `h-[100dvh] max-h-[100dvh]`, ktoré dynamicky reaguje na zbalenie a rozbalenie systémovej navigačnej lišty v Safari.
 - **Safe Area Insets:** Rešpektuje horný Dynamic Island / Notch (`pt-[calc(0.5rem+env(safe-area-inset-top,0px))]`) aj spodnú domácu lištu (`pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]`).
 - **Adaptívne akčné tlačidlá:** Na obrazovkách $\le 390\text{px}$ sa tlačidlá zmenšia na kompaktné ikony so skrátenými štítkami (`Zdieľať`, `Branding`, `PDF`), zatiaľ čo na desktope sa zobrazuje plný text bez pretekania.
@@ -165,14 +169,14 @@ Komponent `ClientReportModal.tsx` spĺňa najprísnejšie požiadavky na mobiln�
 
 ## 7. Momentálny Produkčný Stav (K novembru 2026)
 
-| Komponent | Stav | Poznámka |
-|---|---|---|
-| **Doména `seo.vorkei.com`** | **ONLINE (200 OK)** | Primárna kánonická adresa pre klientov |
-| **Doména `seo4web.vercel.app`** | **ONLINE (200 OK)** | Vercel production alias |
-| **Stripe Live Účet** | **AKTÍVNY (`acct_1Tyfk2Ky1aN6O8vm`)** | Eab-EU s.r.o., bankový účet SumUp pripojený |
-| **Živé Platobné Linky** | **AKTÍVNE** | 99 € Audit Pass & 29 €/mes Pro pripravené |
-| **Produkčný Webhook** | **REGISTROVANÝ** | `we_1UettfKy1aN6O8vmdcMI3px5` na `seo.vorkei.com` |
-| **Unit & Integration Testy**| **815/815 PASS** | Zero failures vo všetkých testovacích suitách |
+| Komponent                       | Stav                                  | Poznámka                                          |
+| ------------------------------- | ------------------------------------- | ------------------------------------------------- |
+| **Doména `seo.vorkei.com`**     | **ONLINE (200 OK)**                   | Primárna kánonická adresa pre klientov            |
+| **Doména `seo4web.vercel.app`** | **ONLINE (200 OK)**                   | Vercel production alias                           |
+| **Stripe Live Účet**            | **AKTÍVNY (`acct_1Tyfk2Ky1aN6O8vm`)** | Eab-EU s.r.o., bankový účet SumUp pripojený       |
+| **Živé Platobné Linky**         | **AKTÍVNE**                           | 99 € Audit Pass & 29 €/mes Pro pripravené         |
+| **Produkčný Webhook**           | **REGISTROVANÝ**                      | `we_1UettfKy1aN6O8vmdcMI3px5` na `seo.vorkei.com` |
+| **Unit & Integration Testy**    | **815/815 PASS**                      | Zero failures vo všetkých testovacích suitách     |
 
 ---
 
@@ -188,18 +192,22 @@ flowchart LR
 ```
 
 ### Fáza 1: Pevné jadro & Monetizácia (DOKONČENÉ)
+
 - [x] Spustenie Content Decay Radaru a detekcie kanibalizácie.
 - [x] Whitelabel klientske reporty s podporou 100dvh a exportom do PDF.
 - [x] Ostrá integrácia Stripe platieb, slovenského IČO/DIČ overovania a multi-tenant bezpečnosti.
 
 ### Fáza 2: Automatická Remediation & CMS Pluginy (Q1 2027)
-- [ ] **1-Click WordPress & Shoptet doplnok:** Používateľ nebude musieť kopírovať vygenerovaný článok alebo opravené meta popisy ručne. Klikne na *„Opraviť v e-shope“* a SEO4WEB cez bezpečný API konektor prepíše meta tagy priamo v e-shope.
+
+- [ ] **1-Click WordPress & Shoptet doplnok:** Používateľ nebude musieť kopírovať vygenerovaný článok alebo opravené meta popisy ručne. Klikne na _„Opraviť v e-shope“_ a SEO4WEB cez bezpečný API konektor prepíše meta tagy priamo v e-shope.
 - [ ] **AI Sémantická re-optimalizácia existujúcich podstránok:** Namiesto písania nového článku systém automaticky vloží chýbajúce LSI výrazy do existujúceho textu.
 
 ### Fáza 3: Proaktívny Monitoring & Notifikácie (Q2 2027)
-- [ ] **Týždenný WhatsApp & Slack Alert:** Majiteľ e-shopu dostane každé pondelok ráno správu: *„Tento týždeň ti stúpla kategória X o +14 pozícií, ale pozor: na kategórii Y ti uniká 120 klikov. Tu je oprava jedným klikom.“*
+
+- [ ] **Týždenný WhatsApp & Slack Alert:** Majiteľ e-shopu dostane každé pondelok ráno správu: _„Tento týždeň ti stúpla kategória X o +14 pozícií, ale pozor: na kategórii Y ti uniká 120 klikov. Tu je oprava jedným klikom.“_
 - [ ] **Automatický konkurenčný radar:** Okamžitá notifikácia, keď konkurent začne rankovať na tvoje hlavné komerčné výrazy.
 
 ### Fáza 4: Škálovanie na 10 000 € MRR a $10M ARR (Q3–Q4 2027)
+
 - [ ] **Lokalizácia pre Poľsko (Allegro trh), Maďarsko a Rakúsko.**
 - [ ] **Enterprise Agency Multi-Seat:** Špeciálny portál pre veľké digitálne agentúry so správou stoviek klientskych účtov, automatickou fakturáciou a zákazkovými API kvótami.

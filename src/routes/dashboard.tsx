@@ -22,6 +22,7 @@ import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { streamSSE } from "@/lib/stream-sse";
+import { startLaserProgress, stopLaserProgress } from "@/lib/laser-loader";
 import { handoffToWriter } from "@/lib/refresh-handoff";
 import { OpportunityRadar } from "@/components/OpportunityRadar";
 import { AppHeader } from "@/components/AppHeader";
@@ -34,6 +35,9 @@ import { ClientReportModal } from "@/components/ClientReportModal";
 import { BillingInvoiceSection } from "@/components/BillingInvoiceSection";
 import { CmsDeployDialog } from "@/components/CmsDeployDialog";
 import { setPwaBadge } from "@/lib/pwa-badging";
+import { TactileKpiSlider, type KpiSlideItem } from "@/components/TactileKpiSlider";
+import { TactileSegmentedBar, type SegmentedTabKey } from "@/components/TactileSegmentedBar";
+import { LaserBorderCard } from "@/components/LaserBorderCard";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -153,6 +157,7 @@ function DashboardPage() {
   const [deployTitle, setDeployTitle] = useState("");
   const [deployCurrentTitle, setDeployCurrentTitle] = useState("");
   const [deployMetaDesc, setDeployMetaDesc] = useState("");
+  const [segmentedTab, setSegmentedTab] = useState<SegmentedTabKey>("dashboard");
 
   const handleOpenDeploy = (targetUrl: string, markdown?: string, currentTitle?: string) => {
     setDeployTargetUrl(targetUrl);
@@ -254,6 +259,7 @@ function DashboardPage() {
     setScanning(true);
     setScanError("");
     setScanStage("Analyzujem dáta zo Search Console…");
+    startLaserProgress();
     try {
       const {
         data: { session },
@@ -287,6 +293,7 @@ function DashboardPage() {
     } catch (error) {
       setScanError(error instanceof Error ? error.message : "Analýza sa nepodarila.");
     } finally {
+      stopLaserProgress();
       setScanning(false);
     }
   };
@@ -374,11 +381,68 @@ function DashboardPage() {
     if (!error) setSnaps((p) => p.filter((s) => s.id !== id));
   };
 
+  const kpiSlides: KpiSlideItem[] = useMemo(() => {
+    if (!latest) return [];
+    const metrics = latest.metrics_summary;
+    const clicksDiff = (metrics.clicksNow ?? 0) - (metrics.clicksPrev ?? 0);
+    const impDiff = (metrics.impressionsNow ?? 0) - (metrics.impressionsPrev ?? 0);
+    const posDiff = Number(
+      ((metrics.avgPositionNow ?? 0) - (metrics.avgPositionPrev ?? 0)).toFixed(1),
+    );
+
+    return [
+      {
+        id: "clicks",
+        title: "Kliknutia (90 dní)",
+        value: fmt(metrics.clicksNow ?? 0),
+        badge: {
+          text: `${clicksDiff >= 0 ? "+" : ""}${fmt(clicksDiff)} klikov`,
+          isPositive: clicksDiff >= 0,
+        },
+        subtitle: `${fmt(metrics.clicksPrev ?? 0)} predtým`,
+        reportHref: "#radar",
+      },
+      {
+        id: "impressions",
+        title: "Google Impresie (SERP)",
+        value: fmt(metrics.impressionsNow ?? 0),
+        badge: {
+          text: `${impDiff >= 0 ? "+" : ""}${fmt(impDiff)} zobrazení`,
+          isPositive: impDiff >= 0,
+        },
+        subtitle: `${fmt(metrics.impressionsPrev ?? 0)} v min. období`,
+        reportHref: "#radar",
+      },
+      {
+        id: "health",
+        title: "SEO Health Index",
+        value: `${healthIndex(metrics)}/100`,
+        badge: {
+          text: `${metrics.critical ?? 0} kritických zraniteľností`,
+          isPositive: (metrics.critical ?? 0) === 0,
+        },
+        subtitle: `Priem. pozícia: ${(metrics.avgPositionNow ?? 0).toFixed(1)} (${posDiff > 0 ? "pokles o " : "zlepšenie o "}${Math.abs(posDiff)})`,
+        reportHref: "#radar",
+      },
+    ];
+  }, [latest]);
+
   return (
     <div className="min-h-screen bg-page-bg text-foreground font-sans antialiased selection:bg-primary/20 selection:text-primary">
       <AppHeader />
       <Toaster />
       <main className="mx-auto max-w-screen-xl px-6 pb-20">
+        {/* Tactile Segmented Bar: [ Dashboard ] [ Status ] [ Projects ] */}
+        <TactileSegmentedBar
+          activeTab={segmentedTab}
+          onTabChange={setSegmentedTab}
+          counts={{
+            dashboard: siteSnaps.length,
+            status: latest?.metrics_summary.critical ?? 0,
+            projects: sites.length,
+          }}
+        />
+
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
@@ -435,7 +499,7 @@ function DashboardPage() {
                 className="gap-1.5 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all shadow-sm active:scale-[0.98]"
               >
                 <Sparkles className="size-4 text-amber-300" />
-                Aktivovať Pro (39 €)
+                Aktivovať Pro (29 €)
               </Button>
             )}
           </div>
@@ -487,152 +551,178 @@ function DashboardPage() {
           </section>
         ) : (
           <>
-            {/* KPI */}
-            <section className="mt-8 grid grid-cols-2 gap-3.5 md:grid-cols-4">
-              <Kpi
-                label="Kliky (90 dní)"
-                value={fmt(m.clicksNow ?? 0)}
-                delta={<Delta value={(m.clicksNow ?? 0) - (m.clicksPrev ?? 0)} />}
-              />
-              <Kpi
-                label="Impresie"
-                value={fmt(m.impressionsNow ?? 0)}
-                delta={<Delta value={(m.impressionsNow ?? 0) - (m.impressionsPrev ?? 0)} />}
-              />
-              <Kpi
-                label="Priem. pozícia"
-                value={(m.avgPositionNow ?? 0).toFixed(1)}
-                delta={
-                  <Delta
-                    invert
-                    value={Number(((m.avgPositionNow ?? 0) - (m.avgPositionPrev ?? 0)).toFixed(1))}
+            {(segmentedTab === "dashboard" || segmentedTab === "status") && (
+              <>
+                {/* Tactile Swipable KPI Card Slider (with 3 pagination dots) */}
+                <div className="mt-8 mb-4">
+                  <TactileKpiSlider slides={kpiSlides} />
+                </div>
+
+                {/* Standard KPI Grid */}
+                <section className="mt-4 grid grid-cols-2 gap-3.5 md:grid-cols-4">
+                  <Kpi
+                    label="Kliky (90 dní)"
+                    value={fmt(m.clicksNow ?? 0)}
+                    delta={<Delta value={(m.clicksNow ?? 0) - (m.clicksPrev ?? 0)} />}
                   />
-                }
-              />
-              <Kpi
-                label="Health index"
-                value={`${healthIndex(m)}/100`}
-                delta={
-                  <span className="text-muted-foreground">
-                    <strong className="text-rose-500 font-semibold">{m.critical ?? 0}</strong>{" "}
-                    kritických ·{" "}
-                    <strong className="text-amber-500 font-semibold">{m.declining ?? 0}</strong>{" "}
-                    klesá
-                  </span>
-                }
-              />
-            </section>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Posledný snapshot:{" "}
-              <span className="font-semibold text-foreground">{fmtDate(latest.created_at)}</span>
-            </p>
-            <dl
-              aria-label="Porovnávané obdobia GSC"
-              className="mt-3 flex flex-wrap gap-x-8 gap-y-2 rounded-xl bg-muted/40 border border-border px-5 py-3 text-sm shadow-xs"
-            >
-              <div>
-                <dt className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Aktuálne obdobie (90 dní)
-                </dt>
-                <dd className="font-semibold text-foreground mt-0.5">
-                  {latest.raw_data?.periodNow || "Dátumy nie sú dostupné"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Predchádzajúce obdobie (90 dní)
-                </dt>
-                <dd className="font-semibold text-foreground mt-0.5">
-                  {latest.raw_data?.periodPrev || "Dátumy nie sú dostupné"}
-                </dd>
-              </div>
-            </dl>
-
-            {user && (
-              <OpportunityRadar snap={latest} userId={user.id} onDeploy={handleOpenDeploy} />
-            )}
-            <Explorer snap={latest} />
-            <CtrBooster snap={latest} onDeploy={handleOpenDeploy} />
-
-            {/* Snapshots */}
-            <section className="mt-12">
-              <h2 className="text-lg font-bold text-foreground font-display">Uložené snapshoty</h2>
-              <ul className="mt-3 divide-y divide-border rounded-xl bg-card border border-border shadow-xs overflow-hidden">
-                {siteSnaps.map((s) => (
-                  <li
-                    key={s.id}
-                    className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 text-sm hover:bg-muted/40 transition-colors"
-                  >
-                    <div>
-                      <p className="font-semibold text-foreground">{fmtDate(s.created_at)}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {s.type} · {s.metrics_summary.pages ?? 0} URL
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs">
-                      <span className="font-medium text-foreground">
-                        {fmt(s.metrics_summary.clicksNow ?? 0)} klikov
-                      </span>
+                  <Kpi
+                    label="Impresie"
+                    value={fmt(m.impressionsNow ?? 0)}
+                    delta={<Delta value={(m.impressionsNow ?? 0) - (m.impressionsPrev ?? 0)} />}
+                  />
+                  <Kpi
+                    label="Priem. pozícia"
+                    value={(m.avgPositionNow ?? 0).toFixed(1)}
+                    delta={
+                      <Delta
+                        invert
+                        value={Number(
+                          ((m.avgPositionNow ?? 0) - (m.avgPositionPrev ?? 0)).toFixed(1),
+                        )}
+                      />
+                    }
+                  />
+                  <Kpi
+                    label="Health index"
+                    value={`${healthIndex(m)}/100`}
+                    delta={
                       <span className="text-muted-foreground">
-                        poz. {(s.metrics_summary.avgPositionNow ?? 0).toFixed(1)}
+                        <strong className="text-rose-500 font-semibold">{m.critical ?? 0}</strong>{" "}
+                        kritických ·{" "}
+                        <strong className="text-amber-500 font-semibold">{m.declining ?? 0}</strong>{" "}
+                        klesá
                       </span>
-                      <span className="rounded bg-muted px-2 py-0.5 text-foreground border border-border font-medium">
-                        health {healthIndex(s.metrics_summary)}/100
-                      </span>
-                      <Button
-                        variant="studio"
-                        size="studio"
-                        onClick={() => remove(s.id)}
-                        aria-label="Zmazať"
-                        className="text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-md p-1.5 transition-colors"
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            {/* Diff */}
-            <section className="mt-12">
-              <h2 className="text-lg font-bold text-foreground font-display">
-                Porovnávač snapshotov
-              </h2>
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-                <SnapSelect label="Starší (A)" value={aId} onChange={setAId} snaps={siteSnaps} />
-                <span className="text-muted-foreground">→</span>
-                <SnapSelect label="Novší (B)" value={bId} onChange={setBId} snaps={siteSnaps} />
-              </div>
-              {siteSnaps.length < 2 && (
-                <p className="mt-3 text-sm text-muted-foreground">
-                  Na porovnanie potrebuješ aspoň 2 snapshoty. Spusti ďalšiu live analýzu neskôr.
+                    }
+                  />
+                </section>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Posledný snapshot:{" "}
+                  <span className="font-semibold text-foreground">
+                    {fmtDate(latest.created_at)}
+                  </span>
                 </p>
-              )}
-              {a && b && a.id !== b.id && <DiffView a={a} b={b} />}
-            </section>
+                <dl
+                  aria-label="Porovnávané obdobia GSC"
+                  className="mt-3 flex flex-wrap gap-x-8 gap-y-2 rounded-xl bg-muted/40 border border-border px-5 py-3 text-sm shadow-xs"
+                >
+                  <div>
+                    <dt className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Aktuálne obdobie (90 dní)
+                    </dt>
+                    <dd className="font-semibold text-foreground mt-0.5">
+                      {latest.raw_data?.periodNow || "Dátumy nie sú dostupné"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Predchádzajúce obdobie (90 dní)
+                    </dt>
+                    <dd className="font-semibold text-foreground mt-0.5">
+                      {latest.raw_data?.periodPrev || "Dátumy nie sú dostupné"}
+                    </dd>
+                  </div>
+                </dl>
+
+                {user && (
+                  <OpportunityRadar snap={latest} userId={user.id} onDeploy={handleOpenDeploy} />
+                )}
+                <Explorer snap={latest} />
+                <CtrBooster snap={latest} onDeploy={handleOpenDeploy} />
+              </>
+            )}
+
+            {(segmentedTab === "dashboard" || segmentedTab === "projects") && (
+              <>
+                {/* Snapshots */}
+                <section className="mt-12">
+                  <h2 className="text-lg font-bold text-foreground font-display">
+                    Uložené snapshoty
+                  </h2>
+                  <ul className="mt-3 divide-y divide-border rounded-xl bg-card border border-border shadow-xs overflow-hidden">
+                    {siteSnaps.map((s) => (
+                      <li
+                        key={s.id}
+                        className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 text-sm hover:bg-muted/40 transition-colors"
+                      >
+                        <div>
+                          <p className="font-semibold text-foreground">{fmtDate(s.created_at)}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {s.type} · {s.metrics_summary.pages ?? 0} URL
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs">
+                          <span className="font-medium text-foreground">
+                            {fmt(s.metrics_summary.clicksNow ?? 0)} klikov
+                          </span>
+                          <span className="text-muted-foreground">
+                            poz. {(s.metrics_summary.avgPositionNow ?? 0).toFixed(1)}
+                          </span>
+                          <span className="rounded bg-muted px-2 py-0.5 text-foreground border border-border font-medium">
+                            health {healthIndex(s.metrics_summary)}/100
+                          </span>
+                          <Button
+                            variant="studio"
+                            size="studio"
+                            onClick={() => remove(s.id)}
+                            aria-label="Zmazať"
+                            className="text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-md p-1.5 transition-colors"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+
+                {/* Diff */}
+                <section className="mt-12">
+                  <h2 className="text-lg font-bold text-foreground font-display">
+                    Porovnávač snapshotov
+                  </h2>
+                  <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                    <SnapSelect
+                      label="Starší (A)"
+                      value={aId}
+                      onChange={setAId}
+                      snaps={siteSnaps}
+                    />
+                    <span className="text-muted-foreground">→</span>
+                    <SnapSelect label="Novší (B)" value={bId} onChange={setBId} snaps={siteSnaps} />
+                  </div>
+                  {siteSnaps.length < 2 && (
+                    <p className="mt-3 text-sm text-muted-foreground">
+                      Na porovnanie potrebuješ aspoň 2 snapshoty. Spusti ďalšiu live analýzu neskôr.
+                    </p>
+                  )}
+                  {a && b && a.id !== b.id && <DiffView a={a} b={b} />}
+                </section>
+              </>
+            )}
           </>
         )}
 
         {/* Fakturačné údaje a história platieb */}
-        <section className="mt-14 border-t border-border pt-8">
-          <div className="mb-6">
-            <h2 className="text-xl font-bold text-foreground font-display">
-              Fakturačné údaje a história platieb
-            </h2>
-            <p className="text-xs text-muted-foreground mt-1">
-              Správa firemných údajov a prístup k faktúram za predplatné cez Stripe.
-            </p>
-          </div>
-          <BillingInvoiceSection />
-        </section>
+        {(segmentedTab === "dashboard" || segmentedTab === "projects") && (
+          <section className="mt-14 border-t border-border pt-8">
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-foreground font-display">
+                Fakturačné údaje a história platieb
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Správa firemných údajov a prístup k faktúram za predplatné cez Stripe.
+              </p>
+            </div>
+            <BillingInvoiceSection />
+          </section>
+        )}
       </main>
 
       <PaywallModal
         open={paywallOpen}
         onOpenChange={setPaywallOpen}
         title="Odomknite neobmedzený počet webov s balíkom Pro"
-        description="Bezplatný plán umožňuje sledovanie 1 webu. S balíkom Pro (39 € / mes.) získate sledovanie až 5 webov, neobmedzený Decay Radar a WordPress exporty."
+        description="Bezplatný plán umožňuje sledovanie 1 webu. S balíkom Pro (29 € / mes.) získate sledovanie až 5 webov, neobmedzený Decay Radar a WordPress exporty."
       />
 
       <ClientReportModal
@@ -1155,10 +1245,8 @@ function CtrBooster({
               </li>
             ))}
           </ul>
-          {/* Terminal Box for AI Output */}
-          <div className="min-h-[220px] rounded-xl bg-[#171717] border border-zinc-800/80 p-5 shadow-2xl text-zinc-100 flex flex-col justify-between relative overflow-hidden ring-1 ring-white/5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)]">
-            {/* Subtle top polish specular sheen */}
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+          {/* Terminal Box for AI Output wrapped with Laser Border Beam */}
+          <LaserBorderCard className="min-h-[220px]">
             {!active ? (
               <div className="flex flex-col items-center justify-center py-12 text-center text-zinc-400">
                 <Sparkles className="size-8 mb-2 text-zinc-500" />
@@ -1216,7 +1304,7 @@ function CtrBooster({
                 </div>
               </>
             )}
-          </div>
+          </LaserBorderCard>
         </div>
       )}
     </section>

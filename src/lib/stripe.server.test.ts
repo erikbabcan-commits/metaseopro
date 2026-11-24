@@ -34,6 +34,9 @@ describe("server Stripe configuration", () => {
       ["rk_test_fixture", false],
       ["sk_live_fixture", true],
       ["rk_live_fixture", true],
+      ['"sk_live_fixture"', true],
+      ["'sk_live_fixture'", true],
+      ["  sk_live_fixture  ", true],
     ] as const) {
       vi.stubEnv("STRIPE_SECRET_KEY", key);
       expect(getStripeClient()).not.toBeNull();

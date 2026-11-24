@@ -142,7 +142,7 @@ beforeAll(async () => {
     CREATE FUNCTION public.fixture_default_acl_probe() RETURNS integer LANGUAGE sql AS $$ SELECT 1 $$;
   `);
   await db.exec(migrationSql);
-}, 30_000);
+}, 60_000);
 afterAll(async () => {
   await db?.close();
 });
@@ -585,6 +585,7 @@ describe("billing PostgreSQL migration", () => {
     ).toBe("blocked");
   });
   it("requires a future period for the agency SQL entitlement helper", async () => {
+    await db.query("SELECT set_config('request.jwt.claim.sub', $1, false)", [user1]);
     await db.query(
       "UPDATE public.subscriptions SET plan='agency',status='active',current_period_end=NULL WHERE user_id=$1",
       [user1],

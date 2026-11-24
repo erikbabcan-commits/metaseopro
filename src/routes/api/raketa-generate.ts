@@ -1,4 +1,4 @@
-import { AI_CHAT_URL, AI_DEFAULT_MODEL } from "@/lib/ai-provider";
+import { AI_CHAT_URL, AI_DEFAULT_MODEL, getMistralApiKey } from "@/lib/ai-provider";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { RAKETA_LANGUAGES, RAKETA_OUTPUTS, type RaketaAnalysis } from "@/lib/raketa-schema";
@@ -86,7 +86,7 @@ export const Route = createFileRoute("/api/raketa-generate")({
           const parsed = InputSchema.safeParse(raw);
           if (!parsed.success) return err(400, "Neplatný vstup pre generovanie.");
 
-          const apiKey = process.env.MISTRAL_API_KEY;
+          const apiKey = getMistralApiKey();
           if (!apiKey) return err(500, "MISTRAL_API_KEY nie je nakonfigurovaný.");
 
           const userPrompt = buildRaketaUserPrompt({

@@ -280,77 +280,83 @@ export function OpportunityRadar({
             Klikni na „Sledovať zmenu" po úprave stránky — porovnáme výsledok s ďalšími skenmi.
           </p>
         ) : (
-          <table className="mt-3 w-full text-xs">
-            <thead className="text-left text-muted-foreground border-b border-border pb-2 font-semibold text-[11px] uppercase tracking-wider">
-              <tr>
-                <th className="py-2">Stránka</th>
-                <th>Od</th>
-                <th>Pred</th>
-                <th>Teraz</th>
-                <th>Výsledok</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {exps.map((e, eIdx) => {
-                const now = ranked.find((p) => p.url === e.page_url);
-                const days = Math.floor(
-                  (Date.now() - new Date(e.implemented_at).getTime()) / 86400000,
-                );
-                const verdict = now
-                  ? experimentVerdict(
-                      e.baseline,
-                      { clicks: now.clicks, impressions: now.impressions, position: now.position },
-                      days,
-                    )
-                  : "INSUFFICIENT DATA";
-                return (
-                  <tr
-                    key={`${e.id}-${eIdx}`}
-                    className="border-t border-border/60 hover:bg-muted/40 transition-colors"
-                  >
-                    <td className="py-2.5 font-medium text-foreground">
-                      {(() => {
-                        try {
-                          return new URL(e.page_url).pathname;
-                        } catch {
-                          return e.page_url;
-                        }
-                      })()}
-                    </td>
-                    <td className="text-muted-foreground">{e.implemented_at}</td>
-                    <td className="text-foreground/80">
-                      {e.baseline.clicks} kl · {e.baseline.position?.toFixed?.(1)}
-                    </td>
-                    <td className="text-foreground/80">
-                      {now ? `${now.clicks} kl · ${now.position.toFixed(1)}` : "—"}
-                    </td>
-                    <td
-                      className={
-                        verdict.startsWith("IMPROVED")
-                          ? "text-emerald-600 dark:text-emerald-400 font-semibold"
-                          : verdict.startsWith("DECLINED")
-                            ? "text-rose-600 dark:text-rose-400 font-semibold"
-                            : "text-muted-foreground"
-                      }
+          <div className="overflow-x-auto">
+            <table className="mt-3 w-full text-xs">
+              <thead className="text-left text-muted-foreground border-b border-border pb-2 font-semibold text-[11px] uppercase tracking-wider">
+                <tr>
+                  <th className="py-2">Stránka</th>
+                  <th>Od</th>
+                  <th>Pred</th>
+                  <th>Teraz</th>
+                  <th>Výsledok</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {exps.map((e, eIdx) => {
+                  const now = ranked.find((p) => p.url === e.page_url);
+                  const days = Math.floor(
+                    (Date.now() - new Date(e.implemented_at).getTime()) / 86400000,
+                  );
+                  const verdict = now
+                    ? experimentVerdict(
+                        e.baseline,
+                        {
+                          clicks: now.clicks,
+                          impressions: now.impressions,
+                          position: now.position,
+                        },
+                        days,
+                      )
+                    : "INSUFFICIENT DATA";
+                  return (
+                    <tr
+                      key={`${e.id}-${eIdx}`}
+                      className="border-t border-border/60 hover:bg-muted/40 transition-colors"
                     >
-                      {verdict}
-                    </td>
-                    <td className="text-right">
-                      <Button
-                        variant="studio"
-                        size="studio"
-                        onClick={() => removeExp(e.id)}
-                        className="text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded p-1 transition-colors"
+                      <td className="py-2.5 font-medium text-foreground">
+                        {(() => {
+                          try {
+                            return new URL(e.page_url).pathname;
+                          } catch {
+                            return e.page_url;
+                          }
+                        })()}
+                      </td>
+                      <td className="text-muted-foreground">{e.implemented_at}</td>
+                      <td className="text-foreground/80">
+                        {e.baseline.clicks} kl · {e.baseline.position?.toFixed?.(1)}
+                      </td>
+                      <td className="text-foreground/80">
+                        {now ? `${now.clicks} kl · ${now.position.toFixed(1)}` : "—"}
+                      </td>
+                      <td
+                        className={
+                          verdict.startsWith("IMPROVED")
+                            ? "text-emerald-600 dark:text-emerald-400 font-semibold"
+                            : verdict.startsWith("DECLINED")
+                              ? "text-rose-600 dark:text-rose-400 font-semibold"
+                              : "text-muted-foreground"
+                        }
                       >
-                        ×
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                        {verdict}
+                      </td>
+                      <td className="text-right">
+                        <Button
+                          variant="studio"
+                          size="studio"
+                          onClick={() => removeExp(e.id)}
+                          className="text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded p-1 transition-colors"
+                        >
+                          ×
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </section>

@@ -1,4 +1,4 @@
-import { AI_CHAT_URL, AI_DEFAULT_MODEL } from "@/lib/ai-provider";
+import { AI_CHAT_URL, AI_DEFAULT_MODEL, getMistralApiKey } from "@/lib/ai-provider";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { ARTICLE_SYSTEM_PROMPT } from "@/lib/article-prompt";
@@ -70,7 +70,7 @@ export const Route = createFileRoute("/api/generate-article")({
           }
           const { topic, primaryKeyword, audience, tone, targetLength } = parsed.data;
 
-          const apiKey = process.env.MISTRAL_API_KEY;
+          const apiKey = getMistralApiKey();
           if (!apiKey) return err(500, "MISTRAL_API_KEY nie je nakonfigurovaný.");
 
           const userPrompt = [

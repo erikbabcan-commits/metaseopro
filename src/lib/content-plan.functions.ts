@@ -1,4 +1,4 @@
-import { AI_CHAT_URL, AI_DEFAULT_MODEL } from "@/lib/ai-provider";
+import { AI_CHAT_URL, AI_DEFAULT_MODEL, getMistralApiKey } from "@/lib/ai-provider";
 import { createServerFn } from "@tanstack/react-start";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -123,7 +123,7 @@ export const generateContentPlan = createServerFn({ method: "POST" })
       );
     }
 
-    const apiKey = process.env.MISTRAL_API_KEY;
+    const apiKey = getMistralApiKey();
     if (!apiKey) throw new Error("MISTRAL_API_KEY nie je nakonfigurovaný.");
 
     const { CONTENT_PLAN_SYSTEM_PROMPT } = await import("./content-plan-prompt");

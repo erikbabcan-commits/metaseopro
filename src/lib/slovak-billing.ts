@@ -97,6 +97,10 @@ export type PlanConfig = {
   canExportWordPress: boolean;
 };
 
+export const AUDIT_PASS_PRICE = 99;
+export const AUDIT_PASS_CHECKOUT_URL = "https://buy.stripe.com/00w5kE2y3eul8dWaaW6Vq02";
+export const PRO_DIRECT_CHECKOUT_URL = "https://buy.stripe.com/3cI7sM0pV1Hz2TC4QC6Vq01";
+
 export const PLANS: Record<PlanId, PlanConfig> = {
   free: {
     id: "free",
@@ -146,7 +150,7 @@ export function validateCompanyBilling(data: {
       "Neplatné DIČ (musí mať 10 číslic, začínať na 10, 20 alebo 21 a byť deliteľné 11).";
   }
 
-  if (data.icDph && !isValidICDPH(data.icDph)) {
+  if (data.icDph && !isValidICDPH(normalizeICDPH(data.icDph))) {
     errors.icDph = "Neplatné IČ DPH (očakávaný formát: SK + 10-miestne DIČ).";
   }
 
