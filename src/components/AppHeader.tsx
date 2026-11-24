@@ -459,9 +459,15 @@ export function AppHeader() {
                 >
                   <Sparkles className="size-3.5 text-primary" />
                   <span className="hidden md:inline">
-                    {userPlan === "agency" ? "Cenník" : "Cenník / Upgrade"}
+                    {userPlan === "agency"
+                      ? "Cenník"
+                      : userPlan === "pro"
+                        ? "Predplatné Pro"
+                        : "Kúpiť Pro"}
                   </span>
-                  <span className="md:hidden">Upgrade</span>
+                  <span className="md:hidden">
+                    {userPlan === "agency" ? "Cenník" : "Kúpiť Pro"}
+                  </span>
                 </Button>
               )}
 
@@ -736,7 +742,12 @@ export function AppHeader() {
                       }}
                       className="h-9 gap-1.5 text-xs font-semibold"
                     >
-                      <Sparkles className="size-3.5 text-primary" /> Cenník / Upgrade
+                      <Sparkles className="size-3.5 text-primary" />{" "}
+                      {userPlan === "agency"
+                        ? "Cenník"
+                        : userPlan === "pro"
+                          ? "Predplatné Pro"
+                          : "Kúpiť Pro"}
                     </Button>
                   )}
                 </div>
@@ -755,7 +766,7 @@ export function AppHeader() {
                       search={{ redirect: "/" }}
                       onClick={() => setMobileOpen(false)}
                     >
-                      Prihlásiť sa <ArrowUpRight className="size-3.5" />
+                      Vyskúšať zadarmo <ArrowUpRight className="size-3.5" />
                     </Link>
                   </Button>
                 )}

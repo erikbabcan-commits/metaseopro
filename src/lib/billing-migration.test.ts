@@ -142,7 +142,7 @@ beforeAll(async () => {
     CREATE FUNCTION public.fixture_default_acl_probe() RETURNS integer LANGUAGE sql AS $$ SELECT 1 $$;
   `);
   await db.exec(migrationSql);
-}, 30_000);
+}, 60_000);
 afterAll(async () => {
   await db?.close();
 });

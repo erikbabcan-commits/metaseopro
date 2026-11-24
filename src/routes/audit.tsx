@@ -318,7 +318,7 @@ function AuditPage() {
                       disabled={!canRun}
                       className="flex items-center gap-2 rounded-[8px] bg-primary px-3 py-2 text-sm font-medium text-primary-foreground ring-1 ring-ring transition-colors hover:bg-primary disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {status === "streaming" ? "Analyzujem..." : "Spustiť analýzu"}
+                      {status === "streaming" ? "Spúšťam audit..." : "Spustiť audit"}
                     </Button>
                   </div>
                 </div>
@@ -395,7 +395,12 @@ function AuditPage() {
       </main>
 
       {status === "done" && report && (
-        <div className="fixed bottom-4 left-1/2 flex flex-wrap justify-center max-w-[calc(100vw-1rem)] -translate-x-1/2 gap-2 rounded-full bg-primary p-2 text-primary-foreground shadow-2xl ring-1 ring-border/10">
+        <div
+          className="fixed left-1/2 flex flex-wrap justify-center max-w-[calc(100vw-1rem)] -translate-x-1/2 gap-2 rounded-full bg-primary p-2 text-primary-foreground shadow-2xl ring-1 ring-border/10 z-40 transition-all duration-200"
+          style={{
+            bottom: "calc(5.75rem + env(safe-area-inset-bottom, 0px))",
+          }}
+        >
           <Button
             variant="studio"
             size="studio"
@@ -432,7 +437,7 @@ function AuditPage() {
               className="flex items-center gap-2 rounded-full bg-primary/20 py-2 pr-4 pl-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/30"
             >
               <Sparkles className="size-4" />
-              WordPress Export (Pro)
+              Kúpiť Pro (Exporty & Neobmedzene)
             </Button>
           )}
         </div>

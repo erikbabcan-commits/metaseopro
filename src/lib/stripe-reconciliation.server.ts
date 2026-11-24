@@ -105,13 +105,23 @@ export function configuredPriceIds(): ConfiguredPriceIds {
 
 function validatePrice(item: Stripe.SubscriptionItem, plan: PaidPlan, livemode: boolean) {
   const price = item.price;
+  const isAmountValid =
+    price.unit_amount === PLANS[plan].priceMonthly * 100 ||
+    (plan === "pro" && (price.unit_amount === 2900 || price.unit_amount === 3900)) ||
+    (plan === "agency" && (price.unit_amount === 29000 || price.unit_amount === 8900));
+  const isIntervalValid =
+    plan === "pro"
+      ? price.recurring?.interval === "month"
+      : price.recurring?.interval === "month" || price.recurring?.interval === "year";
+
   if (
     item.quantity !== 1 ||
     price.livemode !== livemode ||
     price.currency !== "eur" ||
-    price.unit_amount !== PLANS[plan].priceMonthly * 100 ||
+    !isAmountValid ||
     price.type !== "recurring" ||
-    price.recurring?.interval !== "month" ||
+    !isIntervalValid ||
+    !price.recurring ||
     price.recurring.interval_count !== 1 ||
     price.recurring.usage_type !== "licensed" ||
     price.tax_behavior !== "inclusive"

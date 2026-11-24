@@ -398,7 +398,12 @@ function BriefPage() {
       </main>
 
       {status === "done" && brief && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 flex flex-wrap justify-center gap-2 rounded-full bg-primary p-2 text-primary-foreground shadow-2xl ring-1 ring-border/10 max-w-[calc(100vw-1rem)]">
+        <div
+          className="fixed left-1/2 -translate-x-1/2 flex flex-wrap justify-center gap-2 rounded-full bg-primary p-2 text-primary-foreground shadow-2xl ring-1 ring-border/10 max-w-[calc(100vw-1rem)] z-40 transition-all duration-200"
+          style={{
+            bottom: "calc(5.75rem + env(safe-area-inset-bottom, 0px))",
+          }}
+        >
           <Button
             variant="studio"
             size="studio"

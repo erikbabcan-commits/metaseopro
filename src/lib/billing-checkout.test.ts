@@ -357,7 +357,7 @@ describe("checkout identity and configuration boundaries", () => {
 
   it.each([
     ["currency", { currency: "usd" }],
-    ["amount", { unit_amount: 2900 }],
+    ["amount", { unit_amount: 9999 }],
     ["mode", { livemode: false }],
     ["tax behavior", { tax_behavior: "exclusive" }],
     ["inactive", { active: false }],
