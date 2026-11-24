@@ -33,7 +33,7 @@ describe("TactileFloatingNav", () => {
   it("renders tactile floating bar when user is logged in", () => {
     mockUseAuth.mockReturnValue({ user: { id: "user_123", email: "erikbabcan@gmail.com" } });
     const html = renderToStaticMarkup(<TactileFloatingNav />);
-    expect(html).toContain("Prehľad");
+    expect(html).toContain("Dashboard");
     expect(html).toContain("Raketa");
     expect(html).toContain("Tvorba");
     expect(html).toContain("Radar");

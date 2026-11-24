@@ -20,9 +20,45 @@
  */
 
 @theme inline {
-  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Roboto Flex", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Roboto Flex", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Roboto Flex", ui-sans-serif, system-ui, sans-serif;
+
+  /* Search Clarity Design System Tokens */
+  --color-surface: var(--clarity-surface);
+  --color-surface-dim: var(--clarity-surface-dim);
+  --color-surface-bright: var(--clarity-surface-bright);
+  --color-surface-pure: var(--clarity-surface-pure);
+  --color-surface-ground: var(--clarity-surface-ground);
+  --color-surface-container-lowest: var(--clarity-surface-pure);
+  --color-surface-container-low: var(--clarity-surface-container-low);
+  --color-surface-container: var(--clarity-surface-container);
+  --color-surface-container-high: var(--clarity-surface-container-high);
+  --color-surface-container-highest: var(--clarity-surface-container-highest);
+  --color-on-surface: var(--clarity-on-surface);
+  --color-on-surface-variant: var(--clarity-on-surface-variant);
+  --color-primary-container: var(--clarity-primary-container);
+  --color-on-primary-container: var(--clarity-on-primary-container);
+  --color-primary-fixed: var(--clarity-primary-fixed);
+  --color-primary-fixed-dim: var(--clarity-primary-fixed-dim);
+  --color-on-primary-fixed: var(--clarity-on-primary-fixed);
+  --color-secondary-fixed: var(--clarity-secondary-fixed);
+  --color-on-secondary-fixed: var(--clarity-on-secondary-fixed);
+  --color-on-secondary-container: var(--clarity-on-secondary-container);
+  --color-tertiary-fixed: var(--clarity-tertiary-fixed);
+  --color-tertiary-fixed-dim: var(--clarity-tertiary-fixed-dim);
+  --color-on-tertiary-fixed: var(--clarity-on-tertiary-fixed);
+  --color-error-container: var(--clarity-error-container);
+  --color-on-error-container: var(--clarity-on-error-container);
+  --color-text-primary: var(--clarity-text-primary);
+  --color-text-secondary: var(--clarity-text-secondary);
+  --color-border-subtle: var(--clarity-border-subtle);
+  --color-border-default: var(--clarity-border-default);
+  --color-google-blue-bright: var(--clarity-google-blue);
+  --color-google-green: var(--clarity-google-green);
+  --color-google-yellow: var(--clarity-google-yellow);
+  --color-google-red: var(--clarity-google-red);
+
   --color-page-bg: var(--background);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
@@ -92,24 +128,58 @@
 }
 
 :root {
-  --radius: 0.5rem;
-  --background: oklch(0.982 0.004 165);
-  --foreground: oklch(0.23 0.014 165);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.38 0.075 165);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.955 0.014 165);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.953 0.005 165);
-  --muted-foreground: oklch(0.49 0.015 165);
-  --accent: oklch(0.935 0.025 165);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.89 0.01 165);
+  --radius: 0.75rem;
+  /* Search Clarity Palette */
+  --clarity-surface: #faf9fd;
+  --clarity-surface-dim: #dbd9dd;
+  --clarity-surface-bright: #faf9fd;
+  --clarity-surface-pure: #ffffff;
+  --clarity-surface-ground: #fafafa;
+  --clarity-surface-container-low: #f4f3f7;
+  --clarity-surface-container: #efedf1;
+  --clarity-surface-container-high: #e9e7eb;
+  --clarity-surface-container-highest: #e3e2e6;
+  --clarity-on-surface: #1a1b1e;
+  --clarity-on-surface-variant: #414754;
+  --clarity-primary-container: #1a73e8;
+  --clarity-on-primary-container: #ffffff;
+  --clarity-primary-fixed: #d8e2ff;
+  --clarity-primary-fixed-dim: #adc7ff;
+  --clarity-on-primary-fixed: #001a41;
+  --clarity-secondary-fixed: #89fa9b;
+  --clarity-on-secondary-fixed: #002108;
+  --clarity-on-secondary-container: #00722f;
+  --clarity-tertiary-fixed: #ffdfa0;
+  --clarity-tertiary-fixed-dim: #fbbc05;
+  --clarity-on-tertiary-fixed: #261a00;
+  --clarity-error-container: #ffdad6;
+  --clarity-on-error-container: #93000a;
+  --clarity-text-primary: #202124;
+  --clarity-text-secondary: #5f6368;
+  --clarity-border-subtle: #f1f3f4;
+  --clarity-border-default: #e5e7eb;
+  --clarity-google-blue: #4285f4;
+  --clarity-google-green: #34a853;
+  --clarity-google-yellow: #fbbc04;
+  --clarity-google-red: #ea4335;
+
+  --background: var(--clarity-surface);
+  --foreground: var(--clarity-on-surface);
+  --card: var(--clarity-surface-pure);
+  --card-foreground: var(--clarity-text-primary);
+  --popover: var(--clarity-surface-pure);
+  --popover-foreground: var(--clarity-text-primary);
+  --primary: #005bbf;
+  --primary-foreground: #ffffff;
+  --secondary: #006e2c;
+  --secondary-foreground: #ffffff;
+  --muted: var(--clarity-surface-container-low);
+  --muted-foreground: var(--clarity-text-secondary);
+  --accent: var(--clarity-surface-container);
+  --accent-foreground: var(--clarity-on-surface);
+  --destructive: #ba1a1a;
+  --destructive-foreground: #ffffff;
+  --border: var(--clarity-border-default);
   /* Interactive input/dropzone borders. WCAG 1.4.11 ≥3:1 on card, background and muted.
      Existing `border-input` follows this via --input. SEO-03 uses --input-strong by name. */
   --input-strong: oklch(0.62 0.012 165);
@@ -609,4 +679,36 @@ textarea:focus:not(:placeholder-shown) {
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
   --duration-snappy: 180ms;
   --duration-glide: 320ms;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@keyframes laserGlow {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-laser {
+  animation: laserGlow 2.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-laser,
+  .animate-ping,
+  .animate-pulse {
+    animation: none !important;
+  }
 }

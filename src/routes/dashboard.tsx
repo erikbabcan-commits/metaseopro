@@ -4,18 +4,27 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   ArrowDownRight,
+  ArrowRight,
   ArrowUpRight,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   Copy,
   FileText,
+  Gauge,
+  Link2,
   Loader2,
   Minus,
+  MousePointerClick,
+  Percent,
   Plus,
+  Radar,
   RefreshCw,
   Rocket,
+  Search,
   Sparkles,
   Trash2,
+  TrendingUp,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -158,6 +167,7 @@ function DashboardPage() {
   const [deployCurrentTitle, setDeployCurrentTitle] = useState("");
   const [deployMetaDesc, setDeployMetaDesc] = useState("");
   const [segmentedTab, setSegmentedTab] = useState<SegmentedTabKey>("dashboard");
+  const [quickUrl, setQuickUrl] = useState("");
 
   const handleOpenDeploy = (targetUrl: string, markdown?: string, currentTitle?: string) => {
     setDeployTargetUrl(targetUrl);
@@ -427,47 +437,98 @@ function DashboardPage() {
     ];
   }, [latest]);
 
+  const avgCtr =
+    m.impressionsNow && m.impressionsNow > 0 ? ((m.clicksNow ?? 0) / m.impressionsNow) * 100 : 0;
+  const ctrPrev =
+    m.impressionsPrev && m.impressionsPrev > 0
+      ? ((m.clicksPrev ?? 0) / m.impressionsPrev) * 100
+      : 0;
+  const ctrDelta = Number((avgCtr - ctrPrev).toFixed(1));
+  const healthVal = healthIndex(m);
+  const opportunityCount = latest?.raw_data?.rows?.length ?? 0;
+
   return (
-    <div className="min-h-screen bg-page-bg text-foreground font-sans antialiased selection:bg-primary/20 selection:text-primary">
+    <div className="min-h-[100dvh] flex flex-col bg-surface text-text-primary font-sans antialiased selection:bg-primary/20 selection:text-primary">
       <AppHeader />
       <Toaster />
-      <main className="mx-auto max-w-screen-xl px-6 pb-20">
-        {/* Tactile Segmented Bar: [ Dashboard ] [ Status ] [ Projects ] */}
-        <TactileSegmentedBar
-          activeTab={segmentedTab}
-          onTabChange={setSegmentedTab}
-          counts={{
-            dashboard: siteSnaps.length,
-            status: latest?.metrics_summary.critical ?? 0,
-            projects: sites.length,
-          }}
-        />
-
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-              SEO veliace centrum
-            </p>
-            <h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-foreground md:text-4xl">
-              Dashboard
-            </h1>
+      <main className="mx-auto w-full max-w-screen-xl px-4 sm:px-6 pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] flex flex-col gap-5">
+        {/* 1. HLAVIČKA DASHBOARDU & STATUS (Search Clarity 100dvh) */}
+        <section className="flex flex-col gap-3.5">
+          {/* Live Badge & Last Sync Row */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-low shadow-xs">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-google-green opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-google-green" />
+              </span>
+              <span className="text-[11px] leading-[14px] tracking-[0.02em] text-secondary font-medium">
+                Live monitoring
+              </span>
+            </div>
+            <div className="flex items-center gap-1 text-text-secondary text-[11px] leading-[14px]">
+              <RefreshCw className="size-3.5 text-google-green" />
+              <span>{latest ? fmtDate(latest.created_at) : "Pripravené"}</span>
+            </div>
           </div>
-          <div className="flex w-full min-w-0 flex-wrap items-center gap-2.5 sm:w-auto">
-            {sites.length > 0 && (
+
+          {/* Title & Subtitle */}
+          <div className="flex flex-col gap-0.5">
+            <h1 className="text-[28px] leading-[36px] md:text-4xl font-medium tracking-[-0.015em] text-text-primary">
+              AI SEO Command Center
+            </h1>
+            <p className="text-[13px] leading-[18px] text-text-secondary">
+              Živý audit &amp; rastový radar{" "}
+              {site ? `pre ${site.replace("sc-domain:", "")}` : "pre tvoj web"}
+            </p>
+          </div>
+
+          {/* Quick Status Bar (Google Search Console State) */}
+          <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-surface-container-low shadow-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 rounded-full bg-surface-pure flex items-center justify-center shadow-xs shrink-0">
+                <CheckCircle2 className="size-4 text-google-green" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[12px] leading-[16px] font-semibold text-text-primary truncate">
+                  {sites.length > 0 ? "GSC prepojené" : "GSC pripravené"}
+                </span>
+                <span className="text-[11px] leading-[14px] text-text-secondary">
+                  {sites.length > 0 ? "Dáta overené" : "Vyber doménu pre sken"}
+                </span>
+              </div>
+            </div>
+            {sites.length > 0 ? (
               <select
                 aria-label="Vybraný web"
                 value={site}
                 onChange={(e) => setSite(e.target.value)}
-                className="min-w-0 max-w-full rounded-lg border border-border bg-card px-3.5 py-2 text-sm font-medium text-foreground shadow-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="min-w-0 max-w-[165px] sm:max-w-[260px] truncate rounded-full bg-surface-pure px-3 py-1.5 text-[12px] font-medium text-text-primary shadow-xs border border-border-subtle focus:border-primary focus:outline-none"
               >
                 {sites.map((s) => (
-                  <option key={s} value={s} className="bg-card text-foreground">
-                    {s}
+                  <option key={s} value={s} className="bg-surface-pure text-text-primary">
+                    {s.replace("sc-domain:", "")}
                   </option>
                 ))}
               </select>
+            ) : (
+              <span className="px-2.5 py-1 rounded-full bg-surface-pure text-[11px] font-medium text-text-secondary shadow-xs">
+                0 domén
+              </span>
             )}
+          </div>
+
+          {/* Dual Primary Action Buttons (+ Desktop Quick Actions) */}
+          <div className="grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap sm:items-center">
             <Button
+              type="button"
+              onClick={() => navigate({ to: "/raketa" })}
+              className="h-11 px-4 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center gap-1.5 shadow-xs active:scale-[0.98] transition-all hover:bg-primary text-[12px] font-medium"
+            >
+              <Rocket className="size-4" />
+              <span className="whitespace-nowrap">Spustiť Raketu</span>
+            </Button>
+            <Button
+              type="button"
               variant="outline"
               disabled={busy || scanning}
               onClick={() => {
@@ -478,32 +539,45 @@ function DashboardPage() {
                 setScanError("");
                 setScanOpen(true);
               }}
-              className="gap-1.5 rounded-lg border border-border bg-card text-foreground hover:bg-muted transition-all shadow-xs"
+              className="h-11 px-4 rounded-full bg-surface-pure text-on-secondary-container border border-border-subtle flex items-center justify-center gap-1.5 shadow-xs active:scale-[0.98] transition-all hover:bg-surface-container-low text-[12px] font-medium"
             >
-              <Plus className="size-4 text-primary" />
-              Analyzovať ďalší web
+              <Radar className="size-4 text-google-green" />
+              <span className="whitespace-nowrap">Skenovať doménu</span>
             </Button>
             {latest && (
               <Button
+                type="button"
                 variant="outline"
                 onClick={() => setReportModalOpen(true)}
-                className="gap-1.5 rounded-lg border border-border bg-card text-foreground hover:bg-muted transition-all shadow-xs"
+                className="col-span-2 sm:col-span-1 h-10 px-4 rounded-full border border-border-default bg-surface-pure text-text-primary hover:bg-surface-container-low transition-all shadow-xs text-[12px] font-medium gap-1.5"
               >
                 <FileText className="size-4 text-primary" />
-                Stiahnuť klientsky report (PDF)
+                Klientsky report (PDF)
               </Button>
             )}
             {!isAdmin && (
               <Button
+                type="button"
                 onClick={() => setPaywallOpen(true)}
-                className="gap-1.5 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all shadow-sm active:scale-[0.98]"
+                className="col-span-2 sm:col-span-1 h-10 px-4 rounded-full bg-primary-fixed text-on-primary-fixed font-semibold hover:bg-primary-fixed-dim/50 transition-all shadow-xs text-[12px] gap-1.5"
               >
-                <Sparkles className="size-4 text-amber-300" />
+                <Sparkles className="size-4 text-primary" />
                 Aktivovať Pro (29 €)
               </Button>
             )}
           </div>
-        </div>
+        </section>
+
+        {/* 2. TACTILE SEGMENTED BAR */}
+        <TactileSegmentedBar
+          activeTab={segmentedTab}
+          onTabChange={setSegmentedTab}
+          counts={{
+            dashboard: siteSnaps.length,
+            status: latest?.metrics_summary.critical ?? 0,
+            projects: sites.length,
+          }}
+        />
 
         <Dialog
           open={scanOpen}
@@ -553,47 +627,166 @@ function DashboardPage() {
           <>
             {(segmentedTab === "dashboard" || segmentedTab === "status") && (
               <>
-                {/* Tactile Swipable KPI Card Slider (with 3 pagination dots) */}
-                <div className="mt-8 mb-4">
-                  <TactileKpiSlider slides={kpiSlides} />
-                </div>
-
-                {/* Standard KPI Grid */}
-                <section className="mt-4 grid grid-cols-2 gap-3.5 md:grid-cols-4">
-                  <Kpi
-                    label="Kliky (90 dní)"
-                    value={fmt(m.clicksNow ?? 0)}
-                    delta={<Delta value={(m.clicksNow ?? 0) - (m.clicksPrev ?? 0)} />}
-                  />
-                  <Kpi
-                    label="Impresie"
-                    value={fmt(m.impressionsNow ?? 0)}
-                    delta={<Delta value={(m.impressionsNow ?? 0) - (m.impressionsPrev ?? 0)} />}
-                  />
-                  <Kpi
-                    label="Priem. pozícia"
-                    value={(m.avgPositionNow ?? 0).toFixed(1)}
-                    delta={
-                      <Delta
-                        invert
-                        value={Number(
-                          ((m.avgPositionNow ?? 0) - (m.avgPositionPrev ?? 0)).toFixed(1),
-                        )}
-                      />
-                    }
-                  />
-                  <Kpi
-                    label="Health index"
-                    value={`${healthIndex(m)}/100`}
-                    delta={
-                      <span className="text-muted-foreground">
-                        <strong className="text-rose-500 font-semibold">{m.critical ?? 0}</strong>{" "}
-                        kritických ·{" "}
-                        <strong className="text-amber-500 font-semibold">{m.declining ?? 0}</strong>{" "}
-                        klesá
+                {/* 3. TACTILE KPI CARDS (2x2 Grid on Mobile, 4-col on Desktop) */}
+                <section className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3.5">
+                  {/* Karta 1: SEO Zdravie */}
+                  <div className="p-3.5 rounded-xl bg-surface-pure border border-border-subtle shadow-[0_1px_3px_rgba(60,64,67,0.08)] flex flex-col justify-between relative overflow-hidden">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[11px] text-text-secondary font-medium">
+                        SEO Zdravie
                       </span>
-                    }
-                  />
+                      <span
+                        className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                          healthVal >= 80
+                            ? "bg-secondary-fixed/60 text-on-secondary-fixed"
+                            : healthVal >= 50
+                              ? "bg-tertiary-fixed/70 text-on-tertiary-fixed"
+                              : "bg-error-container text-on-error-container"
+                        }`}
+                      >
+                        {healthVal >= 80 ? "Skvelé" : healthVal >= 50 ? "Pozor" : "Kritické"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2.5 my-2">
+                      <div className="relative w-11 h-11 shrink-0 flex items-center justify-center">
+                        <svg className="w-11 h-11 -rotate-90" viewBox="0 0 36 36">
+                          <path
+                            className="text-surface-container"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                          />
+                          <path
+                            className={
+                              healthVal >= 80
+                                ? "text-google-green"
+                                : healthVal >= 50
+                                  ? "text-google-yellow"
+                                  : "text-google-red"
+                            }
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeDasharray={`${healthVal}, 100`}
+                            strokeLinecap="round"
+                            strokeWidth="3.2"
+                          />
+                        </svg>
+                        <span className="absolute text-[15px] font-bold text-text-primary">
+                          {healthVal}
+                        </span>
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[11px] text-text-secondary">z 100 b.</span>
+                        <span className="text-[11px] font-semibold text-google-green">
+                          {m.declining ?? 0} klesá
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 pt-1 text-[11px] text-text-secondary truncate">
+                      <span className="inline-block size-2 rounded-full bg-google-red shrink-0" />
+                      <span>{m.critical ?? 0} kritických chýb</span>
+                    </div>
+                  </div>
+
+                  {/* Karta 2: Kliknutia GSC */}
+                  <div className="p-3.5 rounded-xl bg-surface-pure border border-border-subtle shadow-[0_1px_3px_rgba(60,64,67,0.08)] flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-text-secondary font-medium">
+                        Kliknutia GSC
+                      </span>
+                      <MousePointerClick className="size-4 text-primary" />
+                    </div>
+                    <div className="my-1.5">
+                      <div className="text-[22px] leading-[28px] font-bold text-text-primary tabular-nums">
+                        {fmt(m.clicksNow ?? 0)}
+                      </div>
+                      <div className="mt-0.5">
+                        <Delta value={(m.clicksNow ?? 0) - (m.clicksPrev ?? 0)} />
+                      </div>
+                    </div>
+                    <div className="w-full h-5 mt-1">
+                      <svg
+                        className="w-full h-full text-google-blue-bright"
+                        fill="none"
+                        viewBox="0 0 100 24"
+                      >
+                        <path
+                          d="M0 20 L20 18 L40 14 L60 16 L80 8 L100 2"
+                          stroke="currentColor"
+                          strokeLinecap="round"
+                          strokeWidth="2"
+                        />
+                      </svg>
+                    </div>
+                    <div className="text-[11px] text-text-secondary mt-1">
+                      Priem. pozícia:{" "}
+                      <span className="font-semibold text-text-primary">
+                        {(m.avgPositionNow ?? 0).toFixed(1)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Karta 3: Priem. CTR */}
+                  <div className="p-3.5 rounded-xl bg-surface-pure border border-border-subtle shadow-[0_1px_3px_rgba(60,64,67,0.08)] flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-text-secondary font-medium">
+                        Priem. CTR
+                      </span>
+                      <Percent className="size-4 text-tertiary-fixed-dim" />
+                    </div>
+                    <div className="my-1.5">
+                      <div className="text-[22px] leading-[28px] font-bold text-text-primary tabular-nums">
+                        {avgCtr.toFixed(1)} %
+                      </div>
+                      <div className="mt-0.5">
+                        <Delta value={ctrDelta} suffix="%" />
+                      </div>
+                    </div>
+                    <div className="w-full h-5 mt-1">
+                      <svg
+                        className="w-full h-full text-google-yellow"
+                        fill="none"
+                        viewBox="0 0 100 24"
+                      >
+                        <path
+                          d="M0 16 L25 18 L50 11 L75 12 L100 4"
+                          stroke="currentColor"
+                          strokeLinecap="round"
+                          strokeWidth="2"
+                        />
+                      </svg>
+                    </div>
+                    <div className="text-[11px] text-text-secondary mt-1 truncate">
+                      {fmt(m.impressionsNow ?? 0)} zobrazení celkom
+                    </div>
+                  </div>
+
+                  {/* Karta 4: Príležitosti */}
+                  <div className="p-3.5 rounded-xl bg-surface-pure border border-border-subtle shadow-[0_1px_3px_rgba(60,64,67,0.08)] flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-text-secondary font-medium">
+                        Príležitosti
+                      </span>
+                      <TrendingUp className="size-4 text-google-green" />
+                    </div>
+                    <div className="my-1.5">
+                      <div className="text-[22px] leading-[28px] font-bold text-text-primary tabular-nums">
+                        {opportunityCount} tém
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] text-google-green font-semibold mt-0.5">
+                        <span>+{fmt(Math.round((m.impressionsNow ?? 0) * 0.03))} potenciál</span>
+                      </div>
+                    </div>
+                    <a
+                      href="#radar-list"
+                      className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                    >
+                      <span>Spustiť analýzu</span>
+                      <ArrowRight className="size-3.5" />
+                    </a>
+                  </div>
                 </section>
                 <p className="mt-3 text-xs text-muted-foreground">
                   Posledný snapshot:{" "}
@@ -702,17 +895,97 @@ function DashboardPage() {
           </>
         )}
 
-        {/* Fakturačné údaje a história platieb */}
-        {(segmentedTab === "dashboard" || segmentedTab === "projects") && (
-          <section className="mt-14 border-t border-border pt-8">
-            <div className="mb-6">
-              <h2 className="text-xl font-bold text-foreground font-display">
-                Fakturačné údaje a história platieb
-              </h2>
-              <p className="text-xs text-muted-foreground mt-1">
-                Správa firemných údajov a prístup k faktúram za predplatné cez Stripe.
-              </p>
+        {/* 5. RÝCHLY AI ASISTENT & SKEN (Rýchla URL inšpekcia) */}
+        {(segmentedTab === "dashboard" || segmentedTab === "status") && (
+          <section className="p-4 rounded-xl bg-surface-pure border border-border-subtle shadow-[0_1px_3px_rgba(60,64,67,0.08)] flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-primary-fixed/60 flex items-center justify-center text-primary">
+                  <Search className="size-4" />
+                </div>
+                <h2 className="text-[16px] leading-[22px] font-semibold text-text-primary">
+                  Rýchla URL inšpekcia
+                </h2>
+              </div>
+              <div className="flex items-center gap-1 text-[11px] text-google-green font-medium">
+                <Gauge className="size-3.5" />
+                <span>CWV Live</span>
+              </div>
             </div>
+            <p className="text-[13px] leading-[18px] text-text-secondary">
+              Okamžitá AI kontrola meta značiek, indexácie a Core Web Vitals metrík.
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const target = quickUrl.trim() || site.replace("sc-domain:", "");
+                navigate({
+                  to: "/audit",
+                  search: target ? { url: target } : undefined,
+                });
+              }}
+              className="flex flex-col sm:flex-row gap-2"
+            >
+              <div className="relative flex items-center flex-1">
+                <Link2 className="size-4 absolute left-3.5 text-text-secondary pointer-events-none" />
+                <input
+                  type="text"
+                  value={quickUrl}
+                  onChange={(e) => setQuickUrl(e.target.value)}
+                  placeholder="napr. mojeshop.sk/novy-produkt"
+                  aria-label="URL podstránky na inšpekciu"
+                  className="w-full h-11 pl-10 pr-3 rounded-full bg-surface-container-low text-[13px] text-text-primary placeholder:text-text-secondary focus:outline-none focus:bg-surface-pure border border-transparent focus:border-primary shadow-xs"
+                />
+              </div>
+              <Button
+                type="submit"
+                className="h-11 px-5 rounded-full bg-primary-container text-on-primary-container text-[12px] font-semibold flex items-center justify-center gap-2 shadow-xs active:scale-[0.98] transition-all hover:bg-primary"
+              >
+                <Search className="size-4" />
+                <span>Analyzovať podstránku</span>
+              </Button>
+            </form>
+          </section>
+        )}
+
+        {/* 6. FAKTURÁCIA & PREDPLATNÉ */}
+        {(segmentedTab === "dashboard" || segmentedTab === "projects") && (
+          <section className="p-4 sm:p-6 rounded-xl bg-surface-pure border border-border-subtle shadow-[0_1px_3px_rgba(60,64,67,0.08)] flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-col">
+                <span className="text-[11px] text-text-secondary uppercase tracking-wider font-semibold">
+                  Aktívne predplatné &amp; Fakturácia
+                </span>
+                <h2 className="text-[18px] leading-[24px] font-bold text-text-primary mt-0.5">
+                  {isAdmin ? "Superadmin Neobmedzený" : "Správa plánu a domén"}
+                </h2>
+              </div>
+              {!isAdmin && (
+                <div className="text-right shrink-0">
+                  <span className="text-[18px] font-bold text-primary">29 €</span>
+                  <span className="text-[11px] text-text-secondary"> / mesiac</span>
+                </div>
+              )}
+            </div>
+
+            {/* Domain Limit Progress Bar */}
+            <div className="flex flex-col gap-1.5 p-3 rounded-lg bg-surface-container-low">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-text-secondary">Využitie doménových slotov</span>
+                <span className="font-bold text-text-primary">
+                  {sites.length} {isAdmin ? "domén (neobmedzene)" : "z 5 domén"}
+                </span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-surface-container-highest overflow-hidden">
+                <div
+                  className="h-full bg-google-green rounded-full transition-all"
+                  style={{
+                    width: `${isAdmin ? 100 : Math.min(100, Math.max(8, (sites.length / 5) * 100))}%`,
+                  }}
+                />
+              </div>
+            </div>
+
             <BillingInvoiceSection />
           </section>
         )}

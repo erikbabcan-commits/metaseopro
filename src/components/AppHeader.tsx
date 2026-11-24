@@ -241,26 +241,26 @@ export function AppHeader() {
   const isAgencyActive = pathname.startsWith("/settings/agency");
 
   return (
-    <header className="app-header mb-8 px-4 md:px-6 border-b border-border/40 bg-background/95 backdrop-blur-md sticky top-0 z-40 pt-[calc(env(safe-area-inset-top,0px)+10px)] md:pt-[env(safe-area-inset-top,0px)] touch-manipulation">
+    <header className="app-header mb-4 px-4 md:px-6 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(60,64,67,0.06)] sticky top-0 z-40 pt-[calc(env(safe-area-inset-top,0px)+10px)] md:pt-[env(safe-area-inset-top,0px)] touch-manipulation">
       <div className="mx-auto flex min-h-14 max-w-screen-xl items-center justify-between gap-2 lg:min-h-16 lg:gap-4">
         {/* Brand Logo */}
-        <Link
-          to="/"
-          className="flex shrink-0 items-center gap-2.5 group"
-          onClick={() => setMobileOpen(false)}
-        >
-          <span className="brand-mark flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-transform group-hover:scale-105">
-            <ChartNoAxesCombined className="size-5" />
-          </span>
-          <div className="flex flex-col">
-            <span className="font-display text-xl font-bold leading-none tracking-tight text-foreground">
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Link
+            to="/"
+            className="flex shrink-0 items-center gap-2 group"
+            onClick={() => setMobileOpen(false)}
+          >
+            <span className="font-display text-lg sm:text-xl font-bold leading-none tracking-tight bg-gradient-to-r from-google-blue-bright via-google-red to-google-green bg-clip-text text-transparent">
               SEO4WEB
             </span>
-            <span className="text-[10px] text-muted-foreground font-medium tracking-wider uppercase mt-0.5 hidden sm:inline">
+            <span className="sr-only sm:not-sr-only text-[10px] text-text-secondary font-medium tracking-wider uppercase">
               AI SEO Command Center
             </span>
-          </div>
-        </Link>
+          </Link>
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-[10px] font-semibold tracking-wider">
+            AI
+          </span>
+        </div>
 
         {/* ================= DESKTOP LOGICAL NAVIGATION ================= */}
         <nav aria-label="Hlavná navigácia" className="hidden lg:flex items-center gap-1">
@@ -567,212 +567,235 @@ export function AppHeader() {
             </div>
           )}
 
-          {/* ================= MOBILE / TABLET DRAWER TRIGGER ================= */}
-          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-10 lg:hidden touch-manipulation"
-                aria-label="Otvoriť navigáciu"
-              >
-                <Menu className="size-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent
-              side="right"
-              className="w-80 sm:w-96 p-0 bg-background border-border flex flex-col justify-between pt-[calc(env(safe-area-inset-top,0px)+10px)] pb-[calc(env(safe-area-inset-bottom,0px)+12px)]"
+          {/* ================= MOBILE / TABLET COMPACT CONTROLS & DRAWER ================= */}
+          <div className="flex items-center gap-1.5 lg:hidden">
+            <button
+              type="button"
+              onClick={() => switchLocale(locale === "sk" ? "en" : locale === "en" ? "de" : "sk")}
+              className="h-9 px-2.5 rounded-full bg-surface-container-low flex items-center justify-center text-[11px] font-semibold text-text-secondary hover:text-text-primary transition-colors uppercase"
+              aria-label="Prepnúť jazyk"
             >
-              <div className="flex flex-col flex-1 overflow-y-auto">
-                <SheetHeader className="p-5 border-b border-border/60 flex flex-row items-center justify-between text-left">
-                  <div className="flex items-center gap-2.5">
-                    <span className="brand-mark flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-                      <ChartNoAxesCombined className="size-4" />
-                    </span>
-                    <SheetTitle className="font-display text-lg font-bold">SEO4WEB</SheetTitle>
-                  </div>
-                </SheetHeader>
+              {locale.toUpperCase()}
+            </button>
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetTrigger asChild>
+                {user ? (
+                  <button
+                    type="button"
+                    className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container-low transition-colors relative touch-manipulation"
+                    aria-label="Otvoriť navigáciu"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shadow-xs">
+                      {user.email?.charAt(0).toUpperCase() || "U"}
+                    </div>
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-google-green rounded-full ring-2 ring-surface-pure" />
+                  </button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-10 touch-manipulation rounded-full bg-surface-container-low"
+                    aria-label="Otvoriť navigáciu"
+                  >
+                    <Menu className="size-5 text-text-primary" />
+                  </Button>
+                )}
+              </SheetTrigger>
+              <SheetContent
+                side="right"
+                className="w-80 sm:w-96 p-0 bg-background border-border flex flex-col justify-between pt-[calc(env(safe-area-inset-top,0px)+10px)] pb-[calc(env(safe-area-inset-bottom,0px)+12px)]"
+              >
+                <div className="flex flex-col flex-1 overflow-y-auto">
+                  <SheetHeader className="p-5 border-b border-border/60 flex flex-row items-center justify-between text-left">
+                    <div className="flex items-center gap-2.5">
+                      <span className="brand-mark flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+                        <ChartNoAxesCombined className="size-4" />
+                      </span>
+                      <SheetTitle className="font-display text-lg font-bold">SEO4WEB</SheetTitle>
+                    </div>
+                  </SheetHeader>
 
-                {/* User Status in Drawer */}
-                {user && (
-                  <div className="p-4 bg-muted/40 border-b border-border/60 flex flex-col gap-2.5">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-foreground truncate">
-                          {user.email}
-                        </p>
-                        <div className="mt-1">
-                          <ViewerBadge isAdmin={isAdmin} plan={userPlan} />
+                  {/* User Status in Drawer */}
+                  {user && (
+                    <div className="p-4 bg-muted/40 border-b border-border/60 flex flex-col gap-2.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-foreground truncate">
+                            {user.email}
+                          </p>
+                          <div className="mt-1">
+                            <ViewerBadge isAdmin={isAdmin} plan={userPlan} />
+                          </div>
                         </div>
+                        {!isAdmin && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setMobileOpen(false);
+                              setPaywallOpen(true);
+                            }}
+                            className="h-7 text-xs gap-1"
+                          >
+                            <Sparkles className="size-3 text-primary" />
+                            Upgrade
+                          </Button>
+                        )}
                       </div>
-                      {!isAdmin && (
-                        <Button
-                          variant="outline"
-                          size="sm"
+                      {user.id && (
+                        <button
+                          type="button"
                           onClick={() => {
-                            setMobileOpen(false);
-                            setPaywallOpen(true);
+                            void navigator.clipboard.writeText(user.id);
+                            toast.success("User UID skopírované do schránky!");
                           }}
-                          className="h-7 text-xs gap-1"
+                          className="flex items-center justify-between w-full text-[10px] text-muted-foreground hover:text-foreground font-mono bg-background/80 hover:bg-background px-2 py-1 rounded border border-border/40 transition-colors group cursor-pointer"
+                          title="Klikni pre skopírovanie tvojho User UID"
                         >
-                          <Sparkles className="size-3 text-primary" />
-                          Upgrade
-                        </Button>
+                          <span className="truncate max-w-[200px]">UID: {user.id}</span>
+                          <Copy className="size-3 opacity-60 group-hover:opacity-100 shrink-0 ml-1" />
+                        </button>
                       )}
                     </div>
-                    {user.id && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void navigator.clipboard.writeText(user.id);
-                          toast.success("User UID skopírované do schránky!");
-                        }}
-                        className="flex items-center justify-between w-full text-[10px] text-muted-foreground hover:text-foreground font-mono bg-background/80 hover:bg-background px-2 py-1 rounded border border-border/40 transition-colors group cursor-pointer"
-                        title="Klikni pre skopírovanie tvojho User UID"
-                      >
-                        <span className="truncate max-w-[200px]">UID: {user.id}</span>
-                        <Copy className="size-3 opacity-60 group-hover:opacity-100 shrink-0 ml-1" />
-                      </button>
-                    )}
-                  </div>
-                )}
+                  )}
 
-                {/* Mobile Menu Sections */}
-                <div className="p-4 space-y-5">
-                  {/* Sekcia 1: SEO Nástroje */}
-                  <div>
-                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1.5">
-                      SEO Nástroje
+                  {/* Mobile Menu Sections */}
+                  <div className="p-4 space-y-5">
+                    {/* Sekcia 1: SEO Nástroje */}
+                    <div>
+                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1.5">
+                        SEO Nástroje
+                      </div>
+                      <div className="space-y-0.5">
+                        {SEO_TOOLS.map((item) => {
+                          const Icon = item.icon;
+                          const active = pathname === item.to;
+                          return (
+                            <Link
+                              key={item.to}
+                              to={item.to}
+                              onClick={() => setMobileOpen(false)}
+                              className={
+                                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors " +
+                                (active
+                                  ? "bg-secondary text-primary font-semibold"
+                                  : "text-muted-foreground hover:bg-muted hover:text-foreground")
+                              }
+                            >
+                              <Icon className="size-4 shrink-0" />
+                              <span>{item.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="space-y-0.5">
-                      {SEO_TOOLS.map((item) => {
-                        const Icon = item.icon;
-                        const active = pathname === item.to;
-                        return (
-                          <Link
-                            key={item.to}
-                            to={item.to}
-                            onClick={() => setMobileOpen(false)}
-                            className={
-                              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors " +
-                              (active
-                                ? "bg-secondary text-primary font-semibold"
-                                : "text-muted-foreground hover:bg-muted hover:text-foreground")
-                            }
-                          >
-                            <Icon className="size-4 shrink-0" />
-                            <span>{item.label}</span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </div>
 
-                  {/* Sekcia 2: Obsah & Taktika */}
-                  <div>
-                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1.5">
-                      Obsah & Taktika
+                    {/* Sekcia 2: Obsah & Taktika */}
+                    <div>
+                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1.5">
+                        Obsah & Taktika
+                      </div>
+                      <div className="space-y-0.5">
+                        {CONTENT_TOOLS.map((item) => {
+                          const Icon = item.icon;
+                          const active = pathname === item.to;
+                          return (
+                            <Link
+                              key={item.to}
+                              to={item.to}
+                              onClick={() => setMobileOpen(false)}
+                              className={
+                                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors " +
+                                (active
+                                  ? "bg-secondary text-primary font-semibold"
+                                  : "text-muted-foreground hover:bg-muted hover:text-foreground")
+                              }
+                            >
+                              <Icon className="size-4 shrink-0" />
+                              <span>{item.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="space-y-0.5">
-                      {CONTENT_TOOLS.map((item) => {
-                        const Icon = item.icon;
-                        const active = pathname === item.to;
-                        return (
-                          <Link
-                            key={item.to}
-                            to={item.to}
-                            onClick={() => setMobileOpen(false)}
-                            className={
-                              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors " +
-                              (active
-                                ? "bg-secondary text-primary font-semibold"
-                                : "text-muted-foreground hover:bg-muted hover:text-foreground")
-                            }
-                          >
-                            <Icon className="size-4 shrink-0" />
-                            <span>{item.label}</span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </div>
 
-                  {/* Sekcia 3: Agentúra & B2B */}
-                  <div>
-                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1.5">
-                      Agentúra & B2B
-                    </div>
-                    <div className="space-y-0.5">
-                      {AGENCY_TOOLS.map((item) => {
-                        const Icon = item.icon;
-                        const active = pathname === item.to;
-                        return (
-                          <Link
-                            key={item.to}
-                            to={item.to}
-                            onClick={() => setMobileOpen(false)}
-                            className={
-                              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors " +
-                              (active
-                                ? "bg-secondary text-primary font-semibold"
-                                : "text-muted-foreground hover:bg-muted hover:text-foreground")
-                            }
-                          >
-                            <Icon className="size-4 shrink-0" />
-                            <span>{item.label}</span>
-                          </Link>
-                        );
-                      })}
+                    {/* Sekcia 3: Agentúra & B2B */}
+                    <div>
+                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-1.5">
+                        Agentúra & B2B
+                      </div>
+                      <div className="space-y-0.5">
+                        {AGENCY_TOOLS.map((item) => {
+                          const Icon = item.icon;
+                          const active = pathname === item.to;
+                          return (
+                            <Link
+                              key={item.to}
+                              to={item.to}
+                              onClick={() => setMobileOpen(false)}
+                              className={
+                                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors " +
+                                (active
+                                  ? "bg-secondary text-primary font-semibold"
+                                  : "text-muted-foreground hover:bg-muted hover:text-foreground")
+                              }
+                            >
+                              <Icon className="size-4 shrink-0" />
+                              <span>{item.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Mobile Drawer Footer */}
-              <div className="p-4 border-t border-border/60 bg-muted/20 space-y-3 safe-bottom">
-                <div className="flex items-center justify-between gap-2">
-                  <LocaleSwitch locale={locale} onSwitch={switchLocale} />
-                  {!isAdmin && (
+                {/* Mobile Drawer Footer */}
+                <div className="p-4 border-t border-border/60 bg-muted/20 space-y-3 safe-bottom">
+                  <div className="flex items-center justify-between gap-2">
+                    <LocaleSwitch locale={locale} onSwitch={switchLocale} />
+                    {!isAdmin && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setMobileOpen(false);
+                          setPaywallOpen(true);
+                        }}
+                        className="h-9 gap-1.5 text-xs font-semibold"
+                      >
+                        <Sparkles className="size-3.5 text-primary" />{" "}
+                        {userPlan === "agency"
+                          ? "Cenník"
+                          : userPlan === "pro"
+                            ? "Predplatné Pro"
+                            : "Kúpiť Pro"}
+                      </Button>
+                    )}
+                  </div>
+                  {user ? (
                     <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setMobileOpen(false);
-                        setPaywallOpen(true);
-                      }}
-                      className="h-9 gap-1.5 text-xs font-semibold"
+                      variant="ghost"
+                      onClick={handleSignOut}
+                      className="w-full justify-start text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-2"
                     >
-                      <Sparkles className="size-3.5 text-primary" />{" "}
-                      {userPlan === "agency"
-                        ? "Cenník"
-                        : userPlan === "pro"
-                          ? "Predplatné Pro"
-                          : "Kúpiť Pro"}
+                      <LogOut className="size-4" /> Odhlásiť sa
+                    </Button>
+                  ) : (
+                    <Button asChild className="w-full text-xs font-semibold gap-1.5">
+                      <Link
+                        to="/login"
+                        search={{ redirect: "/" }}
+                        onClick={() => setMobileOpen(false)}
+                      >
+                        Vyskúšať zadarmo <ArrowUpRight className="size-3.5" />
+                      </Link>
                     </Button>
                   )}
                 </div>
-                {user ? (
-                  <Button
-                    variant="ghost"
-                    onClick={handleSignOut}
-                    className="w-full justify-start text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-2"
-                  >
-                    <LogOut className="size-4" /> Odhlásiť sa
-                  </Button>
-                ) : (
-                  <Button asChild className="w-full text-xs font-semibold gap-1.5">
-                    <Link
-                      to="/login"
-                      search={{ redirect: "/" }}
-                      onClick={() => setMobileOpen(false)}
-                    >
-                      Vyskúšať zadarmo <ArrowUpRight className="size-3.5" />
-                    </Link>
-                  </Button>
-                )}
-              </div>
-            </SheetContent>
-          </Sheet>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
       </div>
 

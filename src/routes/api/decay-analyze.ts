@@ -4,6 +4,7 @@ import { buildLiveDataset, runDecayAnalysis } from "@/lib/decay-analyze.server";
 import { isGscConfigured } from "@/lib/gsc.server";
 import { requireUser } from "@/lib/api-auth.server";
 import { checkViewerRateLimit, hasViewerPaidAccess, isUnlimited } from "@/lib/viewer-role.server";
+import { PLANS } from "@/lib/slovak-billing";
 import { saveDecaySnapshot } from "@/lib/snapshots.server";
 import { readBoundedBytes, BodyTooLargeError } from "@/lib/request-body.server";
 import { PLANS } from "@/lib/slovak-billing";

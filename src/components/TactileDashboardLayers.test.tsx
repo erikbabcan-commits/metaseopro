@@ -41,9 +41,9 @@ describe("Tactile Dashboard Layer Components", () => {
     const html = renderToStaticMarkup(
       <TactileSegmentedBar activeTab="dashboard" onTabChange={() => {}} />,
     );
-    expect(html).toContain("Dashboard");
-    expect(html).toContain("Status");
-    expect(html).toContain("Projects");
+    expect(html).toContain("Prehľad");
+    expect(html).toContain("Indexácia");
+    expect(html).toContain("Projekty");
   });
 
   it("renders LaserBorderCard with children", () => {
