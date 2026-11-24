@@ -248,7 +248,6 @@ export function AppHeader() {
           to="/"
           className="flex shrink-0 items-center gap-2.5 group"
           onClick={() => setMobileOpen(false)}
-          aria-label="SEO4WEB — AI SEO Command Center"
         >
           <span className="brand-mark flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-transform group-hover:scale-105">
             <ChartNoAxesCombined className="size-5" />

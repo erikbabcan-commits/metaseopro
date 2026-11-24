@@ -27,6 +27,7 @@ import { Route as ApiGenerateArticleRouteImport } from './routes/api/generate-ar
 import { Route as ApiGenerateBriefRouteImport } from './routes/api/generate-brief'
 import { Route as ApiRaketaAnalyzeRouteImport } from './routes/api/raketa-analyze'
 import { Route as ApiRaketaGenerateRouteImport } from './routes/api/raketa-generate'
+import { Route as DemoSeo03RouteImport } from './routes/demo.seo-03'
 import { Route as SettingsAgencyRouteImport } from './routes/settings.agency'
 import { Route as ApiPublicCronDecayAlertsRouteImport } from './routes/api/public/cron-decay-alerts'
 import { Route as ApiPublicSitemapRouteImport } from './routes/api/public/sitemap'
@@ -122,6 +123,11 @@ const ApiRaketaGenerateRoute = ApiRaketaGenerateRouteImport.update({
   path: '/api/raketa-generate',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemoSeo03Route = DemoSeo03RouteImport.update({
+  id: '/demo/seo-03',
+  path: '/demo/seo-03',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsAgencyRoute = SettingsAgencyRouteImport.update({
   id: '/settings/agency',
   path: '/settings/agency',
@@ -163,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/api/generate-brief': typeof ApiGenerateBriefRoute
   '/api/raketa-analyze': typeof ApiRaketaAnalyzeRoute
   '/api/raketa-generate': typeof ApiRaketaGenerateRoute
+  '/demo/seo-03': typeof DemoSeo03Route
   '/settings/agency': typeof SettingsAgencyRoute
   '/api/public/cron-decay-alerts': typeof ApiPublicCronDecayAlertsRoute
   '/api/public/sitemap': typeof ApiPublicSitemapRoute
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/api/generate-brief': typeof ApiGenerateBriefRoute
   '/api/raketa-analyze': typeof ApiRaketaAnalyzeRoute
   '/api/raketa-generate': typeof ApiRaketaGenerateRoute
+  '/demo/seo-03': typeof DemoSeo03Route
   '/settings/agency': typeof SettingsAgencyRoute
   '/api/public/cron-decay-alerts': typeof ApiPublicCronDecayAlertsRoute
   '/api/public/sitemap': typeof ApiPublicSitemapRoute
@@ -212,6 +220,7 @@ export interface FileRoutesById {
   '/api/generate-brief': typeof ApiGenerateBriefRoute
   '/api/raketa-analyze': typeof ApiRaketaAnalyzeRoute
   '/api/raketa-generate': typeof ApiRaketaGenerateRoute
+  '/demo/seo-03': typeof DemoSeo03Route
   '/settings/agency': typeof SettingsAgencyRoute
   '/api/public/cron-decay-alerts': typeof ApiPublicCronDecayAlertsRoute
   '/api/public/sitemap': typeof ApiPublicSitemapRoute
@@ -238,6 +247,7 @@ export interface FileRouteTypes {
     | '/api/generate-brief'
     | '/api/raketa-analyze'
     | '/api/raketa-generate'
+    | '/demo/seo-03'
     | '/settings/agency'
     | '/api/public/cron-decay-alerts'
     | '/api/public/sitemap'
@@ -262,6 +272,7 @@ export interface FileRouteTypes {
     | '/api/generate-brief'
     | '/api/raketa-analyze'
     | '/api/raketa-generate'
+    | '/demo/seo-03'
     | '/settings/agency'
     | '/api/public/cron-decay-alerts'
     | '/api/public/sitemap'
@@ -286,6 +297,7 @@ export interface FileRouteTypes {
     | '/api/generate-brief'
     | '/api/raketa-analyze'
     | '/api/raketa-generate'
+    | '/demo/seo-03'
     | '/settings/agency'
     | '/api/public/cron-decay-alerts'
     | '/api/public/sitemap'
@@ -311,6 +323,7 @@ export interface RootRouteChildren {
   ApiGenerateBriefRoute: typeof ApiGenerateBriefRoute
   ApiRaketaAnalyzeRoute: typeof ApiRaketaAnalyzeRoute
   ApiRaketaGenerateRoute: typeof ApiRaketaGenerateRoute
+  DemoSeo03Route: typeof DemoSeo03Route
   SettingsAgencyRoute: typeof SettingsAgencyRoute
   ApiPublicCronDecayAlertsRoute: typeof ApiPublicCronDecayAlertsRoute
   ApiPublicSitemapRoute: typeof ApiPublicSitemapRoute
@@ -445,6 +458,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRaketaGenerateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demo/seo-03': {
+      id: '/demo/seo-03'
+      path: '/demo/seo-03'
+      fullPath: '/demo/seo-03'
+      preLoaderRoute: typeof DemoSeo03RouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/agency': {
       id: '/settings/agency'
       path: '/settings/agency'
@@ -495,6 +515,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGenerateBriefRoute: ApiGenerateBriefRoute,
   ApiRaketaAnalyzeRoute: ApiRaketaAnalyzeRoute,
   ApiRaketaGenerateRoute: ApiRaketaGenerateRoute,
+  DemoSeo03Route: DemoSeo03Route,
   SettingsAgencyRoute: SettingsAgencyRoute,
   ApiPublicCronDecayAlertsRoute: ApiPublicCronDecayAlertsRoute,
   ApiPublicSitemapRoute: ApiPublicSitemapRoute,
