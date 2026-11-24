@@ -1,8 +1,6 @@
 // Server-only Decay Radar logic: scoring + dataset assembly.
-// Demo mode reads from decay-demo.ts. Live GSC mode is a Phase-2 extension;
-// until GSC is connected we always return demo data (clearly flagged).
 import { DEMO_PERIOD_NOW, DEMO_PERIOD_PREV, DEMO_SCENARIOS } from "./decay-demo";
-import { getLivePeriods, assertVerifiedProperty, fetchLiveDecayRows } from "./gsc.server";
+import { getLivePeriods, assertUserPropertyAccess, fetchLiveDecayRows } from "./gsc.server";
 import {
   SCENARIO_LABEL,
   type DecayDataset,
@@ -67,8 +65,8 @@ export function buildDemoDataset(scenario: DecayScenario): DecayDataset {
  * Live mode: real Google Search Console data for one verified property.
  * Demo and live data are never mixed — a live dataset always has demo: false.
  */
-export async function buildLiveDataset(siteUrl: string): Promise<DecayDataset> {
-  const verified = await assertVerifiedProperty(siteUrl);
+export async function buildLiveDataset(userId: string, siteUrl: string): Promise<DecayDataset> {
+  const verified = await assertUserPropertyAccess(userId, siteUrl);
   const periods = getLivePeriods();
   const rows = (await fetchLiveDecayRows(verified, 12, periods)).map(scoreRow).sort((a, b) => {
     const s = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];

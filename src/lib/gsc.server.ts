@@ -39,19 +39,29 @@ export type VerifiedProperty = { siteUrl: string; permissionLevel: string };
 export async function listVerifiedProperties(): Promise<VerifiedProperty[]> {
   const res = await gscFetch("/webmasters/v3/sites");
   if (!res.ok) {
-    const body = await res.text();
-    console.error(`GSC /sites failed [${res.status}]: ${body}`);
+    console.error(`GSC /sites failed [${res.status}]`);
     throw new Error(`GSC_LIST_FAILED_${res.status}`);
   }
   const json = (await res.json()) as {
     siteEntry?: { siteUrl: string; permissionLevel?: string }[];
   };
   return (json.siteEntry ?? [])
-    .filter((e) => e.permissionLevel !== "siteUnverifiedUser")
-    .map((e) => ({
-      siteUrl: e.siteUrl,
-      permissionLevel: e.permissionLevel ?? "siteOwner",
-    }));
+    .filter(
+      (entry): entry is VerifiedProperty =>
+        typeof entry?.siteUrl === "string" &&
+        entry.siteUrl.length > 0 &&
+        (entry.permissionLevel === "siteOwner" ||
+          entry.permissionLevel === "siteFullUser" ||
+          entry.permissionLevel === "siteRestrictedUser"),
+    )
+    .map(({ siteUrl, permissionLevel }) => ({ siteUrl, permissionLevel }));
+}
+
+function tenantProperties(userId: string): string[] {
+  return (process.env[`USER_GSC_SITES_${userId}`] || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 /**
@@ -71,11 +81,7 @@ export async function listUserVerifiedProperties(
   }
 
   // Tenant-specific properties if configured
-  const tenantSites = (process.env[`USER_GSC_SITES_${userId}`] || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
+  const tenantSites = tenantProperties(userId);
   if (tenantSites.length === 0) {
     return [];
   }
@@ -101,24 +107,10 @@ export async function assertUserPropertyAccess(
   siteUrl: string,
   email?: string,
 ): Promise<string> {
-  const verified = await assertVerifiedProperty(siteUrl);
-
-  const isPlatformOwner = isAdminUser({ id: userId });
-
-  if (isPlatformOwner) {
-    return verified;
-  }
-
-  const tenantSites = (process.env[`USER_GSC_SITES_${userId}`] || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  if (!tenantSites.includes(siteUrl)) {
+  if (!isAdminUser({ id: userId }) && !tenantProperties(userId).includes(siteUrl)) {
     throw new Error("GSC_USER_UNAUTHORIZED_FOR_PROPERTY");
   }
-
-  return verified;
+  return assertVerifiedProperty(siteUrl);
 }
 
 function isoDay(offsetDays: number, reference: Date): string {
@@ -144,8 +136,7 @@ async function query(siteUrl: string, body: Record<string, unknown>): Promise<Sa
     { method: "POST", body: JSON.stringify(body) },
   );
   if (!res.ok) {
-    const text = await res.text();
-    console.error(`GSC searchAnalytics failed [${res.status}]: ${text}`);
+    console.error(`GSC searchAnalytics failed [${res.status}]`);
     if (res.status === 403) throw new Error("GSC_FORBIDDEN");
     throw new Error(`GSC_QUERY_FAILED_${res.status}`);
   }
@@ -199,7 +190,7 @@ export async function fetchLiveDecayRows(
         impressionsPrev: Math.round(prev?.impressions ?? 0),
         // Zero is the existing contract's missing-data value, not a measured rank.
         positionNow: Number((r?.position ?? 0).toFixed(1)),
-        positionPrev: Number((prev?.position ?? r?.position ?? 0).toFixed(1)),
+        positionPrev: Number((prev?.position ?? 0).toFixed(1)),
       };
     })
     // Only pages with meaningful prior traffic can meaningfully decay.
@@ -238,14 +229,14 @@ export async function fetchLiveDecayRows(
                 clicksNow: Math.round(q?.clicks ?? 0),
                 clicksPrev: Math.round(p?.clicks ?? 0),
                 positionNow: Number((q?.position ?? 0).toFixed(1)),
-                positionPrev: Number((p?.position ?? q?.position ?? 0).toFixed(1)),
+                positionPrev: Number((p?.position ?? 0).toFixed(1)),
               };
             })
             .sort((a, b) => a.clicksNow - a.clicksPrev - (b.clicksNow - b.clicksPrev))
             .slice(0, 5);
         } catch (e) {
           if (e instanceof Error && e.message === "GSC_FORBIDDEN") throw e;
-          console.error("GSC per-URL query failed:", e);
+          console.error("GSC per-URL query failed");
         }
 
         let title: string;
