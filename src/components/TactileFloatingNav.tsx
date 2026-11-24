@@ -56,10 +56,6 @@ export function TactileFloatingNav() {
     activeIndex = 4;
   else if (currentPath === "/dashboard") activeIndex = 0;
 
-  // Calculate percentage-based transform for 5 navigation buttons
-  // Each button occupies 20% of the container width
-  const cradleTranslatePercent = activeIndex * 100;
-
   return (
     <>
       <nav
@@ -86,57 +82,60 @@ export function TactileFloatingNav() {
             </div>
           </Link>
 
-          {/* 2. Main Nav Items Container & Sliding Wave Cradle */}
+          {/* 2. Main Nav Items Container */}
           <div className="relative flex flex-1 items-center justify-between h-full">
-            {/* Sliding Fluid Wave Cradle (Indicator) */}
-            <div
-              className="absolute top-1.5 bottom-1.5 w-[20%] rounded-full bg-gradient-to-b from-[#26272b] to-[#171717] shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_8px_16px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none z-0"
-              style={{
-                transform: `translateX(${cradleTranslatePercent}%)`,
-              }}
-            >
-              {/* Top glowing emerald neon laser rim */}
-              <div className="absolute inset-x-2 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_8px_#10b981]" />
-            </div>
-
             {/* Item 1: Dashboard */}
             <Link
               to="/dashboard"
-              className={`relative z-10 flex flex-1 flex-col items-center justify-center h-full text-center transition-colors focus-visible:outline-none ${
-                activeIndex === 0 ? "text-white" : "text-zinc-400 hover:text-zinc-200"
+              className={`relative z-10 flex flex-1 flex-col items-center justify-center h-full text-center transition-all duration-200 focus-visible:outline-none ${
+                activeIndex === 0
+                  ? "text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.6)]"
+                  : "text-zinc-400 hover:text-zinc-200"
               }`}
             >
               <LayoutDashboard
-                className={`size-4 sm:size-4.5 mb-1 transition-transform ${
+                className={`size-4 sm:size-4.5 mb-1 transition-all duration-200 ${
                   activeIndex === 0
-                    ? "-translate-y-0.5 text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]"
+                    ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]"
                     : ""
                 }`}
               />
-              <span className="text-[10px] font-semibold tracking-wide">Prehľad</span>
-              {activeIndex === 0 && (
-                <span className="absolute bottom-1.5 size-1 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
-              )}
+              <span
+                className={`text-[10px] tracking-wide transition-all duration-200 ${
+                  activeIndex === 0
+                    ? "font-medium text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.5)]"
+                    : "font-normal"
+                }`}
+              >
+                Prehľad
+              </span>
             </Link>
 
             {/* Item 2: SEO Raketa */}
             <Link
               to="/raketa"
-              className={`relative z-10 flex flex-1 flex-col items-center justify-center h-full text-center transition-colors focus-visible:outline-none ${
-                activeIndex === 1 ? "text-white" : "text-zinc-400 hover:text-zinc-200"
+              className={`relative z-10 flex flex-1 flex-col items-center justify-center h-full text-center transition-all duration-200 focus-visible:outline-none ${
+                activeIndex === 1
+                  ? "text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.6)]"
+                  : "text-zinc-400 hover:text-zinc-200"
               }`}
             >
               <Rocket
-                className={`size-4 sm:size-4.5 mb-1 transition-transform ${
+                className={`size-4 sm:size-4.5 mb-1 transition-all duration-200 ${
                   activeIndex === 1
-                    ? "-translate-y-0.5 text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]"
+                    ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]"
                     : ""
                 }`}
               />
-              <span className="text-[10px] font-semibold tracking-wide">Raketa</span>
-              {activeIndex === 1 && (
-                <span className="absolute bottom-1.5 size-1 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
-              )}
+              <span
+                className={`text-[10px] tracking-wide transition-all duration-200 ${
+                  activeIndex === 1
+                    ? "font-medium text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.5)]"
+                    : "font-normal"
+                }`}
+              >
+                Raketa
+              </span>
             </Link>
 
             {/* Item 3: Stredové (+) Tvorba Drawer Trigger */}
@@ -147,36 +146,45 @@ export function TactileFloatingNav() {
                 setToolsDrawerOpen(false);
               }}
               aria-label="Otvoriť menu tvorby obsahu"
-              className="relative z-10 flex flex-1 flex-col items-center justify-center h-full text-center text-zinc-300 hover:text-white transition-colors focus-visible:outline-none group active:scale-95"
+              className="relative z-10 flex flex-1 flex-col items-center justify-center h-full text-center text-zinc-400 hover:text-white transition-all duration-200 focus-visible:outline-none group active:scale-95"
             >
-              <div className="flex size-7 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 group-hover:bg-emerald-500 group-hover:text-zinc-950 transition-colors shadow-[0_0_8px_rgba(16,185,129,0.3)] mb-0.5">
-                <Plus className="size-4 font-bold" />
+              <div className="flex size-7 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 group-hover:bg-emerald-500/30 group-hover:text-emerald-300 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)] transition-all duration-200 mb-0.5">
+                <Plus className="size-4" />
               </div>
-              <span className="text-[9px] font-semibold tracking-wide text-zinc-300">Tvorba</span>
+              <span className="text-[9px] font-normal tracking-wide text-zinc-400 group-hover:text-zinc-200">
+                Tvorba
+              </span>
             </button>
 
             {/* Item 4: Decay Radar */}
             <Link
               to="/decay"
-              className={`relative z-10 flex flex-1 flex-col items-center justify-center h-full text-center transition-colors focus-visible:outline-none ${
-                activeIndex === 3 ? "text-white" : "text-zinc-400 hover:text-zinc-200"
+              className={`relative z-10 flex flex-1 flex-col items-center justify-center h-full text-center transition-all duration-200 focus-visible:outline-none ${
+                activeIndex === 3
+                  ? "text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.6)]"
+                  : "text-zinc-400 hover:text-zinc-200"
               }`}
             >
               <div className="relative">
                 <TrendingDown
-                  className={`size-4 sm:size-4.5 mb-1 transition-transform ${
+                  className={`size-4 sm:size-4.5 mb-1 transition-all duration-200 ${
                     activeIndex === 3
-                      ? "-translate-y-0.5 text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]"
-                      : ""
+                      ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]"
+                    : ""
                   }`}
                 />
                 {/* Live GSC decay pulse dot */}
                 <span className="absolute -top-0.5 -right-1 size-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#10b981]" />
               </div>
-              <span className="text-[10px] font-semibold tracking-wide">Radar</span>
-              {activeIndex === 3 && (
-                <span className="absolute bottom-1.5 size-1 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
-              )}
+              <span
+                className={`text-[10px] tracking-wide transition-all duration-200 ${
+                  activeIndex === 3
+                    ? "font-medium text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.5)]"
+                    : "font-normal"
+                }`}
+              >
+                Radar
+              </span>
             </Link>
 
             {/* Item 5: Viac nástrojov / Audit Drawer Trigger */}
@@ -187,21 +195,28 @@ export function TactileFloatingNav() {
                 setCreateDrawerOpen(false);
               }}
               aria-label="Otvoriť všetky nástroje"
-              className={`relative z-10 flex flex-1 flex-col items-center justify-center h-full text-center transition-colors focus-visible:outline-none ${
-                activeIndex === 4 ? "text-white" : "text-zinc-400 hover:text-zinc-200"
+              className={`relative z-10 flex flex-1 flex-col items-center justify-center h-full text-center transition-all duration-200 focus-visible:outline-none ${
+                activeIndex === 4
+                  ? "text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.6)]"
+                  : "text-zinc-400 hover:text-zinc-200"
               }`}
             >
               <Layers
-                className={`size-4 sm:size-4.5 mb-1 transition-transform ${
+                className={`size-4 sm:size-4.5 mb-1 transition-all duration-200 ${
                   activeIndex === 4
-                    ? "-translate-y-0.5 text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]"
+                    ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]"
                     : ""
                 }`}
               />
-              <span className="text-[10px] font-semibold tracking-wide">Nástroje</span>
-              {activeIndex === 4 && (
-                <span className="absolute bottom-1.5 size-1 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
-              )}
+              <span
+                className={`text-[10px] tracking-wide transition-all duration-200 ${
+                  activeIndex === 4
+                    ? "font-medium text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.5)]"
+                    : "font-normal"
+                }`}
+              >
+                Nástroje
+              </span>
             </button>
           </div>
 
