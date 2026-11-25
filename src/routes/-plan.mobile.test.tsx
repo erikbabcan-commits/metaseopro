@@ -41,9 +41,13 @@ describe("Obsahový Plán & Kalendár (Search Clarity 100dvh Mobile & Desktop)",
     expect(planSrc).toContain("Odpáliť v SEO Rakete");
   });
 
-  it("supports monthly matrix view and AI 30-day plan generator", () => {
+  it("supports monthly matrix view on desktop, compact list on mobile, category filtering, and AI generator paywall", () => {
     expect(planSrc).toContain("Pondelok");
     expect(planSrc).toContain("Piatok");
+    expect(planSrc).toContain("hidden md:block");
+    expect(planSrc).toContain("md:hidden");
+    expect(planSrc).toContain("filteredArticles.find");
+    expect(planSrc).toContain("Predplatné vyžadované");
     expect(planSrc).toContain("AI Generátor 30-dňového obsahového plánu");
     expect(planSrc).toContain("Vygenerovať 30-dňový plán");
   });

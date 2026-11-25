@@ -258,11 +258,12 @@ function PlanPage() {
 
   const selectedArticle = useMemo(() => {
     return (
+      filteredArticles.find((a) => a.day === selectedDay) ||
       articles.find((a) => a.day === selectedDay) ||
-      articles.find((a) => a.day === 17) ||
+      filteredArticles[0] ||
       articles[0]
     );
-  }, [articles, selectedDay]);
+  }, [filteredArticles, articles, selectedDay]);
 
   const filteredArticles = useMemo(() => {
     if (categoryFilter === "all") return articles;
@@ -568,8 +569,38 @@ function PlanPage() {
                     AI Generátor 30-dňového obsahového plánu
                   </h2>
                 </div>
-                <span className="text-xs text-on-surface-variant">Mistral AI Enterprise Model</span>
+                <div className="flex items-center gap-2">
+                  {access && access.isFirstDay && access.allowed && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-secondary-fixed/50 text-google-green text-[11px] font-semibold">
+                      Prvý deň zdarma
+                    </span>
+                  )}
+                  <span className="text-xs text-on-surface-variant">
+                    Mistral AI Enterprise Model
+                  </span>
+                </div>
               </div>
+
+              {access && !access.allowed && !isAdmin && (
+                <div className="p-3.5 rounded-xl bg-error-container/30 border border-error-container text-on-error-container flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-google-red text-[18px]">
+                      lock
+                    </span>
+                    <span>
+                      Tvoj prvý deň zdarma sa skončil. Pre ďalšie generovanie 30-dňového plánu
+                      aktivuj predplatné.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate({ to: "/settings/agency" })}
+                    className="px-3.5 py-1.5 rounded-full bg-surface-pure border border-border-subtle font-semibold text-primary hover:bg-surface-container-low transition-colors shadow-xs"
+                  >
+                    Aktivovať predplatné
+                  </button>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -627,16 +658,24 @@ function PlanPage() {
                 <button
                   type="button"
                   onClick={runAiGenerator}
-                  disabled={genStatus === "generating"}
-                  className="px-5 py-2.5 rounded-full bg-primary text-on-primary text-xs font-semibold flex items-center gap-2 shadow-xs hover:bg-primary-container transition-all active:scale-[0.98] disabled:opacity-60"
+                  disabled={
+                    genStatus === "generating" || (access !== null && !access.allowed && !isAdmin)
+                  }
+                  className="px-5 py-2.5 rounded-full bg-primary text-on-primary text-xs font-semibold flex items-center gap-2 shadow-xs hover:bg-primary-container transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <span className="material-symbols-outlined text-[16px]">
-                    {genStatus === "generating" ? "hourglass_top" : "auto_awesome"}
+                    {genStatus === "generating"
+                      ? "hourglass_top"
+                      : access !== null && !access.allowed && !isAdmin
+                        ? "lock"
+                        : "auto_awesome"}
                   </span>
                   <span>
                     {genStatus === "generating"
                       ? "Generujem 30-dňový plán…"
-                      : "Vygenerovať 30-dňový plán"}
+                      : access !== null && !access.allowed && !isAdmin
+                        ? "Predplatné vyžadované"
+                        : "Vygenerovať 30-dňový plán"}
                   </span>
                 </button>
               </div>
@@ -900,11 +939,29 @@ function PlanPage() {
 
                 {/* Sekcia Ostatné dni v týždni / Ďalšie sloty */}
                 <div className="pt-2 space-y-2">
-                  <span className="text-xs font-semibold text-on-surface-variant block">
-                    Ďalšie sloty v týždni a mesiaci:
-                  </span>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-on-surface-variant block">
+                      Ďalšie sloty v týždni a mesiaci:
+                    </span>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {["all", "sprievodca", "návod", "trend"].map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setCategoryFilter(cat)}
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
+                            categoryFilter === cat
+                              ? "bg-primary text-on-primary font-semibold"
+                              : "bg-surface-container-low text-on-surface-variant hover:text-on-surface"
+                          }`}
+                        >
+                          {cat === "all" ? "Všetky" : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="space-y-2">
-                    {articles
+                    {filteredArticles
                       .filter((a) => a.id !== selectedArticle.id)
                       .slice(0, 3)
                       .map((art) => (
@@ -1006,8 +1063,73 @@ function PlanPage() {
                 </div>
               </div>
 
-              {/* Matrix Grid: 7 Columns */}
-              <div className="rounded-2xl bg-surface-pure border border-border-subtle shadow-xs overflow-hidden">
+              {/* Mobile Compact Month List (< 768px) */}
+              <div className="md:hidden space-y-2">
+                {filteredArticles.length === 0 ? (
+                  <div className="p-4 rounded-2xl bg-surface-pure border border-border-subtle text-center text-xs text-on-surface-variant">
+                    Pre vybraný filter kategórie sa nenašli žiadne články.
+                  </div>
+                ) : (
+                  [...filteredArticles]
+                    .sort((a, b) => a.day - b.day)
+                    .map((art) => {
+                      const isSelected = selectedDay === art.day;
+                      return (
+                        <button
+                          key={art.id}
+                          type="button"
+                          onClick={() => setSelectedDay(art.day)}
+                          className={`w-full text-left p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                            isSelected
+                              ? "bg-primary-fixed/20 border-primary-container shadow-xs"
+                              : "bg-surface-pure border-border-subtle hover:bg-surface-container-low"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span
+                              className={`w-9 h-9 rounded-xl font-bold text-xs flex flex-col items-center justify-center shrink-0 ${
+                                isSelected
+                                  ? "bg-primary text-on-primary"
+                                  : "bg-surface-container text-on-surface"
+                              }`}
+                            >
+                              <span>{art.day}</span>
+                              <span className="text-[9px] font-normal uppercase opacity-80">
+                                {art.dayOfWeek}
+                              </span>
+                            </span>
+                            <div className="min-w-0">
+                              <h4 className="text-xs font-semibold text-on-surface truncate">
+                                {art.title}
+                              </h4>
+                              <span className="text-[11px] text-on-surface-variant block mt-0.5">
+                                {art.category} • {art.time}
+                              </span>
+                            </div>
+                          </div>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                              art.status === "published"
+                                ? "bg-secondary-fixed/50 text-google-green"
+                                : art.status === "ready"
+                                  ? "bg-primary-fixed/50 text-primary"
+                                  : "bg-surface-container text-on-surface-variant"
+                            }`}
+                          >
+                            {art.status === "published"
+                              ? "Publikované"
+                              : art.status === "ready"
+                                ? "Pripravené"
+                                : "Koncept"}
+                          </span>
+                        </button>
+                      );
+                    })
+                )}
+              </div>
+
+              {/* Desktop Matrix Grid: 7 Columns (>= 768px) */}
+              <div className="hidden md:block rounded-2xl bg-surface-pure border border-border-subtle shadow-xs overflow-hidden">
                 <div className="grid grid-cols-7 border-b border-border-subtle bg-surface-container-low text-center text-xs font-semibold text-on-surface-variant py-2">
                   <span>Pondelok</span>
                   <span>Utorok</span>
@@ -1019,9 +1141,9 @@ function PlanPage() {
                 </div>
 
                 {/* Days 5 weeks preview */}
-                <div className="grid grid-cols-7 auto-rows-[90px] md:auto-rows-[110px] divide-x divide-y divide-border-subtle text-xs">
+                <div className="grid grid-cols-7 auto-rows-[110px] divide-x divide-y divide-border-subtle text-xs">
                   {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => {
-                    const art = articles.find((a) => a.day === d);
+                    const art = filteredArticles.find((a) => a.day === d);
                     const isSelected = selectedDay === d;
                     return (
                       <div
