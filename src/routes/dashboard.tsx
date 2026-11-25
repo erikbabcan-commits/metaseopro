@@ -323,7 +323,7 @@ function DashboardPage() {
           <Button
             variant="outline"
             onClick={() => setPropertiesRetry((n) => n + 1)}
-            className="border-border bg-card text-foreground hover:bg-muted"
+            className="border-border bg-surface-pure text-foreground hover:bg-muted"
           >
             <RefreshCw className="size-3.5 text-primary" />
             Skúsiť znova
@@ -340,10 +340,10 @@ function DashboardPage() {
               setSelectedProperty(e.target.value);
               setScanError("");
             }}
-            className="w-full min-w-0 rounded-lg border border-border bg-card px-3.5 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full min-w-0 rounded-lg border border-border bg-surface-pure px-3.5 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
             {properties.map((url) => (
-              <option key={url} value={url} className="bg-card text-foreground">
+              <option key={url} value={url} className="bg-surface-pure text-foreground">
                 {url}
               </option>
             ))}
@@ -586,7 +586,7 @@ function DashboardPage() {
           }}
         >
           <DialogContent
-            className="max-w-[calc(100%-2rem)] sm:max-w-lg border border-border bg-card text-foreground shadow-2xl"
+            className="max-w-[calc(100%-2rem)] sm:max-w-lg border border-border bg-surface-pure text-foreground shadow-2xl"
             aria-describedby={undefined}
             onEscapeKeyDown={(e) => {
               if (scanning) e.preventDefault();
@@ -610,7 +610,7 @@ function DashboardPage() {
               {[1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
-                  className="h-28 rounded-xl bg-card border border-border shadow-xs p-5 space-y-2"
+                  className="h-28 rounded-xl bg-surface-pure border border-border shadow-xs p-5 space-y-2"
                 >
                   <div className="h-3 w-20 bg-muted rounded" />
                   <div className="h-7 w-28 bg-muted rounded" />
@@ -619,7 +619,7 @@ function DashboardPage() {
             </div>
           </div>
         ) : !latest ? (
-          <section className="mx-auto mt-10 max-w-lg space-y-5 rounded-xl border border-border bg-card p-8 shadow-sm">
+          <section className="mx-auto mt-10 max-w-lg space-y-5 rounded-xl border border-border bg-surface-pure p-8 shadow-sm">
             <p className="text-foreground/80 font-medium">Zatiaľ nemáš žiadne uložené snapshoty.</p>
             {!scanOpen && propertyPicker}
           </section>
@@ -831,7 +831,7 @@ function DashboardPage() {
                   <h2 className="text-lg font-bold text-foreground font-display">
                     Uložené snapshoty
                   </h2>
-                  <ul className="mt-3 divide-y divide-border rounded-xl bg-card border border-border shadow-xs overflow-hidden">
+                  <ul className="mt-3 divide-y divide-border rounded-xl bg-surface-pure border border-border shadow-xs overflow-hidden">
                     {siteSnaps.map((s) => (
                       <li
                         key={s.id}
@@ -1021,7 +1021,7 @@ function DashboardPage() {
 
 function Kpi({ label, value, delta }: { label: string; value: string; delta: React.ReactNode }) {
   return (
-    <div className="rounded-xl bg-card p-5 border border-border shadow-xs hover:border-primary/40 hover:shadow-sm transition-all duration-200">
+    <div className="rounded-xl bg-surface-pure p-5 border border-border shadow-xs hover:border-primary/40 hover:shadow-sm transition-all duration-200">
       <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </p>
@@ -1050,10 +1050,10 @@ function SnapSelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+        className="rounded-lg border border-border bg-surface-pure px-3 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
       >
         {snaps.map((s) => (
-          <option key={s.id} value={s.id} className="bg-card text-foreground">
+          <option key={s.id} value={s.id} className="bg-surface-pure text-foreground">
             {fmtDate(s.created_at)}
           </option>
         ))}
@@ -1142,7 +1142,7 @@ function DiffView({ a, b }: { a: Snapshot; b: Snapshot }) {
 
 function DiffTable({ title, lines }: { title: string; lines: Line[] }) {
   return (
-    <div className="overflow-hidden rounded-xl bg-card border border-border shadow-xs">
+    <div className="overflow-hidden rounded-xl bg-surface-pure border border-border shadow-xs">
       <div className="border-b border-border bg-muted/40 px-4 py-3 text-sm font-semibold text-foreground font-display">
         {title}
       </div>
@@ -1262,32 +1262,32 @@ function Explorer({ snap }: { snap: Snapshot }) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Hľadať URL alebo dopyt…"
-            className="rounded-lg border border-border bg-card px-3.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+            className="rounded-lg border border-border bg-surface-pure px-3.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
           />
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground focus:border-primary"
+            className="rounded-lg border border-border bg-surface-pure px-3 py-1.5 text-xs text-foreground focus:border-primary"
           >
-            <option value="decay" className="bg-card text-foreground">
+            <option value="decay" className="bg-surface-pure text-foreground">
               Najväčší prepad
             </option>
-            <option value="clicks" className="bg-card text-foreground">
+            <option value="clicks" className="bg-surface-pure text-foreground">
               Kliky
             </option>
-            <option value="impressions" className="bg-card text-foreground">
+            <option value="impressions" className="bg-surface-pure text-foreground">
               Impresie
             </option>
-            <option value="position" className="bg-card text-foreground">
+            <option value="position" className="bg-surface-pure text-foreground">
               Najlepšia pozícia
             </option>
-            <option value="ctr" className="bg-card text-foreground">
+            <option value="ctr" className="bg-surface-pure text-foreground">
               Najnižší CTR
             </option>
           </select>
         </div>
       </div>
-      <div className="mt-3 overflow-x-auto rounded-xl bg-card border border-border shadow-xs">
+      <div className="mt-3 overflow-x-auto rounded-xl bg-surface-pure border border-border shadow-xs">
         <table className="w-full min-w-[760px] text-xs">
           <thead className="bg-muted/50 text-muted-foreground border-b border-border text-[11px] uppercase tracking-wider font-semibold">
             <tr>
@@ -1467,12 +1467,12 @@ function CtrBooster({
         bežné.
       </p>
       {candidates.length === 0 ? (
-        <p className="mt-3 rounded-xl bg-card border border-border p-5 text-sm text-muted-foreground shadow-xs">
+        <p className="mt-3 rounded-xl bg-surface-pure border border-border p-5 text-sm text-muted-foreground shadow-xs">
           Žiadne stránky s podpriemerným CTR. Výborné!
         </p>
       ) : (
         <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-          <ul className="divide-y divide-border rounded-xl bg-card border border-border shadow-xs overflow-hidden">
+          <ul className="divide-y divide-border rounded-xl bg-surface-pure border border-border shadow-xs overflow-hidden">
             {candidates.map(({ r, ctr, exp }, idx) => (
               <li
                 key={`${r.url}-${idx}`}
@@ -1508,7 +1508,7 @@ function CtrBooster({
                       variant="studio"
                       size="studio"
                       onClick={() => onDeploy(r.url, "", r.title)}
-                      className="rounded-md border border-border bg-card hover:bg-muted p-1.5 text-primary transition-colors shadow-xs"
+                      className="rounded-md border border-border bg-surface-pure hover:bg-muted p-1.5 text-primary transition-colors shadow-xs"
                       title="🚀 Nasadiť do WordPressu"
                     >
                       <Rocket className="size-3.5" />

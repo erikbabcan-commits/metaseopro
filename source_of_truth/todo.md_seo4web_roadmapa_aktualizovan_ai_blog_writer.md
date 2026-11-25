@@ -5,6 +5,7 @@ Tento plán slúži ako prehľadný checklist a architektonický stav pre vývoj
 ---
 
 ## 🚀 Fáza 1: Globálny Shell & Spoločné Komponenty
+
 - [x] **Dizajnový systém tokenov:** Definícia farieb (`#1a73e8`, `#10b981`, `#fbbc04`, `#ea4335`), tieňov, Google Search Clarity vizuálu a typografie (Roboto Flex / Google Sans).
 - [x] **`AppHeader`:**
   - [x] Responzívny sticky header s viacfarebným Google-style logom `Seo4web`.
@@ -23,12 +24,14 @@ Tento plán slúži ako prehľadný checklist a architektonický stav pre vývoj
 ## 🏠 Fáza 2: Obrazovky & Kľúčové Moduly
 
 ### 1. Landing Page & Kalkulačka (`/`)
+
 - [x] **Mobilná landing page (390px):** Autentický Google Search Console minimalizmus, CTA, metriky.
 - [x] **Desktopová landing page:** Interaktívny dynamický kalkulátor počtu domén (+39 € / doména), 4-stĺpcový cenový cenník a konverzný SaaS layout.
 - [ ] **AI Blog Writer Sekcia na Landing Page:** Interaktívny input s ukážkou streamovania článku v reálnom čase (SSE stream).
 - [ ] **SerpLab Sandbox:** Samostatný pieskoviskový editor Google SERP snippetu s rich snippetmi.
 
 ### 2. AI SEO Command Center (`/dashboard`)
+
 - [x] **Desktop Dashboard:**
   - [x] Tactile segmented bar a projektové prepínanie.
   - [x] KPI karty (SEO Health Score 88/100, Organická návštevnosť, Priemerná pozícia, CTR).
@@ -37,6 +40,7 @@ Tento plán slúži ako prehľadný checklist a architektonický stav pre vývoj
   - [x] Swipe KPI karty, zoznam rýchlych optimalizácií a stav kvót.
 
 ### 3. SEO Raketa (`/raketa`)
+
 - [x] **Desktopová verzia:**
   - [x] 4-krokový automatický 1-Click workflow (Analýza URL -> Konkurencia -> AI Brief -> Zaradenie do kalendára).
   - [x] Kvantifikovaný potenciál návštevnosti (+1 450 návštev / ~870 € hodnota v Ads).
@@ -44,6 +48,7 @@ Tento plán slúži ako prehľadný checklist a architektonický stav pre vývoj
   - [x] Kompaktná kroková vizualizácia s 1-klikom na spustenie celej pipeline.
 
 ### 4. Content Decay Radar (`/decay` / `/radar`)
+
 - [x] **Desktopová verzia:**
   - [x] Detekcia klesajúcich URL (30/90 dní prepady), traffic loss metriky (-240 návštev/týždeň).
   - [x] Záchranný AI plán: H2 úpravy, sémantické LSI kľúčové slová, obnova interných odkazov.
@@ -52,6 +57,7 @@ Tento plán slúži ako prehľadný checklist a architektonický stav pre vývoj
   - [x] Prevzdušnená mobilná verzia s jednoduchou aktiváciou záchranných opráv na dotyk.
 
 ### 5. Hĺbkový Audit Domén & Konkurencie (`/audit`)
+
 - [x] **Desktopová verzia:**
   - [x] Porovnanie domény s 3 konkurentmi (GymBeam, Namaximum, BiotechUSA).
   - [x] Domain Authority, Keyword Gap (312 chýbajúcich tém), Backlink Gap a Core Web Vitals audit.
@@ -59,6 +65,7 @@ Tento plán slúži ako prehľadný checklist a architektonický stav pre vývoj
   - [x] Posuvné porovnávacie benchmark karty domén, Keyword Gap karty s 1-klik tvorbou briefov a mobilné Core Web Vitals (LCP 2.1s, INP 95ms, CLS 0.04).
 
 ### 6. 30-Dňový Obsahový Kalendár (`/plan`)
+
 - [x] **Desktopová verzia:**
   - [x] Mesačný grid a publikačný harmonogram na 30 dní.
   - [x] Karty článkov s prioritami, AI stavmi (Draft, Ready, Published) a SEO pripravenosťou (94/100).
@@ -66,6 +73,7 @@ Tento plán slúži ako prehľadný checklist a architektonický stav pre vývoj
   - [x] Týždenný posuvný zoznam naplánovaných publikácií s rýchlym náhľadom tém a autorov.
 
 ### 7. AI SEO Brief Generátor (`/brief`)
+
 - [x] **Desktopová verzia:**
   - [x] Kompletná osnova článku pre copywritera (H1-H3), Search Intent, KD 49, LSI entity a PAA otázky.
   - [x] Export do Google Docs, Klientskeho PDF, Markdown a sync do Shoptetu.
@@ -73,6 +81,7 @@ Tento plán slúži ako prehľadný checklist a architektonický stav pre vývoj
   - [x] Google SERP mobilný náhľad, kopírovanie kľúčových slov, schvaľovací workflow briefu a tímový lock.
 
 ### 8. Interaktívny AI Blog Writer & Real-Time SEO Editor (`/writer`)
+
 - [x] **Desktopová verzia:**
   - [x] WYSIWYG editor v Google Docs dizajne s formátovacou lištou a prepojením na Brief #084.
   - [x] Simulácia živého AI streamovania (Claude 3.5 Sonnet @ 284 t/s) s priamym generovaním odsekov.
@@ -84,6 +93,7 @@ Tento plán slúži ako prehľadný checklist a architektonický stav pre vývoj
   - [x] AI streamovací blok v reálnom čase s ovládacími akciami (Pozastaviť, Zahodiť, Ponechať) a plávajúci Gemini Copilot riadok.
 
 ### 9. História & Archív Výstupov (`/history`)
+
 - [x] **Desktopová verzia:**
   - [x] Kompletný archív 148 vygenerovaných assetov s filtrami kategórií (AI Briefy, Audity, Články, Kalendáre).
   - [x] Inšpekčný bočný panel s live SERP náhľadom, históriou revízií a 1-klik exportmi.
@@ -91,6 +101,7 @@ Tento plán slúži ako prehľadný checklist a architektonický stav pre vývoj
   - [x] Kompaktný 2×2 KPI súhrn, mobilné karty s priamymi exportnými dlaždicami (Docs, PDF, Shoptet, MD).
 
 ### 10. Nastavenia & API Integrácie (`/settings`)
+
 - [x] **Desktopová verzia:**
   - [x] Prepojené platformy: Google Search Console (OAuth 2.0, 1 450 indexovaných URL), Shoptet API v2.4 (obojstranný auto-sync blogu a meta tagov), WordPress konektor.
   - [x] Produkčné API kľúče a automatizačné webhooky (Make, Zapier) s testom odozvy (200 OK).
@@ -114,6 +125,7 @@ Tento plán slúži ako prehľadný checklist a architektonický stav pre vývoj
 ---
 
 ## 📊 Celkový Stav Implementácie
+
 - **Dokončené obrazovky (Desktop):** 8 / 8 hlavných modulov (`Landing`, `Dashboard`, `Raketa`, `Decay`, `Audit`, `Kalendár`, `Brief`, `Writer`, `História`, `Nastavenia`).
 - **Dokončené obrazovky (Mobile 390px):** 8 / 8 hlavných modulov (`Landing`, `Dashboard`, `Raketa`, `Decay`, `Audit`, `Kalendár`, `Brief`, `Writer`, `História`, `Nastavenia`).
 - **Dizajnová konzistencia:** 100% zosúladené s tokenmi Google Search Clarity, Material You a čistým firemným UX.

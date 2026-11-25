@@ -350,7 +350,7 @@ export function OpportunityRadar({
                         variant="studio"
                         size="studio"
                         onClick={() => track(p.url)}
-                        className="ml-2 rounded-md border border-border bg-card hover:bg-muted text-foreground px-3 py-1.5 text-xs transition-colors shadow-xs"
+                        className="ml-2 rounded-md border border-border bg-surface-pure hover:bg-muted text-foreground px-3 py-1.5 text-xs transition-colors shadow-xs"
                       >
                         Sledovať zmenu
                       </Button>
@@ -375,7 +375,7 @@ export function OpportunityRadar({
       )}
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl bg-card border border-border p-5 shadow-xs">
+        <div className="rounded-xl bg-surface-pure border border-border p-5 shadow-xs">
           <h3 className="font-bold text-sm text-foreground font-display">Riziko kanibalizácie</h3>
           {cannibal.length === 0 ? (
             <p className="mt-2 text-xs text-muted-foreground">
@@ -400,7 +400,7 @@ export function OpportunityRadar({
             </ul>
           )}
         </div>
-        <div className="rounded-xl bg-card border border-border p-5 shadow-xs">
+        <div className="rounded-xl bg-surface-pure border border-border p-5 shadow-xs">
           <h3 className="font-bold text-sm text-foreground font-display">
             Návrhy interných odkazov
           </h3>
@@ -421,7 +421,7 @@ export function OpportunityRadar({
         </div>
       </div>
 
-      <div className="mt-6 rounded-xl bg-card border border-border p-5 shadow-xs">
+      <div className="mt-6 rounded-xl bg-surface-pure border border-border p-5 shadow-xs">
         <h3 className="font-bold text-sm text-foreground font-display">
           Sledované zmeny (pred / po)
         </h3>

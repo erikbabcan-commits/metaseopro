@@ -712,3 +712,77 @@ textarea:focus:not(:placeholder-shown) {
     animation: none !important;
   }
 }
+
+/* Landing Page Micro-interactions and Laser Effects */
+.cursor-blink {
+  display: inline-block;
+  width: 2px;
+  height: 1.15em;
+  vertical-align: middle;
+  background-color: var(--clarity-primary-container, #1a73e8);
+  animation: blink 0.9s infinite;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.pulse-laser {
+  position: relative;
+}
+
+.pulse-laser::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  background-color: var(--clarity-google-green, #34a853);
+  opacity: 0.4;
+  animation: laser-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes laser-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+.google-pill-btn {
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.google-pill-btn:hover {
+  transform: translateY(-1px);
+}
+
+.google-pill-btn:active {
+  transform: scale(0.98);
+}
+
+.hero-search-shadow {
+  box-shadow: 0 1px 6px rgba(32, 33, 36, 0.12);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hero-search-shadow:hover,
+.hero-search-shadow:focus-within {
+  box-shadow:
+    0 4px 16px rgba(66, 133, 244, 0.2),
+    0 1px 3px rgba(60, 64, 67, 0.15);
+  border-color: #adc7ff;
+}

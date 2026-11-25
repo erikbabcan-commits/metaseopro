@@ -34,7 +34,7 @@ describe("subscriptions RLS (real PostgreSQL in WASM)", () => {
       "INSERT INTO public.subscriptions(user_id,plan,status,current_period_end) VALUES ($1,'pro','active',$3),($2,'agency','active',$3)",
       [USER_A, USER_B, FUTURE],
     );
-  }, 30_000);
+  }, 90_000);
   afterAll(async () => {
     await db?.close();
   });

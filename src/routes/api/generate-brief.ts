@@ -88,21 +88,28 @@ export const Route = createFileRoute("/api/generate-brief")({
             .filter(Boolean)
             .join("\n");
 
-          const upstream = await fetch(AI_CHAT_URL, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: AI_DEFAULT_MODEL,
-              stream: true,
-              messages: [
-                { role: "system", content: BRIEF_SYSTEM_PROMPT },
-                { role: "user", content: userPrompt },
-              ],
-            }),
-          });
+          let upstream: Response;
+          try {
+            upstream = await fetch(AI_CHAT_URL, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+              },
+              signal: AbortSignal.timeout(45_000),
+              body: JSON.stringify({
+                model: AI_DEFAULT_MODEL,
+                stream: true,
+                messages: [
+                  { role: "system", content: BRIEF_SYSTEM_PROMPT },
+                  { role: "user", content: userPrompt },
+                ],
+              }),
+            });
+          } catch (fetchErr) {
+            console.error("AI gateway fetch failed or timed out:", fetchErr);
+            return err(504, "AI služba neodpovedala včas (timeout 45s). Skús to znova.");
+          }
 
           if (!upstream.ok || !upstream.body) {
             if (upstream.status === 429)

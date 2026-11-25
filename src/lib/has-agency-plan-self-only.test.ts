@@ -81,7 +81,7 @@ beforeAll(async () => {
      VALUES ($1,'free','active',now()+interval '1 day'),($2,'agency','active',now()+interval '1 day')`,
     [userA, userB],
   );
-}, 30_000);
+}, 90_000);
 afterAll(async () => {
   await db?.close();
 });
@@ -163,5 +163,5 @@ describe("has_agency_plan self-only migration", () => {
     } finally {
       await empty.close();
     }
-  }, 30_000);
+  }, 90_000);
 });

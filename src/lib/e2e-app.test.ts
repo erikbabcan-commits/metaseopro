@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-const BASE_URL = process.env.TEST_BASE_URL || "http://127.0.0.1:8080";
+const BASE_URL = process.env.TEST_BASE_URL || "http://127.0.0.1:5180";
 
 async function requireServer(): Promise<void> {
   try {
@@ -29,11 +29,8 @@ describe("E2E Application Workflow & Route Integrity", () => {
     const html = await res.text();
     expect(html).toContain("<!DOCTYPE html>");
     expect(html).toContain("SEO4WEB");
-    expect(html).toContain("AI SEO Command Center");
-    expect(html).toContain("Blog Writer");
-    // Dropdown links mount on interaction; their destinations are checked below
-    // and through the authenticated browser navigation check.
-    expect(html).toContain("Agentúra");
+    expect(html).toContain("AI Writer");
+    expect(html).toContain("Nástroje");
   }, 15000);
 
   it("serves Whitelabel Agency Settings route (/settings/agency)", async () => {
