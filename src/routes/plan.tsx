@@ -256,6 +256,11 @@ function PlanPage() {
     }
   }, [user, checkAccess]);
 
+  const filteredArticles = useMemo(() => {
+    if (categoryFilter === "all") return articles;
+    return articles.filter((a) => a.category.toLowerCase().includes(categoryFilter.toLowerCase()));
+  }, [articles, categoryFilter]);
+
   const selectedArticle = useMemo(() => {
     return (
       filteredArticles.find((a) => a.day === selectedDay) ||
@@ -264,11 +269,6 @@ function PlanPage() {
       articles[0]
     );
   }, [filteredArticles, articles, selectedDay]);
-
-  const filteredArticles = useMemo(() => {
-    if (categoryFilter === "all") return articles;
-    return articles.filter((a) => a.category.toLowerCase().includes(categoryFilter.toLowerCase()));
-  }, [articles, categoryFilter]);
 
   const handlePublishCms = async (articleId: string) => {
     setPublishingId(articleId);
