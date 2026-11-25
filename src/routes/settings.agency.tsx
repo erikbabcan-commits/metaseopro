@@ -73,7 +73,7 @@ export const Route = createFileRoute("/settings/agency")({
 });
 
 const COLOR_PRESETS = [
-  { name: "Smaragdová (Emerald)", hex: "#10b981" },
+  { name: "Smaragdová (Emerald)", hex: "bg-mark" },
   { name: "Zafírová (Sapphire)", hex: "#2563eb" },
   { name: "Kráľovská modrá (Indigo)", hex: "#6366f1" },
   { name: "Fialová (Purple)", hex: "#8b5cf6" },

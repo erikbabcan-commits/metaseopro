@@ -19,7 +19,7 @@ export function generateReportHtml(
   criticalDrops: ScoredDecayRow[] = [],
 ): string {
   const { agency, client, executiveSummary, opportunities, recommendations } = data;
-  const primaryColor = agency.primaryColor || "#10b981";
+  const primaryColor = agency.primaryColor || "bg-mark";
 
   // Top 5 decay drops
   const topDrops = criticalDrops
@@ -47,7 +47,7 @@ export function generateReportHtml(
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       color: #0f172a;
-      background: #ffffff;
+      background: bg-card;
       line-height: 1.45;
       font-size: 11pt;
       -webkit-print-color-adjust: exact;
@@ -130,7 +130,7 @@ export function generateReportHtml(
       border: 1px solid #e2e8f0;
       border-radius: 8px;
       padding: 12px 14px;
-      background: #f8fafc;
+      background: text-on-primary;
       page-break-inside: avoid;
     }
     .kpi-label {
@@ -217,7 +217,7 @@ export function generateReportHtml(
       border: 1px solid #e2e8f0;
       border-radius: 6px;
       padding: 10px 12px;
-      background: #ffffff;
+      background: bg-card;
     }
     .rec-header {
       display: flex;

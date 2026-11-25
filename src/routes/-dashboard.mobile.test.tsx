@@ -44,8 +44,8 @@ describe("AI SEO Command Center (Search Clarity 100dvh mobile)", () => {
     expect(radarSrc).toContain("Rýchle výhry");
     expect(radarSrc).toContain("Pokles pozícií");
     expect(radarSrc).toContain("Nové trendy");
-    expect(radarSrc).not.toMatch(/#ffffff|#000000/i);
-    expect(dashboardSrc).not.toMatch(/#ffffff|#000000/i);
+    expect(radarSrc).not.toMatch(/bg-card|#000000/i);
+    expect(dashboardSrc).not.toMatch(/bg-card|#000000/i);
   });
 
   it("uses pb-safe and Search Clarity bottom bar labels in TactileFloatingNav", () => {

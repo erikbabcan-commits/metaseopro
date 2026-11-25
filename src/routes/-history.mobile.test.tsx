@@ -10,7 +10,7 @@ describe("História výstupov & Archív (Search Clarity 100dvh Mobile & Desktop)
     expect(historySrc).toContain("bg-surface");
     expect(historySrc).toContain("pb-safe");
     expect(historySrc).toContain("pb-28");
-    expect(historySrc).not.toMatch(/#ffffff|#000000/i);
+    expect(historySrc).not.toMatch(/bg-card|#000000/i);
   });
 
   it("renders Top Headline, creation dropdown, and 4 live KPI cards", () => {

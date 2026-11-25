@@ -124,7 +124,7 @@ export function TopBarLaserLoader() {
           style={{
             background:
               "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(52,211,153,0.8) 40%, transparent 80%)",
-            filter: "drop-shadow(0 0 6px #10b981) drop-shadow(0 0 14px #34d399)",
+            filter: "drop-shadow(0 0 6px bg-mark) drop-shadow(0 0 14px #34d399)",
           }}
         />
       </div>

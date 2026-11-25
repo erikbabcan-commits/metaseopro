@@ -17,7 +17,7 @@ export const DEFAULT_AGENCY_PROFILE: AgencyProfile = {
   user_id: "",
   agency_name: "Digitálna SEO Agentúra",
   logo_url: null,
-  primary_color: "#10b981",
+  primary_color: "bg-mark",
   contact_email: "info@agentura.sk",
   report_footer_text: "Dôverný mesačný SEO report vypracovaný marketingovou agentúrou pre klienta.",
 };
@@ -198,10 +198,10 @@ export function buildExecutiveReportData(params: {
   const healthIndex = calculateHealthIndex(totalPages, critical, declining);
 
   let healthStatus: "Výborný" | "Stabilný" | "Pozor" | "Kritický" = "Výborný";
-  let healthColor = "#10b981"; // green
+  let healthColor = "bg-mark"; // green
   if (healthIndex >= 85) {
     healthStatus = "Výborný";
-    healthColor = "#10b981";
+    healthColor = "bg-mark";
   } else if (healthIndex >= 70) {
     healthStatus = "Stabilný";
     healthColor = "#3b82f6";

@@ -152,7 +152,7 @@ export function TactileKpiSlider({ slides }: TactileKpiSliderProps) {
               aria-label={`Prejsť na slide ${dotIdx + 1}`}
               className={`transition-all duration-300 rounded-full ${
                 dotIdx === activeIndex
-                  ? "w-6 h-2 bg-emerald-400 shadow-[0_0_10px_#10b981]"
+                  ? "w-6 h-2 bg-emerald-400 shadow-[0_0_10px_bg-mark]"
                   : "size-2 bg-zinc-600 hover:bg-zinc-400"
               }`}
             />

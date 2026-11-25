@@ -41,7 +41,7 @@ export function IosInstallPrompt() {
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-[9000] p-4 pb-8 sm:pb-6 pointer-events-none animate-in fade-in slide-in-from-bottom-6 duration-500">
-      <div className="mx-auto max-w-md pointer-events-auto rounded-2xl border border-[#2c2c2c] bg-[#1a1a1a]/95 backdrop-blur-xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.85)] text-white">
+      <div className="mx-auto max-w-md pointer-events-auto rounded-2xl border border-border-subtle bg-surface-pure/95 backdrop-blur-xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.85)] text-white">
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -70,7 +70,7 @@ export function IosInstallPrompt() {
         </div>
 
         {/* Benefits Pill */}
-        <div className="mt-3.5 grid grid-cols-3 gap-2 border-y border-[#2a2a2a] py-2.5 text-[11px] text-zinc-300">
+        <div className="mt-3.5 grid grid-cols-3 gap-2 border-y border-border-subtle py-2.5 text-[11px] text-on-surface-variant">
           <div className="flex items-center gap-1.5">
             <Zap className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
             <span>0 ms štart</span>

@@ -265,7 +265,7 @@ function HistoryPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-surface font-sans text-on-surface flex flex-col pb-safe">
+    <div className="min-h-[100dvh] bg-surface font-sans text-on-surface flex flex-col pb-safe pt-safe">
       <Toaster />
       <AppHeader />
 

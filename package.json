@@ -9,7 +9,8 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "replace-hex": "node scripts/replace-hex.js"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.68.0",
