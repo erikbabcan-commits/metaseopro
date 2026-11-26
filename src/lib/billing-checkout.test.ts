@@ -57,7 +57,7 @@ function price(
     livemode,
     type: "recurring",
     currency: "eur",
-    unit_amount: plan === "pro" ? 3900 : 8900,
+    unit_amount: plan === "pro" ? 2900 : 8900,
     recurring: {
       interval: "month",
       interval_count: 1,
@@ -432,7 +432,7 @@ describe("checkout identity and configuration boundaries", () => {
         {
           price_data: {
             currency: "eur",
-            unit_amount: 3900,
+            unit_amount: 2900,
             tax_behavior: "inclusive",
             recurring: { interval: "month" },
           },

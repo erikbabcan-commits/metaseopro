@@ -1,144 +1,72 @@
-import { useState } from "react";
 import { Link } from "@tanstack/react-router";
+import {
+  AGENCY_PRICE_EUR,
+  AGENCY_PUBLIC,
+  AUDIT_PASS_PRICE_EUR,
+  PRO_PRICE_EUR,
+  VAT_NOTE,
+  formatEur,
+} from "@/lib/pricing";
+import { AUDIT_PASS_CHECKOUT_URL } from "@/lib/slovak-billing";
+
+function Feature({ children, muted = false }: { children: React.ReactNode; muted?: boolean }) {
+  return (
+    <li className="flex items-center gap-2">
+      <span
+        className={`material-symbols-outlined ${muted ? "text-secondary" : "text-google-green"} text-[18px]`}
+      >
+        check_circle
+      </span>
+      {children}
+    </li>
+  );
+}
 
 export function LandingPricing() {
-  const [isYearly, setIsYearly] = useState(false);
-  const [domainCount, setDomainCount] = useState(3);
-
-  const discount = isYearly ? 0.8 : 1.0;
-  const periodLabel = isYearly ? "/ mes. (fakturované ročne)" : "/ mesačne";
-
-  const starterFinal = Math.round(19 * discount);
-  const proBase = 29 + domainCount * 6.5;
-  const proFinal = Math.round(proBase * discount);
-  const agencyBase = 99 + domainCount * 3.5;
-  const agencyFinal = Math.round(agencyBase * discount);
-
-  let domainUnit = "domén";
-  if (domainCount === 1) domainUnit = "doména";
-  else if (domainCount >= 2 && domainCount <= 4) domainUnit = "domény";
+  // Agency has no Stripe price yet: its card is rendered only when explicitly enabled.
+  const agencyPrice = AGENCY_PUBLIC ? AGENCY_PRICE_EUR : null;
+  const showAgency = agencyPrice !== null;
 
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-24" id="cennik">
       <div className="text-center max-w-2xl mx-auto mb-12">
         <h2 className="font-headline-lg text-headline-lg text-text-primary mb-3 font-semibold">
-          Flexibilná kalkulačka pre rastúce projekty
+          Jednoduchý cenník
         </h2>
         <p className="font-body-lg text-body-lg text-text-secondary">
-          Zvoľte si počet sledovaných domén a ušetrite 20 % s ročnou platbou.
+          Začnite zadarmo. Všetky ceny sú uvedené {VAT_NOTE}.
         </p>
-
-        {/* Billing toggle */}
-        <div className="mt-8 inline-flex items-center p-1 bg-surface-container rounded-full border border-border-default">
-          <button
-            className={`google-pill-btn px-5 py-2 rounded-full font-label-lg text-label-lg font-medium transition-all cursor-pointer ${
-              !isYearly
-                ? "bg-surface-pure text-text-primary shadow-xs"
-                : "text-text-secondary hover:text-text-primary"
-            }`}
-            onClick={() => setIsYearly(false)}
-            type="button"
-          >
-            Mesačne
-          </button>
-          <button
-            className={`google-pill-btn px-5 py-2 rounded-full font-label-lg text-label-lg font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-              isYearly
-                ? "bg-surface-pure text-text-primary shadow-xs"
-                : "text-text-secondary hover:text-text-primary"
-            }`}
-            onClick={() => setIsYearly(true)}
-            type="button"
-          >
-            <span>Ročne</span>
-            <span className="bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-full text-[11px] font-bold">
-              -20% zľava
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* Domain Range Slider */}
-      <div className="max-w-2xl mx-auto bg-surface-pure border border-border-default rounded-3xl p-6 sm:p-8 mb-12 shadow-xs">
-        <div className="flex items-center justify-between mb-4">
-          <label
-            htmlFor="pricing-domain-count"
-            className="font-label-lg text-label-lg text-text-secondary"
-          >
-            Počet monitorovaných webov / domén:
-          </label>
-          <span className="font-headline-md text-headline-md font-bold text-primary">
-            {domainCount} {domainUnit}
-          </span>
-        </div>
-        <input
-          id="pricing-domain-count"
-          aria-valuetext={`${domainCount} ${domainUnit}`}
-          className="w-full h-2 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary"
-          max="25"
-          min="1"
-          onChange={(e) => setDomainCount(parseInt(e.target.value, 10))}
-          type="range"
-          value={domainCount}
-        />
-        <div className="flex justify-between text-text-secondary font-label-sm text-label-sm mt-2">
-          <span>1 doména</span>
-          <span>10 domén</span>
-          <span>25 domén</span>
-        </div>
       </div>
 
       {/* Tier Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Starter Card */}
+      <div className={`grid grid-cols-1 gap-6 ${showAgency ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
+        {/* Free Card */}
         <div className="pricing-card bg-surface-pure border border-border-default hover:border-outline p-8 rounded-3xl transition-all duration-300 hover:shadow-md flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-headline-sm text-headline-sm text-text-primary font-bold">
-                Starter
+                Free
               </h3>
               <span className="font-label-sm text-label-sm px-2.5 py-1 rounded-full bg-surface-container text-text-secondary font-medium">
-                Pre jednotlivcov
+                Na vyskúšanie
               </span>
             </div>
             <div className="mb-6">
               <span className="font-display-mobile text-display-mobile font-bold text-text-primary">
-                {starterFinal} €
-              </span>
-              <span className="text-text-secondary font-body-sm text-body-sm ml-1.5">
-                {periodLabel}
+                {formatEur(0)}
               </span>
             </div>
             <ul className="space-y-3 font-body-sm text-body-sm text-text-secondary mb-8">
-              <li className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-secondary text-[18px]">
-                  check_circle
-                </span>
-                1 auditovaný web
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-secondary text-[18px]">
-                  check_circle
-                </span>
-                Týždenný live crawler scan
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-secondary text-[18px]">
-                  check_circle
-                </span>
-                5 000 AI Writer tokenov / mes.
-              </li>
-              <li className="flex items-center gap-2 text-outline-variant">
-                <span className="material-symbols-outlined text-[18px]">cancel</span>
-                Automatické API napojenie
-              </li>
+              <Feature muted>1 sledovaný web</Feature>
+              <Feature muted>Audit až 3 URL naraz</Feature>
+              <Feature muted>Záchranný plán pre prvé 3 podstránky</Feature>
             </ul>
           </div>
           <Link
             to="/login"
             className="google-pill-btn w-full py-3 rounded-full border border-border-default hover:border-primary text-primary hover:bg-primary-fixed/30 font-label-lg text-label-lg font-semibold transition-all text-center block"
           >
-            Vybrať Starter
+            Začať zadarmo
           </Link>
         </div>
 
@@ -149,111 +77,104 @@ export function LandingPricing() {
           </div>
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-headline-sm text-headline-sm text-text-primary font-bold">
-                Pro Specialist
-              </h3>
+              <h3 className="font-headline-sm text-headline-sm text-text-primary font-bold">Pro</h3>
               <span className="font-label-sm text-label-sm px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container font-semibold">
                 Odporúčané
               </span>
             </div>
             <div className="mb-6">
               <span className="font-display-mobile text-display-mobile font-bold text-primary-container">
-                {proFinal} €
+                {formatEur(PRO_PRICE_EUR)}
               </span>
               <span className="text-text-secondary font-body-sm text-body-sm ml-1.5">
-                {periodLabel}
+                / mesiac {VAT_NOTE}
               </span>
             </div>
             <ul className="space-y-3 font-body-sm text-body-sm text-on-surface mb-8">
-              <li className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-google-green text-[18px]">
-                  check_circle
-                </span>
-                <strong>
-                  {domainCount} monitorované {domainUnit}
-                </strong>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-google-green text-[18px]">
-                  check_circle
-                </span>
-                Denný live crawler + Google Core Web Vitals
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-google-green text-[18px]">
-                  check_circle
-                </span>
-                50 000 AI Writer tokenov / mes.
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-google-green text-[18px]">
-                  check_circle
-                </span>
-                Export reportov pre klientov v PDF/CSV
-              </li>
+              <Feature>
+                <strong>Až 5 sledovaných webov</strong>
+              </Feature>
+              <Feature>Neobmedzená analýza URL a domén</Feature>
+              <Feature>Plný Content Decay Radar</Feature>
+              <Feature>WordPress exporty</Feature>
             </ul>
           </div>
           <Link
             to="/login"
             className="google-pill-btn w-full py-3 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-lg text-label-lg font-semibold shadow-xs transition-all text-center block"
           >
-            Vyskúšať Pro na 14 dní zadarmo
+            Aktivovať Pro
           </Link>
         </div>
 
-        {/* Agency Card */}
+        {/* Audit Pass Card */}
         <div className="pricing-card bg-surface-pure border border-border-default hover:border-outline p-8 rounded-3xl transition-all duration-300 hover:shadow-md flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-headline-sm text-headline-sm text-text-primary font-bold">
-                Agency Max
+                Fast-Track Audit Pass
               </h3>
               <span className="font-label-sm text-label-sm px-2.5 py-1 rounded-full bg-surface-container text-text-secondary font-medium">
-                Pre agentúry
+                Jednorazovo
               </span>
             </div>
             <div className="mb-6">
               <span className="font-display-mobile text-display-mobile font-bold text-text-primary">
-                {agencyFinal} €
+                {formatEur(AUDIT_PASS_PRICE_EUR)}
               </span>
               <span className="text-text-secondary font-body-sm text-body-sm ml-1.5">
-                {periodLabel}
+                jednorazovo {VAT_NOTE}
               </span>
             </div>
             <ul className="space-y-3 font-body-sm text-body-sm text-text-secondary mb-8">
-              <li className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-secondary text-[18px]">
-                  check_circle
-                </span>
-                Neobmedzený počet domén (až 25+)
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-secondary text-[18px]">
-                  check_circle
-                </span>
-                Hodinový real-time crawl &amp; alerty
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-secondary text-[18px]">
-                  check_circle
-                </span>
-                Neobmedzený AI Writer s vlastnou personou
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-secondary text-[18px]">
-                  check_circle
-                </span>
-                White-label branding a dedikovaný manažér
-              </li>
+              <Feature muted>Kompletný audit webu a kanibalizácia kľúčových slov</Feature>
+              <Feature muted>Detekcia prepadov návštevnosti</Feature>
+              <Feature muted>Optimalizácia TOP 5 kategórií</Feature>
             </ul>
           </div>
-          <Link
-            to="/login"
+          <a
+            href={AUDIT_PASS_CHECKOUT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             className="google-pill-btn w-full py-3 rounded-full border border-border-default hover:border-primary text-primary hover:bg-primary-fixed/30 font-label-lg text-label-lg font-semibold transition-all text-center block"
           >
-            Kontaktovať sales
-          </Link>
+            Objednať Audit Pass
+          </a>
         </div>
+
+        {/* Agency Card: hidden until it has a verified Stripe price (see lib/pricing.ts) */}
+        {agencyPrice !== null && (
+          <div className="pricing-card bg-surface-pure border border-border-default hover:border-outline p-8 rounded-3xl transition-all duration-300 hover:shadow-md flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-headline-sm text-headline-sm text-text-primary font-bold">
+                  Agency
+                </h3>
+                <span className="font-label-sm text-label-sm px-2.5 py-1 rounded-full bg-surface-container text-text-secondary font-medium">
+                  Pre agentúry
+                </span>
+              </div>
+              <div className="mb-6">
+                <span className="font-display-mobile text-display-mobile font-bold text-text-primary">
+                  {formatEur(agencyPrice)}
+                </span>
+                <span className="text-text-secondary font-body-sm text-body-sm ml-1.5">
+                  / mesiac {VAT_NOTE}
+                </span>
+              </div>
+              <ul className="space-y-3 font-body-sm text-body-sm text-text-secondary mb-8">
+                <Feature muted>Neobmedzený počet webov</Feature>
+                <Feature muted>White-label klientsky portál</Feature>
+              </ul>
+            </div>
+            <Link
+              to="/login"
+              className="google-pill-btn w-full py-3 rounded-full border border-border-default hover:border-primary text-primary hover:bg-primary-fixed/30 font-label-lg text-label-lg font-semibold transition-all text-center block"
+            >
+              Aktivovať Agency
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );

@@ -51,6 +51,7 @@ import { BillingPortalCard } from "@/components/BillingPortalCard";
 import { CmsConnectionsSection } from "@/components/CmsConnectionsSection";
 import { createCustomerPortalSession, getUserSubscription } from "@/lib/billing.functions";
 import { checkoutPlanLabel } from "@/lib/billing-ui";
+import { AGENCY_PUBLIC } from "@/lib/pricing";
 import { PLANS, type PlanId } from "@/lib/slovak-billing";
 
 type SettingsTab = "branding" | "cms" | "billing";
@@ -345,7 +346,7 @@ function AgencySettingsPage() {
         </section>
 
         {/* Agency Plan Status Banner (if not Agency) */}
-        {userPlan && !isAgencyPlan && !isAdmin && (
+        {AGENCY_PUBLIC && userPlan && !isAgencyPlan && !isAdmin && (
           <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -361,14 +362,16 @@ function AgencySettingsPage() {
                 subdoménou a automatickými mesačnými reportmi.
               </p>
             </div>
-            <Button
-              onClick={() => setPaywallOpen(true)}
-              className="rounded-full px-5 h-10 font-label-md text-xs font-bold text-white shadow-xs flex items-center gap-1.5"
-              style={{ backgroundColor: primaryColor }}
-            >
-              <Sparkles className="size-3.5" />
-              Aktivovať {checkoutPlanLabel("agency")}
-            </Button>
+            {AGENCY_PUBLIC && (
+              <Button
+                onClick={() => setPaywallOpen(true)}
+                className="rounded-full px-5 h-10 font-label-md text-xs font-bold text-white shadow-xs flex items-center gap-1.5"
+                style={{ backgroundColor: primaryColor }}
+              >
+                <Sparkles className="size-3.5" />
+                Aktivovať {checkoutPlanLabel("agency")}
+              </Button>
+            )}
           </div>
         )}
 

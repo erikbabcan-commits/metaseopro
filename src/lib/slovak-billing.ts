@@ -1,3 +1,5 @@
+import { AUDIT_PASS_PRICE_EUR, PRO_PRICE_EUR } from "./pricing";
+
 // Slovak & Czech B2B billing validator and subscription helpers
 // Supports IČO checksum validation, DIČ (mod 11), and IČ DPH (SK prefix).
 
@@ -97,7 +99,7 @@ export type PlanConfig = {
   canExportWordPress: boolean;
 };
 
-export const AUDIT_PASS_PRICE = 99;
+export const AUDIT_PASS_PRICE = AUDIT_PASS_PRICE_EUR;
 export const AUDIT_PASS_CHECKOUT_URL = "https://buy.stripe.com/00w5kE2y3eul8dWaaW6Vq02";
 export const PRO_DIRECT_CHECKOUT_URL = "https://buy.stripe.com/3cI7sM0pV1Hz2TC4QC6Vq01";
 
@@ -114,7 +116,7 @@ export const PLANS: Record<PlanId, PlanConfig> = {
   pro: {
     id: "pro",
     name: "Pro",
-    priceMonthly: 39,
+    priceMonthly: PRO_PRICE_EUR,
     priceIdEnvVar: "STRIPE_PRICE_PRO_MONTHLY",
     maxProjects: 5,
     maxAuditUrls: Infinity,
@@ -124,6 +126,7 @@ export const PLANS: Record<PlanId, PlanConfig> = {
   agency: {
     id: "agency",
     name: "Agency",
+    // Not shown publicly (AGENCY_PUBLIC=false in ./pricing): no verified Stripe price yet.
     priceMonthly: 89,
     priceIdEnvVar: "STRIPE_PRICE_AGENCY_MONTHLY",
     maxProjects: Infinity,

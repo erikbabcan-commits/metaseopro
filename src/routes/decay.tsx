@@ -50,6 +50,7 @@ import {
   type DecayStatus,
   type ScoredDecayRow,
 } from "@/lib/decay-schema";
+import { PRO_PRICE_LABEL_VAT } from "@/lib/pricing";
 
 export const Route = createFileRoute("/decay")({
   head: () => ({
@@ -851,7 +852,7 @@ function DecayPage() {
         open={paywallOpen}
         onOpenChange={setPaywallOpen}
         title="Odomknite Decay Radar s balíkom Pro"
-        description="V bezplatnej verzii môžete generovať záchranný plán pre prvé 3 podstránky. Pre záchranu všetkých klesajúcich URL a WordPress export aktivujte balík Pro (29 € / mes.)."
+        description={`V bezplatnej verzii môžete generovať záchranný plán pre prvé 3 podstránky. Pre záchranu všetkých klesajúcich URL a WordPress export aktivujte balík Pro (${PRO_PRICE_LABEL_VAT}).`}
       />
     </div>
   );

@@ -45,6 +45,7 @@ import { setPwaBadge } from "@/lib/pwa-badging";
 import { TactileKpiSlider, type KpiSlideItem } from "@/components/TactileKpiSlider";
 import { TactileSegmentedBar, type SegmentedTabKey } from "@/components/TactileSegmentedBar";
 import { LaserBorderCard } from "@/components/LaserBorderCard";
+import { PRO_PRICE_EUR, PRO_PRICE_LABEL_VAT, VAT_NOTE, formatEur } from "@/lib/pricing";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -559,7 +560,7 @@ function DashboardPage() {
                 className="col-span-2 sm:col-span-1 h-10 px-4 rounded-full bg-primary-fixed text-on-primary-fixed font-semibold hover:bg-primary-fixed-dim/50 transition-all shadow-xs text-[12px] gap-1.5"
               >
                 <Sparkles className="size-4 text-primary" />
-                Aktivovať Pro (29 €)
+                Aktivovať Pro ({PRO_PRICE_LABEL_VAT})
               </Button>
             )}
           </div>
@@ -909,8 +910,10 @@ function DashboardPage() {
               </div>
               {!isAdmin && (
                 <div className="text-right shrink-0">
-                  <span className="text-[18px] font-bold text-primary">29 €</span>
-                  <span className="text-[11px] text-text-secondary"> / mesiac</span>
+                  <span className="text-[18px] font-bold text-primary">
+                    {formatEur(PRO_PRICE_EUR)}
+                  </span>
+                  <span className="text-[11px] text-text-secondary"> / mesiac {VAT_NOTE}</span>
                 </div>
               )}
             </div>
@@ -942,7 +945,7 @@ function DashboardPage() {
         open={paywallOpen}
         onOpenChange={setPaywallOpen}
         title="Odomknite neobmedzený počet webov s balíkom Pro"
-        description="Bezplatný plán umožňuje sledovanie 1 webu. S balíkom Pro (29 € / mes.) získate sledovanie až 5 webov, neobmedzený Decay Radar a WordPress exporty."
+        description={`Bezplatný plán umožňuje sledovanie 1 webu. S balíkom Pro (${PRO_PRICE_LABEL_VAT}) získate sledovanie až 5 webov, neobmedzený Decay Radar a WordPress exporty.`}
       />
 
       <ClientReportModal

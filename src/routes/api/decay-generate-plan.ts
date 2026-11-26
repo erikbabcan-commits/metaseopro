@@ -67,7 +67,7 @@ export const Route = createFileRoute("/api/decay-generate-plan")({
               if (!hasPaid) {
                 return err(
                   403,
-                  "Generovanie AI plánu záchrany pre live domény vyžaduje predplatné Pro alebo Agency. Vo verzii Free môžeš skúšať demo scenáre.",
+                  "Generovanie AI plánu záchrany pre live domény vyžaduje predplatné Pro. Vo verzii Free môžeš skúšať demo scenáre.",
                 );
               }
             }

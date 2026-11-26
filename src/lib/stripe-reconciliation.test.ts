@@ -49,7 +49,7 @@ function subscription(overrides: Record<string, unknown> = {}): Stripe.Subscript
             livemode: true,
             active: true,
             currency: "eur",
-            unit_amount: 3900,
+            unit_amount: 2900,
             type: "recurring",
             tax_behavior: "inclusive",
             recurring: { interval: "month", interval_count: 1, usage_type: "licensed" },

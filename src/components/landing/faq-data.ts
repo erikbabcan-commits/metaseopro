@@ -1,3 +1,5 @@
+import { AUDIT_PASS_PRICE_LABEL_VAT, PRO_PRICE_LABEL_VAT } from "@/lib/pricing";
+
 export interface FaqEntry {
   question: string;
   answer: string;
@@ -6,9 +8,9 @@ export interface FaqEntry {
 /** Single source of truth for the visible landing FAQ and its FAQPage JSON-LD. */
 export const faqData: FaqEntry[] = [
   {
-    question: "Ako presne funguje Live crawler analýza?",
+    question: "Ako presne funguje technický SEO audit?",
     answer:
-      "Náš crawler v reálnom čase vysiela renderované požiadavky simulujúce Googlebot pre mobilné zariadenia. Analyzuje indexovateľnosť, stavové kódy, canonical tagy, rýchlosť odozvy servera a sémantickú štruktúru nadpisov H1-H6 v priebehu sekúnd.",
+      "Audit prejde verejné stránky na tej istej doméne (rešpektuje robots.txt) a skontroluje indexovateľnosť, stavové kódy, canonical tagy, rýchlosť odozvy servera a štruktúru nadpisov H1–H6.",
   },
   {
     question: "Sú AI texty bezpečné pre Google Helpful Content System?",
@@ -22,7 +24,6 @@ export const faqData: FaqEntry[] = [
   },
   {
     question: "Je možné predplatné kedykoľvek zrušiť alebo zmeniť?",
-    answer:
-      "Áno, bez viazanosti a bez skrytých poplatkov. Prechod medzi mesačným a ročným predplatným alebo zmena počtu domén je dostupná kedykoľvek priamo vo vašom používateľskom profile na jedno kliknutie.",
+    answer: `Áno, bez viazanosti a bez skrytých poplatkov. Predplatné Pro stojí ${PRO_PRICE_LABEL_VAT} a môžete ho kedykoľvek zrušiť v správe predplatného vo vašom používateľskom profile. Fast-Track Audit Pass je jednorazová platba ${AUDIT_PASS_PRICE_LABEL_VAT}.`,
   },
 ];
