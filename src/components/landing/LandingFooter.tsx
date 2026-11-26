@@ -42,7 +42,7 @@ export function LandingFooter() {
       {/* Footer */}
       <footer className="bg-surface-pure border-t border-border-default py-12 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             <div>
               <Link to="/" className="flex items-center gap-2 mb-3">
                 <div className="w-7 h-7 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container">
@@ -112,21 +112,6 @@ export function LandingFooter() {
                   </Link>
                 </li>
               </ul>
-            </div>
-
-            <div>
-              <h4 className="font-label-lg text-label-lg font-bold text-text-primary mb-3">
-                Status systému
-              </h4>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-google-green" />
-                <span className="font-label-md text-label-md text-text-secondary">
-                  Všetky systémy v prevádzke
-                </span>
-              </div>
-              <p className="font-label-sm text-label-sm text-text-secondary">
-                Googlebot API: Aktívne a responzívne (28ms)
-              </p>
             </div>
           </div>
 
