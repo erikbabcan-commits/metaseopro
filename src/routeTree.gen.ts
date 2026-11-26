@@ -12,10 +12,13 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as BriefRouteImport } from './routes/brief'
+import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DecayRouteImport } from './routes/decay'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ObchodnePodmienkyRouteImport } from './routes/obchodne-podmienky'
+import { Route as OchranaOsobnychUdajovRouteImport } from './routes/ochrana-osobnych-udajov'
 import { Route as PlanRouteImport } from './routes/plan'
 import { Route as RaketaRouteImport } from './routes/raketa'
 import { Route as SerplabRouteImport } from './routes/serplab'
@@ -49,6 +52,11 @@ const BriefRoute = BriefRouteImport.update({
   path: '/brief',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CookiesRoute = CookiesRouteImport.update({
+  id: '/cookies',
+  path: '/cookies',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -67,6 +75,16 @@ const HistoryRoute = HistoryRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ObchodnePodmienkyRoute = ObchodnePodmienkyRouteImport.update({
+  id: '/obchodne-podmienky',
+  path: '/obchodne-podmienky',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OchranaOsobnychUdajovRoute = OchranaOsobnychUdajovRouteImport.update({
+  id: '/ochrana-osobnych-udajov',
+  path: '/ochrana-osobnych-udajov',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlanRoute = PlanRouteImport.update({
@@ -160,10 +178,13 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
   '/brief': typeof BriefRoute
+  '/cookies': typeof CookiesRoute
   '/dashboard': typeof DashboardRoute
   '/decay': typeof DecayRoute
   '/history': typeof HistoryRoute
   '/login': typeof LoginRoute
+  '/obchodne-podmienky': typeof ObchodnePodmienkyRoute
+  '/ochrana-osobnych-udajov': typeof OchranaOsobnychUdajovRoute
   '/plan': typeof PlanRoute
   '/raketa': typeof RaketaRoute
   '/serplab': typeof SerplabRoute
@@ -186,10 +207,13 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
   '/brief': typeof BriefRoute
+  '/cookies': typeof CookiesRoute
   '/dashboard': typeof DashboardRoute
   '/decay': typeof DecayRoute
   '/history': typeof HistoryRoute
   '/login': typeof LoginRoute
+  '/obchodne-podmienky': typeof ObchodnePodmienkyRoute
+  '/ochrana-osobnych-udajov': typeof OchranaOsobnychUdajovRoute
   '/plan': typeof PlanRoute
   '/raketa': typeof RaketaRoute
   '/serplab': typeof SerplabRoute
@@ -213,10 +237,13 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
   '/brief': typeof BriefRoute
+  '/cookies': typeof CookiesRoute
   '/dashboard': typeof DashboardRoute
   '/decay': typeof DecayRoute
   '/history': typeof HistoryRoute
   '/login': typeof LoginRoute
+  '/obchodne-podmienky': typeof ObchodnePodmienkyRoute
+  '/ochrana-osobnych-udajov': typeof OchranaOsobnychUdajovRoute
   '/plan': typeof PlanRoute
   '/raketa': typeof RaketaRoute
   '/serplab': typeof SerplabRoute
@@ -241,10 +268,13 @@ export interface FileRouteTypes {
     | '/'
     | '/audit'
     | '/brief'
+    | '/cookies'
     | '/dashboard'
     | '/decay'
     | '/history'
     | '/login'
+    | '/obchodne-podmienky'
+    | '/ochrana-osobnych-udajov'
     | '/plan'
     | '/raketa'
     | '/serplab'
@@ -267,10 +297,13 @@ export interface FileRouteTypes {
     | '/'
     | '/audit'
     | '/brief'
+    | '/cookies'
     | '/dashboard'
     | '/decay'
     | '/history'
     | '/login'
+    | '/obchodne-podmienky'
+    | '/ochrana-osobnych-udajov'
     | '/plan'
     | '/raketa'
     | '/serplab'
@@ -293,10 +326,13 @@ export interface FileRouteTypes {
     | '/'
     | '/audit'
     | '/brief'
+    | '/cookies'
     | '/dashboard'
     | '/decay'
     | '/history'
     | '/login'
+    | '/obchodne-podmienky'
+    | '/ochrana-osobnych-udajov'
     | '/plan'
     | '/raketa'
     | '/serplab'
@@ -320,10 +356,13 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuditRoute: typeof AuditRoute
   BriefRoute: typeof BriefRoute
+  CookiesRoute: typeof CookiesRoute
   DashboardRoute: typeof DashboardRoute
   DecayRoute: typeof DecayRoute
   HistoryRoute: typeof HistoryRoute
   LoginRoute: typeof LoginRoute
+  ObchodnePodmienkyRoute: typeof ObchodnePodmienkyRoute
+  OchranaOsobnychUdajovRoute: typeof OchranaOsobnychUdajovRoute
   PlanRoute: typeof PlanRoute
   RaketaRoute: typeof RaketaRoute
   SerplabRoute: typeof SerplabRoute
@@ -366,6 +405,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BriefRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cookies': {
+      id: '/cookies'
+      path: '/cookies'
+      fullPath: '/cookies'
+      preLoaderRoute: typeof CookiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -392,6 +438,20 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/obchodne-podmienky': {
+      id: '/obchodne-podmienky'
+      path: '/obchodne-podmienky'
+      fullPath: '/obchodne-podmienky'
+      preLoaderRoute: typeof ObchodnePodmienkyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ochrana-osobnych-udajov': {
+      id: '/ochrana-osobnych-udajov'
+      path: '/ochrana-osobnych-udajov'
+      fullPath: '/ochrana-osobnych-udajov'
+      preLoaderRoute: typeof OchranaOsobnychUdajovRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/plan': {
@@ -520,10 +580,13 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuditRoute: AuditRoute,
   BriefRoute: BriefRoute,
+  CookiesRoute: CookiesRoute,
   DashboardRoute: DashboardRoute,
   DecayRoute: DecayRoute,
   HistoryRoute: HistoryRoute,
   LoginRoute: LoginRoute,
+  ObchodnePodmienkyRoute: ObchodnePodmienkyRoute,
+  OchranaOsobnychUdajovRoute: OchranaOsobnychUdajovRoute,
   PlanRoute: PlanRoute,
   RaketaRoute: RaketaRoute,
   SerplabRoute: SerplabRoute,

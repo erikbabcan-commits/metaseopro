@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { LEGAL_MAILTO, LEGAL_PATHS } from "@/lib/legal";
 
 export function LandingFooter() {
   return (
@@ -115,13 +116,16 @@ export function LandingFooter() {
               Search Clarity.
             </p>
             <div className="flex gap-4">
-              <a className="hover:text-text-primary transition-colors" href="#">
+              <Link className="hover:text-text-primary transition-colors" to={LEGAL_PATHS.terms}>
                 Podmienky používania
-              </a>
-              <a className="hover:text-text-primary transition-colors" href="#">
+              </Link>
+              <Link className="hover:text-text-primary transition-colors" to={LEGAL_PATHS.privacy}>
+                Ochrana osobných údajov
+              </Link>
+              <Link className="hover:text-text-primary transition-colors" to={LEGAL_PATHS.cookies}>
                 Cookies nastavenia
-              </a>
-              <a className="hover:text-text-primary transition-colors" href="#">
+              </Link>
+              <a className="hover:text-text-primary transition-colors" href={LEGAL_MAILTO}>
                 Kontakt
               </a>
             </div>
