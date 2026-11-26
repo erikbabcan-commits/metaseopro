@@ -61,14 +61,19 @@ export function LandingPricing() {
       {/* Domain Range Slider */}
       <div className="max-w-2xl mx-auto bg-surface-pure border border-border-default rounded-3xl p-6 sm:p-8 mb-12 shadow-xs">
         <div className="flex items-center justify-between mb-4">
-          <span className="font-label-lg text-label-lg text-text-secondary">
+          <label
+            htmlFor="pricing-domain-count"
+            className="font-label-lg text-label-lg text-text-secondary"
+          >
             Počet monitorovaných webov / domén:
-          </span>
+          </label>
           <span className="font-headline-md text-headline-md font-bold text-primary">
             {domainCount} {domainUnit}
           </span>
         </div>
         <input
+          id="pricing-domain-count"
+          aria-valuetext={`${domainCount} ${domainUnit}`}
           className="w-full h-2 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary"
           max="25"
           min="1"

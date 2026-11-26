@@ -353,6 +353,7 @@ function SerpLabPage() {
               <Search className="size-4 text-text-secondary shrink-0" />
               <input
                 type="text"
+                aria-label="Hľadaný dotaz v náhľade Google"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="flex-1 bg-transparent text-xs sm:text-sm text-text-primary font-medium focus:outline-none truncate"
@@ -431,12 +432,16 @@ function SerpLabPage() {
               </div>
 
               <div>
-                <label className="font-label-sm text-xs font-medium text-text-secondary block mb-1.5">
+                <label
+                  htmlFor="input-target-query"
+                  className="font-label-sm text-xs font-medium text-text-secondary block mb-1.5"
+                >
                   Hľadaný výraz (Target Query)
                 </label>
                 <div className="relative">
                   <Search className="size-4 text-text-secondary absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
+                    id="input-target-query"
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -466,7 +471,7 @@ function SerpLabPage() {
               {/* Title Field */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
-                  <label className="font-semibold text-text-primary">
+                  <label htmlFor="input-seo-title" className="font-semibold text-text-primary">
                     SEO Titulok (&lt;title&gt;)
                   </label>
                   <span
@@ -520,7 +525,10 @@ function SerpLabPage() {
               {/* Description Field */}
               <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between text-xs">
-                  <label className="font-semibold text-text-primary">
+                  <label
+                    htmlFor="input-meta-description"
+                    className="font-semibold text-text-primary"
+                  >
                     Meta Popis (&lt;meta name="description"&gt;)
                   </label>
                   <span
@@ -533,6 +541,7 @@ function SerpLabPage() {
                   </span>
                 </div>
                 <textarea
+                  id="input-meta-description"
                   rows={3}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -550,10 +559,13 @@ function SerpLabPage() {
 
               {/* URL Slug Field */}
               <div className="space-y-1 pt-1">
-                <label className="font-semibold text-xs text-text-primary">URL Slug</label>
+                <label htmlFor="input-url-slug" className="font-semibold text-xs text-text-primary">
+                  URL Slug
+                </label>
                 <div className="flex items-center px-3 py-2 bg-surface-container-low border border-border-subtle rounded-xl text-xs font-mono">
                   <span className="text-text-secondary">https://mojeshop.sk/</span>
                   <input
+                    id="input-url-slug"
                     type="text"
                     value={slug}
                     onChange={(e) => setSlug(e.target.value)}
@@ -599,21 +611,29 @@ function SerpLabPage() {
               {/* Product Inputs Grid */}
               <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 <div>
-                  <label className="font-label-sm text-[11px] text-text-secondary block mb-1">
+                  <label
+                    htmlFor="input-price"
+                    className="font-label-sm text-[11px] text-text-secondary block mb-1"
+                  >
                     Cena (EUR)
                   </label>
                   <input
                     type="text"
+                    id="input-price"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     className="w-full px-2.5 py-1.5 bg-surface-container-low border border-border-subtle rounded-xl text-text-primary font-semibold text-xs focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="font-label-sm text-[11px] text-text-secondary block mb-1">
+                  <label
+                    htmlFor="input-stock"
+                    className="font-label-sm text-[11px] text-text-secondary block mb-1"
+                  >
                     Sklad
                   </label>
                   <select
+                    id="input-stock"
                     value={stock}
                     onChange={(e) =>
                       setStock(e.target.value as "InStock" | "OutOfStock" | "PreOrder")
@@ -626,11 +646,15 @@ function SerpLabPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="font-label-sm text-[11px] text-text-secondary block mb-1">
+                  <label
+                    htmlFor="input-rating"
+                    className="font-label-sm text-[11px] text-text-secondary block mb-1"
+                  >
                     Rating
                   </label>
                   <input
                     type="text"
+                    id="input-rating"
                     value={`${rating} / ${reviews} rec.`}
                     onChange={(e) => {
                       const val = e.target.value.split("/")[0]?.trim();
@@ -643,22 +667,30 @@ function SerpLabPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-label-sm text-[11px] text-text-secondary block mb-1">
+                  <label
+                    htmlFor="input-brand"
+                    className="font-label-sm text-[11px] text-text-secondary block mb-1"
+                  >
                     Značka (Brand)
                   </label>
                   <input
                     type="text"
+                    id="input-brand"
                     value={brand}
                     onChange={(e) => setBrand(e.target.value)}
                     className="w-full px-3 py-2 bg-surface-container-low border border-border-subtle rounded-xl text-text-primary text-xs focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="font-label-sm text-[11px] text-text-secondary block mb-1">
+                  <label
+                    htmlFor="input-ean"
+                    className="font-label-sm text-[11px] text-text-secondary block mb-1"
+                  >
                     GTIN / EAN
                   </label>
                   <input
                     type="text"
+                    id="input-ean"
                     value={ean}
                     onChange={(e) => setEan(e.target.value)}
                     className="w-full px-3 py-2 bg-surface-container-low border border-border-subtle rounded-xl text-text-primary text-xs focus:outline-none"
@@ -711,12 +743,14 @@ function SerpLabPage() {
                         </div>
                         <input
                           type="text"
+                          aria-label="FAQ otázka"
                           value={f.q}
                           onChange={(e) => updateFaq(f.id, "q", e.target.value)}
                           className="w-full px-2.5 py-1 bg-surface-pure border border-border-subtle rounded-lg text-xs text-text-primary focus:outline-none"
                         />
                         <textarea
                           rows={2}
+                          aria-label="FAQ odpoveď"
                           value={f.a}
                           onChange={(e) => updateFaq(f.id, "a", e.target.value)}
                           className="w-full px-2.5 py-1 bg-surface-pure border border-border-subtle rounded-lg text-xs text-text-primary focus:outline-none resize-none leading-normal"
