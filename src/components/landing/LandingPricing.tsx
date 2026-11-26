@@ -5,9 +5,12 @@ import {
   EXTRA_SITE_PRICE_EUR_EXCL_VAT,
   MAX_SITES_IN_CALCULATOR,
   monthlyPriceExclVat,
+  TRIAL_CTA,
+  TRIAL_LABEL,
 } from "@/lib/pricing-proposal";
 
-// PENDING ERIK: cenník 99 € + 39 € bez DPH nie je potvrdený. Pozri src/lib/pricing-proposal.ts.
+// Display-only: Erik confirmed 99 € + 39 € excl. VAT and a 14-day trial (2026-11-26).
+// Stripe/PLANS still charge the old monthly amounts with no trial — see docs/plans/2026-11-26-pricing-unify.md.
 const FEATURES = [
   "SEO audit domén a porovnanie s konkurenciou",
   "Content Decay Radar z vašich dát v Google Search Console",
@@ -60,6 +63,9 @@ export function LandingPricing() {
           </span>
           <span className="text-text-secondary font-body-sm text-body-sm">/ mesiac bez DPH</span>
         </div>
+        <p className="mt-2 text-center font-body-sm text-body-sm text-text-secondary">
+          Prvých {TRIAL_LABEL}.
+        </p>
         <ul className="mt-6 space-y-3 font-body-sm text-body-sm text-text-secondary">
           {FEATURES.map((f) => (
             <li key={f} className="flex items-center gap-2">
@@ -77,7 +83,7 @@ export function LandingPricing() {
           to="/login"
           className="google-pill-btn mt-8 w-full py-3 rounded-full bg-primary-container text-on-primary-container font-label-lg text-label-lg font-semibold transition-all text-center block"
         >
-          Začať
+          {TRIAL_CTA}
         </Link>
       </div>
     </section>

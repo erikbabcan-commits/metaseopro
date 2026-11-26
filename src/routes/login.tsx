@@ -166,7 +166,7 @@ function LoginPage() {
           <p className="mb-7 text-sm text-muted-foreground">
             {mode === "signin"
               ? "Prihlás sa do svojho pracovného priestoru."
-              : "Začni s prvým 30-dňovým plánom zadarmo."}
+              : "Začni s prvým 30-dňovým obsahovým plánom. Predplatné môžeš vyskúšať 14 dní zadarmo."}
           </p>
           <Button
             variant="outline"

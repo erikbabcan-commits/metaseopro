@@ -1,7 +1,11 @@
-import { PLANS, type PlanId } from "./slovak-billing";
+import type { PlanId } from "./slovak-billing";
+import { displayPlanLabel } from "./pricing-proposal";
 
-/** Display the same plan name and monthly amount used by the billing configuration. */
+/**
+ * Zobrazovaný názov plánu v UI (potvrdený cenník 99 € + 39 € bez DPH).
+ * Účtovaná suma je stále `PLANS[plan].priceMonthly` (Pro 39, Agency 89) — nemeniť
+ * túto funkciu tak, aby maskovala nesúlad ako keby už Stripe účtoval 99 €.
+ */
 export function checkoutPlanLabel(plan: Exclude<PlanId, "free">): string {
-  const config = PLANS[plan];
-  return `SEO4WEB ${config.name} (${config.priceMonthly} € / mesiac)`;
+  return displayPlanLabel(plan);
 }

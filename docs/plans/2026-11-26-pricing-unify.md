@@ -1,26 +1,33 @@
-# Zjednotenie cien a trialu: plán. ČAKÁ NA ERIKOVO POTVRDENIE
-Dátum: 2026-11-26 (Europe/Bratislava). Báza: main 21044cb. Vetva: `fix/pricing-unify` (iba lokálne, NEMERGOVAŤ).
-Stav: **cenník 99 € + 39 € bez DPH za každú ďalšiu stránku Erik v tejto vetve NEPOTVRDIL.** Je to návrh na jeho rozhodnutie.
+# Zjednotenie cien a trialu — potvrdený zobrazovaný cenník
 
-## Mapa miest s cenou alebo trialom (21044cb)
-| Miesto | Čo ukazuje dnes | Účtuje sa? | V tejto vetve |
-|---|---|---|---|
-| `src/components/landing/LandingPricing.tsx` | Starter 19 €, Pro 29 € + 6,5 €/doména, Agency 99 € + 3,5 €/doména, -20 % ročne, „Vyskúšať Pro na 14 dní zadarmo“, vymyslené funkcie (tokeny, hodinový crawl, manažér) | nie (iba text) | prepísané na 1 kalkulačku 99 € + 39 €/ďalšia stránka bez DPH, žiadny trial, iba existujúce funkcie |
-| `src/routes/dashboard.tsx:565, 965, 998` | „Aktivovať Pro (29 €)“, „29 € / mesiac“, „Pro (29 € / mes.)… až 5 webov“ | nie | text z `pricing-proposal.ts` („až 5 webov“ ostáva, rozhodnúť) |
-| `src/routes/decay.tsx:854` | „Pro (29 € / mes.)“ | nie | text z `pricing-proposal.ts` |
-| `src/components/PaywallModal.tsx:118–163, 320–352` | Pro 29 €/mes., Agency 290 €/rok, Audit Pass 99 € jednorazovo, Stripe odkaz (29 €) | **áno** cez `PRO_DIRECT_CHECKOUT_URL` / `AUDIT_PASS_CHECKOUT_URL` (buy.stripe.com) | iba Pro label; Agency 290 €/rok a Audit Pass 99 € NEZMENENÉ (otvorené otázky) |
-| `src/lib/slovak-billing.ts:104–135` (`PLANS`) | Free 0, Pro **39**, Agency **89** €/mes. | **áno**: `billing-checkout.server.ts:148` (unit_amount = priceMonthly×100) a `stripe-reconciliation.server.ts:109` | **NEZMENENÉ** (zmena = zmena účtovanej sumy + Stripe ceny → potrebné Erikovo OK) |
-| `src/routes/settings.agency.tsx` (Agency 89 € cez `PLANS`) | 89 € | áno (PLANS) | nezmenené |
-| `src/routes/settings.agency.tsx:331` badge „Whitelabel aktívny (Agency Pro)“ aj pre Free | – | – | samostatná oprava `fix/whitelabel-badge-plan` (nezávisí od cenníka) |
-| `src/routes/login.tsx:169` „Začni s prvým 30-dňovým plánom zadarmo.“ | **nie je trial**, je to 30-dňový obsahový plán (prvý zadarmo, `content-plan.functions.ts:75`) | – | nezmenené; „signup 30 dní“ z live verdiktu je nedorozumenie, odporúčam iba preformulovať, ak mätie |
-| `src/routes/raketa.tsx:85–109`, `brief.tsx:85–109`, `plan.tsx:95,141` (129,90 € …) | ukážkové ceny produktov v demo dátach | nie | nezmenené |
-| `raketa.tsx:746,1585`, `plan.tsx:89–201`, `decay.tsx:478,529`, `serplab.tsx:960`, `settings.agency.tsx:680` | vymyslené „úspory PPC“, „~2 890 €“, „14 dní“ záchrany | nie | nezmenené: patrí do ďalšej opravy falošných čísel (P2) |
+Dátum: 2026-11-26 (Europe/Bratislava). Báza: main 21044cb. Vetva: `fix/pricing-unify` (PR #15).
+Stav zobrazenia: **Erik 26. 11. 2026 o 23:05 (Europe/Bratislava) potvrdil doslovne cez TIC TAC: „Potvrdzujem 99 € + 39 € bez DPH, trial 14 dní.“**
+Stav účtovania: **NEZMENENÉ.** Stripe, env ani `PLANS` (Pro 39 €, Agency 89 €, bez `trial_period_days`) tento commit nemení. Zobrazená cena a trial sa preto zatiaľ nezhodujú s tým, čo Stripe naúčtuje. Merge zobrazenia pred úpravou Stripe znamená, že web sľúbi inú cenu a trial, než aké prebehnú pri platbe.
 
-## Otázky na Erika (bez odpovede sa nemerguje)
-1. 99 € + 39 € bez DPH: **mesačne**, alebo jednorazovo? Čo je „stránka“: doména, alebo projekt?
-2. Trial: žiadny, 14, alebo 30 dní?
-3. Ostáva plán Free (1 web, 3 domény v audite)? Ostáva Agency (89 €/mes. alebo 290 €/rok?) a Audit Pass 99 € jednorazovo?
-4. Stripe: vytvorí Erik nové ceny (99 € base + 39 € quantity) a payment linky? Bez nich by web ukazoval 99 € a Stripe by účtoval 29/39 €.
+## Potvrdené
 
-## Po potvrdení (samostatné commity, každý s Bora + TIC TAC gate)
-a) `slovak-billing.ts` PLANS + `billing-checkout.server.ts` per-site quantity (line_items quantity = počet stránok); b) nové Stripe price ID v env (NEEDS ERIK); c) PaywallModal Agency/Audit Pass; d) testy billing-checkout/reconciliation na nové sumy.
+- 99 € bez DPH za prvú stránku + 39 € bez DPH za každú ďalšiu stránku.
+- Trial 14 dní.
+
+## Stále otvorené (Erik v potvrdení nespomenul)
+
+1. Je 99 € + 39 € **mesačný** predplatný, alebo jednorazový poplatok? (v UI predpokladáme mesačne, ako doteraz.)
+2. Čo je „stránka“: doména, projekt, alebo niečo iné?
+3. Ostáva plán Free (1 web, 3 domény v audite)? Ostáva Agency ako samostatný balík? Ostáva Audit Pass 99 € jednorazovo? (v UI Agency ukazuje ten istý 99+39 model; Audit Pass 99 € jednorazovo ostáva, lebo ho Erik nepotvrdil ani nezrušil.)
+4. Stripe: nové Price ID (99 € základ + 39 € za ďalšiu stránku, **bez DPH**), 14-dňový `trial_period_days` a nové payment linky musí nastaviť Erik. Bez toho web ukazuje 99 € + 14 dní a Stripe účtuje hneď 39/89 € (alebo sumu na starom payment linku).
+
+## Mapa zobrazenia po tomto commite
+
+| Miesto                                                                                                                                 | Zobrazuje                                                                                             | Účtuje sa?                                                                                                                                                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LandingPricing.tsx`                                                                                                                   | kalkulačka 99 € + 39 €/ďalšia stránka bez DPH, „Prvých 14 dní zadarmo“, CTA „Vyskúšať 14 dní zadarmo“ | nie (iba text)                                                                                                                                                                    |
+| `dashboard.tsx`, `decay.tsx`, `PaywallModal.tsx`, `settings.agency.tsx`, `billing-ui.ts` (`checkoutPlanLabel`)                         | Pro/Agency 99 € + 39 € bez DPH, trial 14 dní                                                          | nie (iba text)                                                                                                                                                                    |
+| `login.tsx:169`                                                                                                                        | „30-dňový obsahový plán“ (produkt, nie trial predplatného) + veta o 14-dňovom trial predplatného      | obsahový plán zadarmo ostáva v `content-plan.functions.ts`; predplatný trial Stripe nespúšťa                                                                                      |
+| `PaywallModal` Audit Pass                                                                                                              | 99 € jednorazovo, link `AUDIT_PASS_CHECKOUT_URL`                                                      | **áno**, cez buy.stripe.com (suma na linku neoverená otvorením checkoutu)                                                                                                         |
+| `PLANS` v `slovak-billing.ts`                                                                                                          | Pro **39**, Agency **89** €/mes.                                                                      | **áno**: `billing-checkout.server.ts` `unit_amount = priceMonthly×100`, `tax_behavior: "inclusive"` (s DPH), `quantity: 1` (bez príplatku za stránku), žiadny `trial_period_days` |
+| `PRO_DIRECT_CHECKOUT_URL`                                                                                                              | vedľajší Stripe odkaz pri Pro (text ceny na tlačidle sme stiahli)                                     | **áno**, buy.stripe.com (historicky viazaný na 29 €; aktuálnu sumu sme neotvárali)                                                                                                |
+| Demo ceny / falošné metriky (`raketa.tsx`, `brief.tsx`, `plan.tsx`, `decay.tsx:478,529`, `serplab.tsx:960`, `settings.agency.tsx:680`) | nie sú cenník predplatného                                                                            | nezmenené (samostatná P2 úloha)                                                                                                                                                   |
+
+## Nesúlad so Stripe (samostatná úloha pre Erika, tento commit ho nerieši)
+
+Pozri sekciu „Nesúlad so Stripe“ v commite / reportes. Navrhovaná follow-up vetva: `fix/stripe-pricing-99-39-trial-14` (NEEDS ERIK: nové Price ID v env, payment linky, až potom zmena `PLANS`, `lineItems`, `trial_period_days` a reconciliačných súm).

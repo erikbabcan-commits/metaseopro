@@ -51,6 +51,8 @@ import {
   BASE_PRICE_EUR_EXCL_VAT,
   PRICE_LINE_LABEL,
   PRICE_SHORT_LABEL,
+  TRIAL_CTA,
+  TRIAL_LABEL,
 } from "@/lib/pricing-proposal";
 
 export const Route = createFileRoute("/dashboard")({
@@ -567,7 +569,7 @@ function DashboardPage() {
                 className="col-span-2 sm:col-span-1 h-10 px-4 rounded-full bg-primary-fixed text-on-primary-fixed font-semibold hover:bg-primary-fixed-dim/50 transition-all shadow-xs text-[12px] gap-1.5"
               >
                 <Sparkles className="size-4 text-primary" />
-                Aktivovať Pro ({PRICE_SHORT_LABEL})
+                {TRIAL_CTA} ({PRICE_SHORT_LABEL})
               </Button>
             )}
           </div>
@@ -970,7 +972,10 @@ function DashboardPage() {
                   <span className="text-[18px] font-bold text-primary">
                     {BASE_PRICE_EUR_EXCL_VAT} €
                   </span>
-                  <span className="text-[11px] text-text-secondary"> / mesiac bez DPH</span>
+                  <span className="text-[11px] text-text-secondary">
+                    {" "}
+                    / mesiac bez DPH · {TRIAL_LABEL}
+                  </span>
                 </div>
               )}
             </div>
@@ -1002,7 +1007,7 @@ function DashboardPage() {
         open={paywallOpen}
         onOpenChange={setPaywallOpen}
         title="Odomknite neobmedzený počet webov s balíkom Pro"
-        description={`Bezplatný plán umožňuje sledovanie 1 webu. S balíkom Pro (${PRICE_LINE_LABEL}) získate sledovanie až 5 webov, neobmedzený Decay Radar a WordPress exporty.`}
+        description={`Bezplatný plán umožňuje sledovanie 1 webu. S balíkom Pro (${PRICE_LINE_LABEL}) získate sledovanie až 5 webov, neobmedzený Decay Radar a WordPress exporty. Predplatné máš ${TRIAL_LABEL}.`}
       />
 
       <ClientReportModal

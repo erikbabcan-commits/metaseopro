@@ -22,7 +22,12 @@ import {
   PRO_DIRECT_CHECKOUT_URL,
 } from "@/lib/slovak-billing";
 import { checkoutPlanLabel } from "@/lib/billing-ui";
-import { PRICE_LINE_LABEL, PRICE_SHORT_LABEL } from "@/lib/pricing-proposal";
+import {
+  PRICE_LINE_LABEL,
+  PRICE_SHORT_LABEL,
+  TRIAL_CTA,
+  TRIAL_LABEL,
+} from "@/lib/pricing-proposal";
 
 interface PaywallModalProps {
   open: boolean;
@@ -118,13 +123,13 @@ export function PaywallModal({
               {selectedPlan === "audit_pass"
                 ? "B2B Fast-Track Audit Pass (99 € jednorazovo)"
                 : selectedPlan === "agency"
-                  ? "SEO4WEB Agency (290 € / rok)"
+                  ? `SEO4WEB Agency (${PRICE_LINE_LABEL})`
                   : `SEO4WEB Pro (${PRICE_LINE_LABEL})`}
             </span>
           </div>
           <DialogTitle className="text-xl font-bold tracking-tight">{title}</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground pt-1">
-            {description}
+            {description} Predplatné máš {TRIAL_LABEL}.
           </DialogDescription>
         </DialogHeader>
 
@@ -150,7 +155,7 @@ export function PaywallModal({
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            Agency <span className="text-[10px] opacity-75">(290 €)</span>
+            Agency <span className="text-[10px] opacity-75">({PRICE_SHORT_LABEL})</span>
           </button>
           <button
             type="button"
@@ -334,11 +339,7 @@ export function PaywallModal({
                 ) : (
                   <>
                     <Zap className="size-4" />
-                    <span>
-                      {isAgency
-                        ? "Aktivovať Agency (290 € / rok)"
-                        : `Aktivovať Pro (${PRICE_SHORT_LABEL})`}
-                    </span>
+                    <span>{isAgency ? `${TRIAL_CTA} — Agency` : `${TRIAL_CTA} — Pro`}</span>
                   </>
                 )}
               </Button>

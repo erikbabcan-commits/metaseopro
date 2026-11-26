@@ -51,6 +51,7 @@ import { BillingPortalCard } from "@/components/BillingPortalCard";
 import { CmsConnectionsSection } from "@/components/CmsConnectionsSection";
 import { createCustomerPortalSession, getUserSubscription } from "@/lib/billing.functions";
 import { checkoutPlanLabel } from "@/lib/billing-ui";
+import { PRICE_LINE_LABEL, TRIAL_LABEL } from "@/lib/pricing-proposal";
 import { PLANS, type PlanId } from "@/lib/slovak-billing";
 
 type SettingsTab = "branding" | "cms" | "billing";
@@ -355,8 +356,9 @@ function AgencySettingsPage() {
                 </span>
               </div>
               <p className="text-sm font-medium text-text-primary">
-                Aktivujte balík Agency a získajte neobmedzený klientsky portál s vlastným logom,
-                subdoménou a automatickými mesačnými reportmi.
+                Aktivujte balík Agency ({PRICE_LINE_LABEL}) a získajte neobmedzený klientsky portál
+                s vlastným logom, subdoménou a automatickými mesačnými reportmi. Predplatné máš{" "}
+                {TRIAL_LABEL}.
               </p>
             </div>
             <Button
