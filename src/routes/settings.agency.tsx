@@ -358,9 +358,8 @@ function AgencySettingsPage() {
                 </span>
               </div>
               <p className="text-sm font-medium text-text-primary">
-                {AGENCY_PUBLIC
-                  ? "Aktivujte balík Agency a získajte neobmedzený klientsky portál s vlastným logom, subdoménou a automatickými mesačnými reportmi."
-                  : "Balík Agency zatiaľ nie je v predaji. Whitelabel portál bude dostupný po jeho spustení."}
+                Aktivujte balík Agency a získajte neobmedzený klientsky portál s vlastným logom,
+                subdoménou a automatickými mesačnými reportmi.
               </p>
             </div>
             {AGENCY_PUBLIC && (
