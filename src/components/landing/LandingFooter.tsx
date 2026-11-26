@@ -59,7 +59,7 @@ export function LandingFooter() {
               <ul className="space-y-2 font-body-sm text-body-sm text-text-secondary">
                 <li>
                   <Link to="/audit" className="hover:text-primary transition-colors">
-                    Live Crawler &amp; Audit
+                    Technický SEO audit
                   </Link>
                 </li>
                 <li>

@@ -8,9 +8,9 @@ export interface FaqEntry {
 /** Single source of truth for the visible landing FAQ and its FAQPage JSON-LD. */
 export const faqData: FaqEntry[] = [
   {
-    question: "Ako presne funguje Live crawler analýza?",
+    question: "Ako presne funguje technický SEO audit?",
     answer:
-      "Náš crawler v reálnom čase vysiela renderované požiadavky simulujúce Googlebot pre mobilné zariadenia. Analyzuje indexovateľnosť, stavové kódy, canonical tagy, rýchlosť odozvy servera a sémantickú štruktúru nadpisov H1-H6 v priebehu sekúnd.",
+      "Audit prejde verejné stránky na tej istej doméne (rešpektuje robots.txt) a skontroluje indexovateľnosť, stavové kódy, canonical tagy, rýchlosť odozvy servera a štruktúru nadpisov H1–H6.",
   },
   {
     question: "Sú AI texty bezpečné pre Google Helpful Content System?",

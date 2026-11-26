@@ -116,6 +116,8 @@ describe("no stale prices remain in the source (rg-style check)", () => {
       /\b(14|30)[- ]?(dní|dňov\w*)\s+(zadarmo|trial)|dní zadarmo|free trial|skúšobn\w+ (doba|obdob)/i,
     ],
     ["excl. VAT wording", /bez DPH/i],
+    ["unfulfilled Audit Pass Pro month", /1 mesiac (balíka )?Pro v cene/i],
+    ["upsell 'Pro alebo Agency'", /Pro alebo Agency/],
   ];
 
   it.each(STALE)("no %s in src (non-test)", (_label, re) => {
@@ -130,6 +132,30 @@ describe("no stale prices remain in the source (rg-style check)", () => {
     expect(
       hits.map((h) => `${h.f.replace(resolve("src") + "/", "")}:${h.i}: ${h.line.trim()}`),
     ).toEqual([]);
+  });
+
+  it("FAQ and footer do not claim a live crawler", () => {
+    for (const rel of [
+      "src/components/landing/faq-data.ts",
+      "src/components/landing/LandingFooter.tsx",
+    ]) {
+      const text = read(resolve(rel));
+      expect(text, rel).not.toMatch(/live\s+crawler/i);
+    }
+  });
+
+  it("Agency marketing copy in settings.agency is behind AGENCY_PUBLIC", () => {
+    const src = read(resolve("src/routes/settings.agency.tsx"));
+    const banner = src.match(
+      /\{AGENCY_PUBLIC && userPlan && !isAgencyPlan && !isAdmin && \([\s\S]*?\)\}/,
+    );
+    expect(banner, "upsell banner must be gated by AGENCY_PUBLIC").toBeTruthy();
+    expect(banner![0]).toMatch(/exkluzívna funkcia balíka Agency/);
+    // The same marketing line must not appear outside that gated block.
+    const elsewhere = src.replace(banner![0], "");
+    expect(elsewhere).not.toMatch(
+      /exkluzívna funkcia balíka Agency|Balík Agency zatiaľ nie je v predaji/,
+    );
   });
 
   it("plan prices 29 € / 99 € are written only in pricing.ts (everything else imports it)", () => {

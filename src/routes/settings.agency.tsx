@@ -344,7 +344,7 @@ function AgencySettingsPage() {
         </section>
 
         {/* Agency Plan Status Banner (if not Agency) */}
-        {userPlan && !isAgencyPlan && !isAdmin && (
+        {AGENCY_PUBLIC && userPlan && !isAgencyPlan && !isAdmin && (
           <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">

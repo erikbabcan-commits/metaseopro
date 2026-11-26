@@ -58,10 +58,10 @@ Agentúry nemusia tráviť hodiny lepením screenshotov do prezentácií:
 
 Všetky platby prebiehajú cez licencovanú bankovú platobnú bránu **Stripe** s podporou platobných kariet (Visa, Mastercard), Apple Pay, Google Pay, Revolut Pay a BLIK.
 
-| Balík                         | Cena                                     | Kľúčové funkcie                                                                                                                               | Odkaz na aktiváciu                                                                                 |
-| ----------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| **B2B Fast-Track Audit Pass** | **99,00 €** _(jednorazovo, vrátane DPH)_ | **Najpredávanejší štart:** Kompletný audit webu, nájdenie kanibalizácie a prepadov + optimalizácia TOP 5 kategórií + **1 mesiac Pro v cene**. | 👉 **[Objednať Audit Pass (99 € vrátane DPH)](https://buy.stripe.com/00w5kE2y3eul8dWaaW6Vq02)**    |
-| **Pro Mesačné predplatné**    | **29,00 €** / mesiac _(vrátane DPH)_     | Neobmedzené audity, Content Decay Radar, AI generovanie článkov, analýza konkurencie, prioritná podpora.                                      | 👉 **[Aktivovať Pro plán (29 €/mes vrátane DPH)](https://buy.stripe.com/3cI7sM0pV1Hz2TC4QC6Vq01)** |
+| Balík                         | Cena                                     | Kľúčové funkcie                                                                                                     | Odkaz na aktiváciu                                                                                 |
+| ----------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **B2B Fast-Track Audit Pass** | **99,00 €** _(jednorazovo, vrátane DPH)_ | **Najpredávanejší štart:** Kompletný audit webu, nájdenie kanibalizácie a prepadov + optimalizácia TOP 5 kategórií. | 👉 **[Objednať Audit Pass (99 € vrátane DPH)](https://buy.stripe.com/00w5kE2y3eul8dWaaW6Vq02)**    |
+| **Pro Mesačné predplatné**    | **29,00 €** / mesiac _(vrátane DPH)_     | Neobmedzené audity, Content Decay Radar, AI generovanie článkov, analýza konkurencie, prioritná podpora.            | 👉 **[Aktivovať Pro plán (29 €/mes vrátane DPH)](https://buy.stripe.com/3cI7sM0pV1Hz2TC4QC6Vq01)** |
 
 > Balík Agency zatiaľ nie je v predaji (nemá cenu v Stripe). Ceny vyššie sú zhodné so živými Stripe Payment Links a s `src/lib/pricing.ts`; skúšobná doba (trial) nie je.
 

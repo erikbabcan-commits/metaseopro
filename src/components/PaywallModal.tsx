@@ -204,13 +204,6 @@ export function PaywallModal({
                   </div>
                   <div className="flex items-center gap-2">
                     <Check className="size-4 text-success-foreground shrink-0" />
-                    <span>
-                      <strong className="text-foreground">1 mesiac balíka Pro v cene</strong>{" "}
-                      (neobmedzené audity a AI články)
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="size-4 text-success-foreground shrink-0" />
                     <span>Jednorazová platba bez viazanosti s okamžitou aktiváciou</span>
                   </div>
                 </>

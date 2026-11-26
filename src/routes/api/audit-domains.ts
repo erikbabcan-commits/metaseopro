@@ -98,7 +98,7 @@ export const Route = createFileRoute("/api/audit-domains")({
               if (!hasPaid) {
                 return err(
                   403,
-                  `Analýza viac ako ${PLANS.free.maxAuditUrls} domén naraz vyžaduje predplatné Pro alebo Agency. Vo verzii Free môžeš analyzovať najviac ${PLANS.free.maxAuditUrls} domény.`,
+                  `Analýza viac ako ${PLANS.free.maxAuditUrls} domén naraz vyžaduje predplatné Pro. Vo verzii Free môžeš analyzovať najviac ${PLANS.free.maxAuditUrls} domény.`,
                 );
               }
             }

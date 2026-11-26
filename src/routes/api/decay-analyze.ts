@@ -91,7 +91,7 @@ export const Route = createFileRoute("/api/decay-analyze")({
                 ) {
                   return err(
                     403,
-                    `Live analýza viacerých webov vyžaduje predplatné Pro alebo Agency. Vo verzii Free môžeš analyzovať najviac ${PLANS.free.maxProjects} web.`,
+                    `Live analýza viacerých webov vyžaduje predplatné Pro. Vo verzii Free môžeš analyzovať najviac ${PLANS.free.maxProjects} web.`,
                   );
                 }
               }

@@ -130,7 +130,6 @@ export function LandingPricing() {
               <Feature muted>Kompletný audit webu a kanibalizácia kľúčových slov</Feature>
               <Feature muted>Detekcia prepadov návštevnosti</Feature>
               <Feature muted>Optimalizácia TOP 5 kategórií</Feature>
-              <Feature muted>1 mesiac Pro v cene</Feature>
             </ul>
           </div>
           <a
