@@ -1839,6 +1839,54 @@ describe("single-page URL inspection", () => {
     });
   });
 
+  it("keeps the requested content host when only robots.txt redirects to www", async () => {
+    const www = "https://www.mojweb.sk";
+    const path = "/blog/clanok/?lang=sk";
+    const fetchFn = mockFetch({
+      [origin + "/robots.txt"]: redirect(www + "/robots.txt"),
+      [www + "/robots.txt"]: ok("User-agent: *\nAllow: /blog/", "text/plain"),
+      [origin + path]: ok(html({ title: "Pôvodný článok" })),
+      [www + path]: ok(html({ title: "Iná stránka na www" })),
+    });
+    const result = await crawlSite(origin + path, {
+      singlePage: true,
+      fetchFn,
+      resolver: publicResolver,
+    });
+    expect(vi.mocked(fetchFn).mock.calls.map(([input]) => input)).toEqual([
+      origin + "/robots.txt",
+      www + "/robots.txt",
+      origin + path,
+    ]);
+    expect(result.pages[0]).toMatchObject({
+      url: origin + path,
+      title: "Pôvodný článok",
+      status: 200,
+    });
+  });
+
+  it("checks the destination's robots rules when the page itself redirects to www", async () => {
+    const www = "https://www.mojweb.sk";
+    const path = "/blog/clanok/?lang=sk";
+    const fetchFn = mockFetch({
+      [origin + "/robots.txt"]: ok("User-agent: *\nAllow: /", "text/plain"),
+      [origin + path]: redirect(www + path),
+      [www + "/robots.txt"]: ok("User-agent: *\nDisallow: /blog/", "text/plain"),
+    });
+    const result = await crawlSite(origin + path, {
+      singlePage: true,
+      fetchFn,
+      resolver: publicResolver,
+    });
+    expect(vi.mocked(fetchFn).mock.calls.map(([input]) => input)).toEqual([
+      origin + "/robots.txt",
+      origin + path,
+      www + "/robots.txt",
+    ]);
+    expect(result.pages).toEqual([]);
+    expect(result.findings.some((finding) => finding.code === "ROBOTS_DISALLOW")).toBe(true);
+  });
+
   it("uses the final URL, including its trailing slash, to resolve relative canonicals", async () => {
     const result = await crawl(
       origin + "/stary",
@@ -1883,6 +1931,25 @@ describe("single-page URL inspection", () => {
       });
     },
   );
+
+  it.each([204, 205])("reports HTTP %i as having no document to inspect", async (status) => {
+    const url = origin + "/bez-obsahu";
+    const result = await crawl(
+      url,
+      {
+        [origin + "/robots.txt"]: ok("", "text/plain"),
+        [url]: new Response(null, { status }),
+      },
+      { singlePage: true },
+    );
+    expect(result.pages[0]).toMatchObject({
+      url,
+      status,
+      error: `Server vrátil HTTP ${status} bez obsahu stránky.`,
+      title: "",
+      h1: [],
+    });
+  });
 
   it("returns the HTTP status and explanation for a non-HTML resource", async () => {
     const url = origin + "/cennik.pdf";

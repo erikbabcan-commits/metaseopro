@@ -1335,9 +1335,11 @@ async function crawlSiteInner(
       accept: "text/plain,text/*;q=0.8,*/*;q=0.1",
     });
 
-    // apex <-> www switch of the seed host: restart there (robots.txt of the
-    // final host is then fetched first, nothing else was requested yet).
+    // A site crawl can switch its seed to the www/apex counterpart early.
+    // For a single page, redirected robots rules apply to the original host.
+    // Only a redirect from the requested page itself can change its target.
     if (
+      !options.singlePage &&
       allowSeedSwap &&
       robotsResult.ok &&
       isWwwSwap(robotsResult.url, startUrl) &&
@@ -1685,6 +1687,17 @@ async function crawlSiteInner(
               result.status,
               `Stránka vrátila HTTP ${result.status}.`,
               "HTTP_STATUS",
+            ),
+          );
+          continue;
+        }
+        if (result.status === 204 || result.status === 205) {
+          pages.push(
+            emptyErrorPage(
+              inspectedUrl,
+              result.status,
+              `Server vrátil HTTP ${result.status} bez obsahu stránky.`,
+              "NO_CONTENT",
             ),
           );
           continue;
