@@ -5,6 +5,7 @@
  */
 import { checkRateLimit } from "@/lib/rate-limit.server";
 import { SERP_LIMITS, textPixelWidth, validateJsonLd } from "@/lib/opportunity";
+import { readPageMetadata } from "./page-metadata.server";
 import { normalizeUrl } from "@/lib/raketa-schema";
 import {
   isSafePublicUrl,
@@ -69,6 +70,10 @@ export type PageAudit = {
   description: string;
   descriptionLength: number;
   descriptionPixelWidth: number;
+  /** Heading text is included for single-page inspections. */
+  h1: string[];
+  /** The page could not be inspected; ordinary SEO findings are reported separately. */
+  error?: string;
   h1Count: number;
   canonical: string | null;
   noindex: boolean;
@@ -103,6 +108,7 @@ export type CrawlResult = {
 };
 
 export type CrawlOptions = {
+  singlePage?: boolean;
   pageLimit?: number;
   timeoutMs?: number;
   requestTimeoutMs?: number;
@@ -817,7 +823,7 @@ async function fetchDocument(
     if (requestCount > 1 && options.allowRedirectTo) {
       const canonical = canonicalizeCrawlUrl(requested) ?? requested;
       const verdict = options.allowRedirectTo(canonical, requested);
-      if (verdict !== true) throw new OffsiteRedirectError(canonical, verdict);
+      if (verdict !== true) throw new OffsiteRedirectError(requested, verdict);
     }
     lastUrl = requested;
     const fetchFn = options.fetchFn ?? fetch;
@@ -991,15 +997,19 @@ function auditPageHtml(
   headers: Headers,
   html: string,
   writtenForms?: Map<string, string>,
+  singlePage = false,
 ): PageAudit {
   const lower = asciiLower(html);
-  const title = extractTitle(html, lower);
-  const description = extractMeta(html, "description", lower);
+  const inspected = singlePage ? readPageMetadata(html, pageUrl) : undefined;
+  const title = inspected?.title ?? extractTitle(html, lower);
+  const description = inspected?.description ?? extractMeta(html, "description", lower);
   const titlePixel = title ? textPixelWidth(title) : 0;
   const descPixel = description ? textPixelWidth(description) : 0;
-  const h1Count = countH1(html, lower);
-  const canonicalRaw = extractCanonical(html, lower);
-  const canonical = canonicalRaw ? canonicalizeCrawlUrl(canonicalRaw, pageUrl) : null;
+  const h1Count = inspected?.h1.length ?? countH1(html, lower);
+  const canonicalRaw = inspected ? inspected.canonicalRaw : extractCanonical(html, lower);
+  const canonical = inspected
+    ? inspected.canonical
+    : canonicalRaw && canonicalizeCrawlUrl(canonicalRaw, pageUrl);
   const noindex = hasNoindex(html, headers, lower);
   const hreflang = extractHreflang(html, lower);
   const og = extractNamedMetaPrefix(html, "og:", lower);
@@ -1169,6 +1179,7 @@ function auditPageHtml(
     description,
     descriptionLength: description.length,
     descriptionPixelWidth: descPixel,
+    h1: inspected?.h1 ?? [],
     h1Count,
     canonical: canonical ?? canonicalRaw,
     noindex,
@@ -1193,6 +1204,8 @@ function emptyErrorPage(url: string, status: number, message: string, code: stri
     description: "",
     descriptionLength: 0,
     descriptionPixelWidth: 0,
+    error: message,
+    h1: [],
     h1Count: 0,
     canonical: null,
     noindex: false,
@@ -1272,7 +1285,8 @@ async function crawlSiteInner(
 
   // Canonical URL -> the form it was written in (fetched and robots-checked as written).
   const writtenForms = new Map<string, string>();
-  const startUrl = canonicalizeCrawlUrl(normalized) ?? normalized;
+  const startUrl =
+    (options.singlePage ? writtenCrawlUrl : canonicalizeCrawlUrl)(normalized) ?? normalized;
   noteWritten(writtenForms, startUrl, normalized);
   const host = normalizeHost(new URL(startUrl).hostname);
   const origin = new URL(startUrl).origin;
@@ -1439,17 +1453,18 @@ async function crawlSiteInner(
       };
     }
 
-    const sitemapUrls = await discoverSitemaps(
-      startUrl,
-      robots.sitemaps,
-      sitemapOpts,
-      crawlController.signal,
-      stepStates,
-      findings,
-      writtenForms,
-    );
-    if (sitemapUrls.length === 0) {
-      addState(stepStates, "NO_SITEMAP");
+    let sitemapUrls: string[] = [];
+    if (!options.singlePage) {
+      sitemapUrls = await discoverSitemaps(
+        startUrl,
+        robots.sitemaps,
+        sitemapOpts,
+        crawlController.signal,
+        stepStates,
+        findings,
+        writtenForms,
+      );
+      if (sitemapUrls.length === 0) addState(stepStates, "NO_SITEMAP");
     }
 
     let skippedByRobots = 0;
@@ -1661,19 +1676,46 @@ async function crawlSiteInner(
         continue;
       }
 
+      const inspectedUrl = options.singlePage ? result.finalRaw : pageUrl;
+      if (options.singlePage) {
+        if (result.status < 200 || result.status >= 300) {
+          pages.push(
+            emptyErrorPage(
+              inspectedUrl,
+              result.status,
+              `Stránka vrátila HTTP ${result.status}.`,
+              "HTTP_STATUS",
+            ),
+          );
+          continue;
+        }
+        const mime = result.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
+        if (mime && mime !== "text/html" && mime !== "application/xhtml+xml") {
+          pages.push(
+            emptyErrorPage(
+              inspectedUrl,
+              result.status,
+              "Na zadanej URL sa nenachádza HTML stránka.",
+              "NOT_HTML",
+            ),
+          );
+          continue;
+        }
+      }
       const audit = auditPageHtml(
-        pageUrl,
+        inspectedUrl,
         startUrl,
         result.status,
         result.headers,
         result.body,
         writtenForms,
+        options.singlePage,
       );
       pages.push(audit);
       statusByUrl.set(url, result.status);
       statusByUrl.set(pageUrl, result.status);
 
-      if (result.status < 400) {
+      if (!options.singlePage && result.status < 400) {
         for (const link of audit.internalLinks) {
           rememberLink(pageUrl, link);
           if (!queued.has(link)) {
@@ -1803,7 +1845,7 @@ export function acquireCrawlSlot(userId: string): (() => void) | null {
 /** Rate limit + concurrency limit around crawlSite for one authenticated user. */
 export async function runCrawlForUser(
   userId: string,
-  input: { url: string; pageLimit?: number },
+  input: { url: string; pageLimit?: number; singlePage?: boolean },
   crawl: typeof crawlSite = crawlSite,
 ): Promise<CrawlResult> {
   // Slot first: a refused concurrent attempt must not burn a rate-limit token.
@@ -1820,7 +1862,7 @@ export async function runCrawlForUser(
     if (!rl.ok) {
       throw new Error(`Príliš veľa požiadaviek. Skús to o ${rl.retryAfterSec}s.`);
     }
-    return await crawl(input.url, { pageLimit: input.pageLimit });
+    return await crawl(input.url, { pageLimit: input.pageLimit, singlePage: input.singlePage });
   } finally {
     slot.release();
   }

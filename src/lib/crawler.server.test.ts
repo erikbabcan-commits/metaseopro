@@ -1798,3 +1798,107 @@ describe("review fixes round 7: redirect loops are not reported as SSRF (P3-q)",
     expect(result.findings.some((f) => f.code === "ROBOTS_UNAVAILABLE")).toBe(true);
   });
 });
+
+describe("single-page URL inspection", () => {
+  const origin = "https://mojweb.sk";
+
+  it("loads only robots and the exact path and query, then reads metadata from the HTML", async () => {
+    const url = origin + "/blog/uces/?lang=sk&tag=a%2Fb&tag=2";
+    const fetchFn = mockFetch({
+      [origin + "/robots.txt"]: ok("Sitemap: " + origin + "/sitemap.xml", "text/plain"),
+      [url]: ok(`<!doctype html><html><head>
+        <!-- <title>Komentár</title> -->
+        <script>const fragment = '<h1>Ukážka značky</h1>'</script>
+        <title>Účes &ndash; článok</title>
+        <meta content='Účes "na mieru" &amp; farba.' name="description">
+        <base href="/clanky/">
+        <link href="uces/?id=1&amp;lang=sk" rel="alternate canonical">
+        </head><body><h1>Účes <em>na mieru</em></h1><h1>Otázky</h1>
+        <a href="/">Domov</a></body></html>`),
+      [origin + "/"]: ok(html({ title: "Domov" })),
+    });
+    const result = await crawlSite(url + "#sekcia", {
+      singlePage: true,
+      fetchFn,
+      resolver: publicResolver,
+    });
+    expect(vi.mocked(fetchFn).mock.calls.map(([input]) => input)).toEqual([
+      origin + "/robots.txt",
+      url,
+    ]);
+    expect(result.startUrl).toBe(url);
+    expect(result.pages).toHaveLength(1);
+    expect(result.pages[0]).toMatchObject({
+      url,
+      status: 200,
+      title: "Účes – článok",
+      description: 'Účes "na mieru" & farba.',
+      canonical: origin + "/clanky/uces/?id=1&lang=sk",
+      h1: ["Účes na mieru", "Otázky"],
+      h1Count: 2,
+    });
+  });
+
+  it("uses the final URL, including its trailing slash, to resolve relative canonicals", async () => {
+    const result = await crawl(
+      origin + "/stary",
+      {
+        [origin + "/robots.txt"]: ok("", "text/plain"),
+        [origin + "/stary"]: redirect("/novy/?kampan=1"),
+        [origin + "/novy/?kampan=1"]: ok(
+          '<link rel="canonical" href="detail/"><h1>Nový článok</h1>',
+        ),
+      },
+      { singlePage: true },
+    );
+    expect(result.pages[0]).toMatchObject({
+      url: origin + "/novy/?kampan=1",
+      title: "",
+      description: "",
+      canonical: origin + "/novy/detail/",
+      h1: ["Nový článok"],
+    });
+  });
+
+  it.each([404, 410])(
+    "reports HTTP %i without presenting the error document as page metadata",
+    async (status) => {
+      const url = origin + "/blog/neznamy?lang=sk";
+      const result = await crawl(
+        url,
+        {
+          [origin + "/robots.txt"]: ok("", "text/plain"),
+          [url]: ok(html({ title: "Domov" }), "text/html", status),
+        },
+        { singlePage: true },
+      );
+      expect(result.pages[0]).toMatchObject({
+        url,
+        status,
+        error: expect.stringContaining(String(status)),
+        title: "",
+        description: "",
+        canonical: null,
+        h1: [],
+      });
+    },
+  );
+
+  it("returns the HTTP status and explanation for a non-HTML resource", async () => {
+    const url = origin + "/cennik.pdf";
+    const result = await crawl(
+      url,
+      {
+        [origin + "/robots.txt"]: ok("", "text/plain"),
+        [url]: ok("PDF", "application/pdf"),
+      },
+      { singlePage: true },
+    );
+    expect(result.pages[0]).toMatchObject({
+      url,
+      status: 200,
+      error: expect.stringContaining("HTML"),
+      h1: [],
+    });
+  });
+});
