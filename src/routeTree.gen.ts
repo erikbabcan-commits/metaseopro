@@ -18,6 +18,7 @@ import { Route as HistoryRouteImport } from './routes/history'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PlanRouteImport } from './routes/plan'
 import { Route as RaketaRouteImport } from './routes/raketa'
+import { Route as SerplabRouteImport } from './routes/serplab'
 import { Route as ApiAuditDomainsRouteImport } from './routes/api/audit-domains'
 import { Route as ApiCtrBoostRouteImport } from './routes/api/ctr-boost'
 import { Route as ApiDecayAnalyzeRouteImport } from './routes/api/decay-analyze'
@@ -76,6 +77,11 @@ const PlanRoute = PlanRouteImport.update({
 const RaketaRoute = RaketaRouteImport.update({
   id: '/raketa',
   path: '/raketa',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SerplabRoute = SerplabRouteImport.update({
+  id: '/serplab',
+  path: '/serplab',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuditDomainsRoute = ApiAuditDomainsRouteImport.update({
@@ -160,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/plan': typeof PlanRoute
   '/raketa': typeof RaketaRoute
+  '/serplab': typeof SerplabRoute
   '/api/audit-domains': typeof ApiAuditDomainsRoute
   '/api/ctr-boost': typeof ApiCtrBoostRoute
   '/api/decay-analyze': typeof ApiDecayAnalyzeRoute
@@ -185,6 +192,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/plan': typeof PlanRoute
   '/raketa': typeof RaketaRoute
+  '/serplab': typeof SerplabRoute
   '/api/audit-domains': typeof ApiAuditDomainsRoute
   '/api/ctr-boost': typeof ApiCtrBoostRoute
   '/api/decay-analyze': typeof ApiDecayAnalyzeRoute
@@ -211,6 +219,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/plan': typeof PlanRoute
   '/raketa': typeof RaketaRoute
+  '/serplab': typeof SerplabRoute
   '/api/audit-domains': typeof ApiAuditDomainsRoute
   '/api/ctr-boost': typeof ApiCtrBoostRoute
   '/api/decay-analyze': typeof ApiDecayAnalyzeRoute
@@ -238,6 +247,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/plan'
     | '/raketa'
+    | '/serplab'
     | '/api/audit-domains'
     | '/api/ctr-boost'
     | '/api/decay-analyze'
@@ -263,6 +273,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/plan'
     | '/raketa'
+    | '/serplab'
     | '/api/audit-domains'
     | '/api/ctr-boost'
     | '/api/decay-analyze'
@@ -288,6 +299,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/plan'
     | '/raketa'
+    | '/serplab'
     | '/api/audit-domains'
     | '/api/ctr-boost'
     | '/api/decay-analyze'
@@ -314,6 +326,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PlanRoute: typeof PlanRoute
   RaketaRoute: typeof RaketaRoute
+  SerplabRoute: typeof SerplabRoute
   ApiAuditDomainsRoute: typeof ApiAuditDomainsRoute
   ApiCtrBoostRoute: typeof ApiCtrBoostRoute
   ApiDecayAnalyzeRoute: typeof ApiDecayAnalyzeRoute
@@ -393,6 +406,13 @@ declare module '@tanstack/react-router' {
       path: '/raketa'
       fullPath: '/raketa'
       preLoaderRoute: typeof RaketaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/serplab': {
+      id: '/serplab'
+      path: '/serplab'
+      fullPath: '/serplab'
+      preLoaderRoute: typeof SerplabRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/audit-domains': {
@@ -506,6 +526,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PlanRoute: PlanRoute,
   RaketaRoute: RaketaRoute,
+  SerplabRoute: SerplabRoute,
   ApiAuditDomainsRoute: ApiAuditDomainsRoute,
   ApiCtrBoostRoute: ApiCtrBoostRoute,
   ApiDecayAnalyzeRoute: ApiDecayAnalyzeRoute,

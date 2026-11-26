@@ -90,6 +90,12 @@ const CONTENT_TOOLS = [
     icon: FileCheck,
   },
   {
+    to: "/serplab",
+    label: "SerpLab Sandbox",
+    desc: "Simulácia Google SERP výsledkov a Schema.org validátor",
+    icon: Sparkles,
+  },
+  {
     to: "/history",
     label: "História",
     desc: "Archív všetkých vygenerovaných analýz a článkov",
