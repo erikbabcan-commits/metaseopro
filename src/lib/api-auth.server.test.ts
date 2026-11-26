@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getClaims = vi.fn();
+const getUser = vi.fn();
 vi.mock("@supabase/supabase-js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@supabase/supabase-js")>();
   return {
@@ -9,6 +10,7 @@ vi.mock("@supabase/supabase-js", async (importOriginal) => {
       const client = actual.createClient(...args);
       if (mockClaims) {
         (client.auth as unknown as { getClaims: typeof getClaims }).getClaims = getClaims;
+        (client.auth as unknown as { getUser: typeof getUser }).getUser = getUser;
       }
       return client;
     },
@@ -36,6 +38,11 @@ describe("requireUser (getClaims hardening)", () => {
   beforeEach(() => {
     mockClaims = true;
     getClaims.mockReset();
+    getUser.mockReset();
+    getUser.mockImplementation(async () => ({
+      data: { user: { id: "user-123" } },
+      error: null,
+    }));
     vi.stubEnv("SUPABASE_URL", "https://example.invalid");
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test_key");
   });
@@ -105,6 +112,7 @@ describe("requireUser (getClaims hardening)", () => {
       email: "u@example.test",
     });
     expect(getClaims).toHaveBeenCalledWith("good.token.here");
+    expect(getUser).toHaveBeenCalledWith("good.token.here");
   });
 
   it("missing server config still returns 500 (not masked as 401)", async () => {
@@ -113,5 +121,42 @@ describe("requireUser (getClaims hardening)", () => {
     const result = await requireUser(req("Bearer a.b.c"));
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.response.status).toBe(500);
+  });
+
+  describe("session revocation (token used after logout)", () => {
+    const validClaims = {
+      data: { claims: { sub: "user-123", session_id: "sess-1" } },
+      error: null,
+    };
+
+    it("revoked session (getUser error) -> 401 even though the JWT signature is valid", async () => {
+      getClaims.mockResolvedValue(validClaims);
+      getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: "Session from session_id claim in JWT does not exist", status: 403 },
+      });
+      await expect401(await requireUser(req("Bearer old.access.token")));
+      expect(getUser).toHaveBeenCalledWith("old.access.token");
+    });
+
+    it("getUser throwing (network) -> 401, no detail logged", async () => {
+      getClaims.mockResolvedValue(validClaims);
+      getUser.mockRejectedValue(new Error("SECRET-NET token=old.access.token"));
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      await expect401(await requireUser(req("Bearer old.access.token")));
+      expect(JSON.stringify(warn.mock.calls)).not.toContain("old.access.token");
+    });
+
+    it("getUser returning a different user than the JWT sub -> 401", async () => {
+      getClaims.mockResolvedValue(validClaims);
+      getUser.mockResolvedValue({ data: { user: { id: "someone-else" } }, error: null });
+      await expect401(await requireUser(req("Bearer a.b.c")));
+    });
+
+    it("does not call getUser when the JWT itself is invalid", async () => {
+      getClaims.mockResolvedValue({ data: null, error: { message: "invalid jwt" } });
+      await expect401(await requireUser(req("Bearer a.b.c")));
+      expect(getUser).not.toHaveBeenCalled();
+    });
   });
 });
