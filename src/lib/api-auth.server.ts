@@ -49,6 +49,21 @@ export async function requireUser(request: Request): Promise<AuthResult> {
   if (error || !data?.claims?.sub) {
     return { ok: false, response: unauthorized() };
   }
+
+  // getClaims only verifies the JWT signature/expiry locally, so an access token
+  // stays valid until `exp` (~1 h) even after logout. getUser(token) asks Supabase
+  // Auth, which rejects tokens whose session (session_id claim) was revoked.
+  // Fail closed: any error, throw or user mismatch -> 401.
+  try {
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !userData?.user?.id || userData.user.id !== String(data.claims.sub)) {
+      return { ok: false, response: unauthorized() };
+    }
+  } catch {
+    console.warn("[api-auth] session check threw; responding 401");
+    return { ok: false, response: unauthorized() };
+  }
+
   return {
     ok: true,
     userId: String(data.claims.sub),

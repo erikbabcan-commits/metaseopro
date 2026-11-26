@@ -15,7 +15,7 @@ describe("AI SEO Command Center (Search Clarity 100dvh mobile)", () => {
     expect(dashboardSrc).toContain("min-h-[100dvh]");
     expect(dashboardSrc).toContain("env(safe-area-inset-bottom");
     expect(dashboardSrc).toContain("AI SEO Command Center");
-    expect(dashboardSrc).toContain("Rýchla URL inšpekcia");
+    expect(dashboardSrc).toContain("<QuickUrlInspection />");
   });
 
   it("defines Roboto Flex and Search Clarity semantic tokens in styles.css", () => {

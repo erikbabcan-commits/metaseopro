@@ -70,7 +70,7 @@ describe("crawlSiteFn", () => {
 
   it("runs the crawl for the authenticated user id with rate/concurrency limits", async () => {
     mocks.runCrawlForUser.mockResolvedValue({ ok: true });
-    const data = { url: "https://mojweb.sk" };
+    const data = { url: "https://mojweb.sk/blog/clanok?lang=sk", singlePage: true };
     const out = await crawlSiteHandler({ data });
     expect(out).toEqual({ ok: true });
     expect(mocks.runCrawlForUser).toHaveBeenCalledWith("user-1", data);

@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ViewerRoleProvider } from "@/hooks/use-viewer-role";
 import { SITE } from "@/lib/i18n";
+import { canonicalForMatches } from "@/lib/canonical";
 import { clearPwaBadge } from "@/lib/pwa-badging";
 import { IosInstallPrompt } from "@/components/IosInstallPrompt";
 import { TopBarLaserLoader } from "@/components/TopBarLaserLoader";
@@ -77,71 +78,74 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: ({ match }) => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { name: "theme-color", content: "#faf9fd" },
-      { name: "mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "SEO4WEB" },
-      { name: "format-detection", content: "telephone=no" },
-      { name: "robots", content: "index, follow" },
-      {
-        title: match._notFound
-          ? "Stránka nenájdená — SEO4WEB"
-          : "SEO4WEB — All-in-One SEO Command Center pre slovenský a český trh",
-      },
-      {
-        name: "description",
-        content:
-          "SEO4WEB: Inteligentný SEO audit, detekcia prepadov návštevnosti (Content Decay), CTR booster a 1-klikové nasadzovanie optimalizácií do WordPressu.",
-      },
-      {
-        name: "keywords",
-        content:
-          "SEO audit, SEO nástroj, Search Console, Content Decay Radar, WordPress SEO, Yoast SEO, Rank Math, CTR optimalizácia, SEO Slovensko",
-      },
-      { property: "og:site_name", content: "SEO4WEB" },
-      {
-        property: "og:title",
-        content: "SEO4WEB — All-in-One SEO Command Center",
-      },
-      {
-        property: "og:description",
-        content:
-          "Automatizovaný SEO audit, Search Console integrácia, Content Decay Radar a 1-klikové nasadzovanie meta tagov do WordPressu.",
-      },
-      { property: "og:type", content: "website" },
-      { property: "og:url", content: SITE },
-      { name: "twitter:card", content: "summary_large_image" },
-      {
-        name: "twitter:description",
-        content:
-          "Automatizovaný SEO audit, Search Console integrácia, Content Decay Radar a 1-klikové nasadzovanie meta tagov do WordPressu.",
-      },
-    ],
-    links: [
-      { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "icon", href: "/favicon.ico", sizes: "any" },
-      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
-      { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32x32.png" },
-      { rel: "icon", type: "image/png", sizes: "16x16", href: "/favicon-16x16.png" },
-      { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
-      { rel: "canonical", href: SITE },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Roboto+Flex:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap",
-      },
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-    ],
-  }),
+  head: ({ match, matches }) => {
+    const canonical = canonicalForMatches(matches);
+    return {
+      meta: [
+        { charSet: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+        { name: "theme-color", content: "#faf9fd" },
+        { name: "mobile-web-app-capable", content: "yes" },
+        { name: "apple-mobile-web-app-capable", content: "yes" },
+        { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+        { name: "apple-mobile-web-app-title", content: "SEO4WEB" },
+        { name: "format-detection", content: "telephone=no" },
+        { name: "robots", content: "index, follow" },
+        {
+          title: match._notFound
+            ? "Stránka nenájdená — SEO4WEB"
+            : "SEO4WEB — All-in-One SEO Command Center pre slovenský a český trh",
+        },
+        {
+          name: "description",
+          content:
+            "SEO4WEB: Inteligentný SEO audit, detekcia prepadov návštevnosti (Content Decay), CTR booster a 1-klikové nasadzovanie optimalizácií do WordPressu.",
+        },
+        {
+          name: "keywords",
+          content:
+            "SEO audit, SEO nástroj, Search Console, Content Decay Radar, WordPress SEO, Yoast SEO, Rank Math, CTR optimalizácia, SEO Slovensko",
+        },
+        { property: "og:site_name", content: "SEO4WEB" },
+        {
+          property: "og:title",
+          content: "SEO4WEB — All-in-One SEO Command Center",
+        },
+        {
+          property: "og:description",
+          content:
+            "Automatizovaný SEO audit, Search Console integrácia, Content Decay Radar a 1-klikové nasadzovanie meta tagov do WordPressu.",
+        },
+        { property: "og:type", content: "website" },
+        { property: "og:url", content: canonical ?? SITE },
+        { name: "twitter:card", content: "summary_large_image" },
+        {
+          name: "twitter:description",
+          content:
+            "Automatizovaný SEO audit, Search Console integrácia, Content Decay Radar a 1-klikové nasadzovanie meta tagov do WordPressu.",
+        },
+      ],
+      links: [
+        { rel: "manifest", href: "/manifest.webmanifest" },
+        { rel: "icon", href: "/favicon.ico", sizes: "any" },
+        { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+        { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32x32.png" },
+        { rel: "icon", type: "image/png", sizes: "16x16", href: "/favicon-16x16.png" },
+        { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
+        ...(canonical ? [{ rel: "canonical", href: canonical }] : []),
+        { rel: "preconnect", href: "https://fonts.googleapis.com" },
+        { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+        {
+          rel: "stylesheet",
+          href: "https://fonts.googleapis.com/css2?family=Roboto+Flex:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap",
+        },
+        {
+          rel: "stylesheet",
+          href: appCss,
+        },
+      ],
+    };
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,

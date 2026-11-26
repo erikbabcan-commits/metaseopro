@@ -95,7 +95,7 @@ export function LandingHero({ onAnalyze }: LandingHeroProps) {
         }
       }
       void navigate({ to: "/audit", search: { domain: cleaned } as Record<string, string> });
-    }, 2400);
+    }, 600);
   };
 
   const handleSelectChip = (chipDomain: string) => {
@@ -113,15 +113,14 @@ export function LandingHero({ onAnalyze }: LandingHeroProps) {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[360px] bg-primary-fixed/30 rounded-full blur-3xl pointer-events-none -z-10" />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        {/* Live status laser pill */}
+        {/* Product pill (no live status or unverified numbers) */}
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-container-lowest border border-border-default shadow-xs mb-8">
-          <span className="pulse-laser inline-block w-2.5 h-2.5 rounded-full bg-google-green" />
+          <span
+            className="inline-block w-2.5 h-2.5 rounded-full bg-google-green"
+            aria-hidden="true"
+          />
           <span className="font-label-md text-label-md text-text-secondary">
-            Live Crawler v3.8 aktívny
-          </span>
-          <span className="text-outline-variant">•</span>
-          <span className="font-label-md text-label-md text-secondary font-medium">
-            99.8% Google Core Web Vitals kompatibilita
+            SEO nástroje pre slovenské weby a e-shopy
           </span>
         </div>
 
@@ -130,8 +129,7 @@ export function LandingHero({ onAnalyze }: LandingHeroProps) {
           Autentická SEO analýza &amp; AI Writer
         </h1>
         <p className="font-body-lg text-body-lg text-text-secondary max-w-2xl mx-auto mb-10 leading-relaxed">
-          Okamžitá analýza technického SEO s live crawler indikátorom a generátorom obsahu pre
-          Google.
+          On-page SEO audit domén, porovnanie s konkurenciou a generátor obsahu pre Google.
         </p>
 
         {/* Hero Search Bar */}
@@ -174,16 +172,13 @@ export function LandingHero({ onAnalyze }: LandingHeroProps) {
                 <span className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                 <div>
                   <p className="font-label-lg text-label-lg text-on-surface font-semibold">
-                    Prebieha hĺbkový audit pre doménu: {crawlTarget}
+                    Otváram SEO audit pre doménu: {crawlTarget}
                   </p>
                   <p className="font-body-sm text-body-sm text-text-secondary">
-                    Simulujeme Googlebot Smartphone &amp; Desktop crawl...
+                    Presmerovanie na audit…
                   </p>
                 </div>
               </div>
-              <span className="font-label-sm text-label-sm px-2.5 py-1 bg-secondary-container text-on-secondary-container rounded-full font-semibold">
-                200 OK
-              </span>
             </div>
           )}
         </div>

@@ -65,7 +65,7 @@ const SEO_TOOLS = [
   {
     to: "/audit",
     label: "SEO Audit",
-    desc: "Konkurenčná analýza a keyword gap cez Semrush",
+    desc: "On-page audit a porovnanie konkurencie",
     icon: Search,
   },
   {

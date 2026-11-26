@@ -5,6 +5,7 @@ import { DEFAULT_PAGE_LIMIT, runCrawlForUser } from "./crawler.server";
 
 export const CrawlInputSchema = z.object({
   url: z.string().min(1).max(2048),
+  singlePage: z.boolean().optional(),
   pageLimit: z.number().int().min(1).max(DEFAULT_PAGE_LIMIT).optional(),
 });
 

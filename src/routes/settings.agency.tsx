@@ -326,12 +326,14 @@ function AgencySettingsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#E6F4EA] rounded-full">
-              <span className="w-2 h-2 rounded-full bg-google-green animate-pulse"></span>
-              <span className="font-label-md text-xs text-[#00722f] font-semibold">
-                Whitelabel aktívny (Agency Pro)
-              </span>
-            </div>
+            {(isAgencyPlan || isAdmin) && (
+              <div className="flex items-center gap-2 px-3.5 py-1.5 bg-[#E6F4EA] rounded-full">
+                <span className="w-2 h-2 rounded-full bg-google-green animate-pulse"></span>
+                <span className="font-label-md text-xs text-[#00722f] font-semibold">
+                  Whitelabel aktívny ({PLANS.agency.name})
+                </span>
+              </div>
+            )}
             <Button
               variant="outline"
               onClick={() => setPreviewOpen(true)}

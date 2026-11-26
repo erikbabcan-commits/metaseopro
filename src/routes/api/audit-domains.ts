@@ -1,7 +1,13 @@
 import { AI_CHAT_URL, AI_DEFAULT_MODEL, getMistralApiKey } from "@/lib/ai-provider";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { AUDIT_SYSTEM_PROMPT } from "@/lib/audit-prompt";
+import { AUDIT_ONPAGE_SYSTEM_PROMPT, AUDIT_SYSTEM_PROMPT } from "@/lib/audit-prompt";
+import {
+  collectOnPageData,
+  isSemrushConfigured,
+  ONPAGE_MODE_NOTICE,
+  prependSseText,
+} from "@/lib/audit-onpage.server";
 import { getCachedDomainSnapshot, SemrushError, type DomainSnapshot } from "@/lib/semrush.server";
 import { requireUser } from "@/lib/api-auth.server";
 import { checkViewerRateLimit, hasViewerPaidAccess, isUnlimited } from "@/lib/viewer-role.server";
@@ -32,6 +38,45 @@ function err(status: number, message: string): Response {
   return new Response(JSON.stringify({ error: message }), {
     status,
     headers: { "Content-Type": "application/json" },
+  });
+}
+
+async function streamAudit(
+  apiKey: string,
+  systemPrompt: string,
+  userPrompt: string,
+  prefix?: string,
+): Promise<Response> {
+  const upstream = await fetch(AI_CHAT_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: AI_DEFAULT_MODEL,
+      stream: true,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    }),
+  });
+
+  if (!upstream.ok || !upstream.body) {
+    if (upstream.status === 429) return err(429, "Príliš veľa požiadaviek. Skús to o chvíľu.");
+    if (upstream.status === 402) return err(402, "Vyčerpané AI kredity.");
+    const text = await upstream.text();
+    console.error("AI gateway error:", upstream.status, text);
+    return err(500, "Chyba AI gateway.");
+  }
+
+  return new Response(prefix ? prependSseText(prefix, upstream.body) : upstream.body, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "X-Audit-Source": prefix ? "onpage" : "semrush",
+    },
   });
 }
 
@@ -104,10 +149,29 @@ export const Route = createFileRoute("/api/audit-domains")({
             }
           }
 
-          if (!process.env.SEMRUSH_API_KEY) {
-            return err(
-              503,
-              "Semrush konektor nie je pripojený. Pripoj ho v nastaveniach projektu.",
+          if (!isSemrushConfigured()) {
+            // No Semrush key: run a real on-page audit instead of failing with 503.
+            const apiKey = getMistralApiKey();
+            if (!apiKey) return err(500, "MISTRAL_API_KEY nie je nakonfigurovaný.");
+            const pages = await collectOnPageData(normalized);
+            if (!pages.some((p) => p.ok)) {
+              return err(
+                502,
+                `Žiadnu zo zadaných domén sa nepodarilo načítať (${pages
+                  .map((p) => `${p.domain}: ${p.ok ? "" : p.error}`)
+                  .join("; ")}). Skontroluj, či je web verejne dostupný cez HTTPS.`,
+              );
+            }
+            const onPagePrompt =
+              `Urob on-page SEO audit nasledujúcich domén podľa systémového promptu. ` +
+              (yourDomain ? `\n\n**TVOJA DOMÉNA:** ${yourDomain}\n` : "\n") +
+              `\nDomény: ${normalized.join(", ")}\n\n` +
+              `On-page dáta úvodných stránok (JSON):\n\`\`\`json\n${JSON.stringify(pages, null, 2)}\n\`\`\``;
+            return streamAudit(
+              apiKey,
+              AUDIT_ONPAGE_SYSTEM_PROMPT,
+              onPagePrompt,
+              ONPAGE_MODE_NOTICE,
             );
           }
 
@@ -135,37 +199,7 @@ export const Route = createFileRoute("/api/audit-domains")({
             `Semrush database: ${parsed.data.database || "auto-detekcia podľa TLD"}\n\n` +
             `Reálne dáta (JSON):\n\`\`\`json\n${JSON.stringify(snapshots, null, 2)}\n\`\`\``;
 
-          const upstream = await fetch(AI_CHAT_URL, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: AI_DEFAULT_MODEL,
-              stream: true,
-              messages: [
-                { role: "system", content: AUDIT_SYSTEM_PROMPT },
-                { role: "user", content: userPrompt },
-              ],
-            }),
-          });
-
-          if (!upstream.ok || !upstream.body) {
-            if (upstream.status === 429)
-              return err(429, "Príliš veľa požiadaviek. Skús to o chvíľu.");
-            if (upstream.status === 402) return err(402, "Vyčerpané AI kredity.");
-            const text = await upstream.text();
-            console.error("AI gateway error:", upstream.status, text);
-            return err(500, "Chyba AI gateway.");
-          }
-
-          return new Response(upstream.body, {
-            headers: {
-              "Content-Type": "text/event-stream",
-              "Cache-Control": "no-cache",
-            },
-          });
+          return streamAudit(apiKey, AUDIT_SYSTEM_PROMPT, userPrompt);
         } catch (e) {
           console.error("audit-domains error:", e);
           return err(500, "Neočakávaná chyba servera.");
