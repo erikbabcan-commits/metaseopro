@@ -107,8 +107,8 @@ Aplikácia prísne oddeľuje verejné frontendové premenné od serverových taj
 | ------------------------------ | ------------------------------------- | ------------------------------------------------- |
 | `STRIPE_SECRET_KEY`            | Ostrý API kľúč Stripe (`sk_live_...`) | Používa sa na komunikáciu s platobnou bránou      |
 | `STRIPE_WEBHOOK_SECRET`        | Podpisový kľúč webhooku (`whsec_...`) | Overuje integritu prichádzajúcich Stripe udalostí |
-| `STRIPE_PRICE_PRO_MONTHLY`     | ID Pro mesačnej ceny v Stripe         | `price_1UYj6BKy1aN6O8vmSCYFcQIL` (29 €)           |
-| `STRIPE_PRICE_AGENCY_MONTHLY`  | ID Agency ročnej ceny v Stripe        | `price_1UYj6AKy1aN6O8vm0bMEY5c4` (290 €)          |
+| `STRIPE_PRICE_PRO_MONTHLY`     | ID Pro mesačnej ceny v Stripe         | `price_1UYj6BKy1aN6O8vmSCYFcQIL` (musí byť 29 €, neoverené)           |
+| `STRIPE_PRICE_AGENCY_MONTHLY`  | ID Agency ročnej ceny v Stripe        | `price_1UYj6AKy1aN6O8vm0bMEY5c4` (suma neoverená; Agency nie je v predaji)          |
 | `STRIPE_AUTOMATIC_TAX_ENABLED` | Stripe Tax prepínač                   | Nastavené na `false` (neplatca DPH)               |
 | `SUPABASE_SERVICE_ROLE_KEY`    | Admin kľúč Supabase (`eyJh...`)       | Umožňuje serveru zapisovať stavy predplatného     |
 | `SEMRUSH_API_KEY`              | API kľúč pre analýzu domén            | Voliteľné, doplnené z internej cache              |

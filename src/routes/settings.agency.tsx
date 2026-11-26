@@ -51,6 +51,7 @@ import { BillingPortalCard } from "@/components/BillingPortalCard";
 import { CmsConnectionsSection } from "@/components/CmsConnectionsSection";
 import { createCustomerPortalSession, getUserSubscription } from "@/lib/billing.functions";
 import { checkoutPlanLabel } from "@/lib/billing-ui";
+import { AGENCY_PUBLIC } from "@/lib/pricing";
 import { PLANS, type PlanId } from "@/lib/slovak-billing";
 
 type SettingsTab = "branding" | "cms" | "billing";
@@ -355,18 +356,21 @@ function AgencySettingsPage() {
                 </span>
               </div>
               <p className="text-sm font-medium text-text-primary">
-                Aktivujte balík Agency a získajte neobmedzený klientsky portál s vlastným logom,
-                subdoménou a automatickými mesačnými reportmi.
+                {AGENCY_PUBLIC
+                  ? "Aktivujte balík Agency a získajte neobmedzený klientsky portál s vlastným logom, subdoménou a automatickými mesačnými reportmi."
+                  : "Balík Agency zatiaľ nie je v predaji. Whitelabel portál bude dostupný po jeho spustení."}
               </p>
             </div>
-            <Button
-              onClick={() => setPaywallOpen(true)}
-              className="rounded-full px-5 h-10 font-label-md text-xs font-bold text-white shadow-xs flex items-center gap-1.5"
-              style={{ backgroundColor: primaryColor }}
-            >
-              <Sparkles className="size-3.5" />
-              Aktivovať {checkoutPlanLabel("agency")}
-            </Button>
+            {AGENCY_PUBLIC && (
+              <Button
+                onClick={() => setPaywallOpen(true)}
+                className="rounded-full px-5 h-10 font-label-md text-xs font-bold text-white shadow-xs flex items-center gap-1.5"
+                style={{ backgroundColor: primaryColor }}
+              >
+                <Sparkles className="size-3.5" />
+                Aktivovať {checkoutPlanLabel("agency")}
+              </Button>
+            )}
           </div>
         )}
 

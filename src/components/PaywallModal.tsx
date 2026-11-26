@@ -22,6 +22,15 @@ import {
   PRO_DIRECT_CHECKOUT_URL,
 } from "@/lib/slovak-billing";
 import { checkoutPlanLabel } from "@/lib/billing-ui";
+import {
+  AGENCY_PUBLIC,
+  AUDIT_PASS_PRICE_EUR,
+  AUDIT_PASS_PRICE_LABEL_VAT,
+  PRO_PRICE_EUR,
+  PRO_PRICE_LABEL_VAT,
+  VAT_NOTE,
+  formatEur,
+} from "@/lib/pricing";
 
 interface PaywallModalProps {
   open: boolean;
@@ -39,7 +48,11 @@ export function PaywallModal({
   description = "Vyberte si balík prispôsobený vašim potrebám. Bezpečné platby cez Stripe so slovenskou faktúrou.",
   plan = "pro",
 }: PaywallModalProps) {
-  const [selectedPlan, setSelectedPlan] = useState<"pro" | "agency" | "audit_pass">(plan || "pro");
+  // Agency stays reachable in code, but is never offered while it has no Stripe price.
+  const requestedPlan = plan === "agency" && !AGENCY_PUBLIC ? "pro" : plan;
+  const [selectedPlan, setSelectedPlan] = useState<"pro" | "agency" | "audit_pass">(
+    requestedPlan || "pro",
+  );
   const [loading, setLoading] = useState(false);
   const [showBilling, setShowBilling] = useState(false);
   const [companyName, setCompanyName] = useState("");
@@ -49,10 +62,10 @@ export function PaywallModal({
   const checkoutRequestId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (plan) {
-      setSelectedPlan(plan);
+    if (requestedPlan) {
+      setSelectedPlan(requestedPlan);
     }
-  }, [plan, open]);
+  }, [requestedPlan, open]);
 
   // A retry after a lost response reuses the same checkout intent. Editing or reopening starts another.
   useEffect(() => {
@@ -115,10 +128,10 @@ export function PaywallModal({
             <Sparkles className="size-4" />
             <span>
               {selectedPlan === "audit_pass"
-                ? "B2B Fast-Track Audit Pass (99 € jednorazovo)"
+                ? `B2B Fast-Track Audit Pass (${AUDIT_PASS_PRICE_LABEL_VAT})`
                 : selectedPlan === "agency"
-                  ? "SEO4WEB Agency (290 € / rok)"
-                  : "SEO4WEB Pro (29 € / mesiac)"}
+                  ? checkoutPlanLabel("agency")
+                  : `SEO4WEB Pro (${PRO_PRICE_LABEL_VAT})`}
             </span>
           </div>
           <DialogTitle className="text-xl font-bold tracking-tight">{title}</DialogTitle>
@@ -128,7 +141,9 @@ export function PaywallModal({
         </DialogHeader>
 
         {/* Tier Selector */}
-        <div className="grid grid-cols-3 gap-1 p-1 bg-muted/60 rounded-lg border text-xs font-medium my-1">
+        <div
+          className={`grid ${AGENCY_PUBLIC ? "grid-cols-3" : "grid-cols-2"} gap-1 p-1 bg-muted/60 rounded-lg border text-xs font-medium my-1`}
+        >
           <button
             type="button"
             onClick={() => setSelectedPlan("pro")}
@@ -138,19 +153,21 @@ export function PaywallModal({
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            Pro <span className="text-[10px] opacity-75">(29 €)</span>
+            Pro <span className="text-[10px] opacity-75">({formatEur(PRO_PRICE_EUR)})</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setSelectedPlan("agency")}
-            className={`py-1.5 px-2 rounded-md transition-all text-center ${
-              selectedPlan === "agency"
-                ? "bg-background text-foreground shadow-xs font-semibold"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Agency <span className="text-[10px] opacity-75">(290 €)</span>
-          </button>
+          {AGENCY_PUBLIC && (
+            <button
+              type="button"
+              onClick={() => setSelectedPlan("agency")}
+              className={`py-1.5 px-2 rounded-md transition-all text-center ${
+                selectedPlan === "agency"
+                  ? "bg-background text-foreground shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Agency
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setSelectedPlan("audit_pass")}
@@ -160,7 +177,8 @@ export function PaywallModal({
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            Audit Pass <span className="text-[10px] opacity-75">(99 €)</span>
+            Audit Pass{" "}
+            <span className="text-[10px] opacity-75">({formatEur(AUDIT_PASS_PRICE_EUR)})</span>
           </button>
         </div>
 
@@ -317,7 +335,9 @@ export function PaywallModal({
             >
               <a href={AUDIT_PASS_CHECKOUT_URL} target="_blank" rel="noopener noreferrer">
                 <Zap className="size-4" />
-                <span>Objednať Fast-Track Audit Pass (99 €)</span>
+                <span>
+                  Objednať Fast-Track Audit Pass ({formatEur(AUDIT_PASS_PRICE_EUR)} {VAT_NOTE})
+                </span>
                 <ExternalLink className="size-3.5 ml-1 opacity-70" />
               </a>
             </Button>
@@ -335,8 +355,8 @@ export function PaywallModal({
                     <Zap className="size-4" />
                     <span>
                       {isAgency
-                        ? "Aktivovať Agency (290 € / rok)"
-                        : "Aktivovať Pro (29 € / mesiac)"}
+                        ? `Aktivovať ${checkoutPlanLabel("agency")}`
+                        : `Aktivovať Pro (${PRO_PRICE_LABEL_VAT})`}
                     </span>
                   </>
                 )}
@@ -349,7 +369,7 @@ export function PaywallModal({
                     rel="noopener noreferrer"
                     className="text-[11px] text-muted-foreground hover:text-primary transition-colors underline inline-flex items-center gap-1"
                   >
-                    <span>Alebo zaplatiť priamo cez Stripe odkaz (29 €)</span>
+                    <span>Alebo zaplatiť priamo cez Stripe odkaz ({PRO_PRICE_LABEL_VAT})</span>
                     <ExternalLink className="size-3" />
                   </a>
                 </div>
