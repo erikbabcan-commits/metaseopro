@@ -13,6 +13,7 @@ import {
   History,
   Building2,
   X,
+  SearchCode,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -51,7 +52,8 @@ export function TactileFloatingNav() {
   else if (
     currentPath === "/audit" ||
     currentPath === "/history" ||
-    currentPath === "/settings/agency"
+    currentPath === "/settings/agency" ||
+    currentPath === "/serplab"
   )
     activeIndex = 4;
   else if (currentPath === "/dashboard") activeIndex = 0;
@@ -310,6 +312,22 @@ export function TactileFloatingNav() {
                   <div className="text-xs font-semibold text-white">História a Archív</div>
                   <div className="text-[11px] text-zinc-400">
                     Všetky vygenerované články a analýzy
+                  </div>
+                </div>
+              </Link>
+
+              <Link
+                to="/serplab"
+                onClick={() => setToolsDrawerOpen(false)}
+                className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-emerald-500/30 transition-all text-left group"
+              >
+                <div className="size-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20 group-hover:bg-emerald-500 group-hover:text-black transition-colors">
+                  <SearchCode className="size-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-white">SerpLab Sandbox & SERP</div>
+                  <div className="text-[11px] text-zinc-400">
+                    Google simulátor, rich snippety a CTR
                   </div>
                 </div>
               </Link>

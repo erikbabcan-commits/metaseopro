@@ -17,6 +17,14 @@ import {
   Sparkles,
   Star,
   Trash2,
+  Zap,
+  TrendingUp,
+  Tag,
+  ShieldCheck,
+  RefreshCw,
+  ShoppingCart,
+  CheckCircle2,
+  ChevronDown,
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { useViewerRole } from "@/hooks/use-viewer-role";
@@ -49,6 +57,12 @@ interface FaqItem {
   a: string;
 }
 
+const AI_CTR_SUGGESTIONS = [
+  { label: "+ Zľava 15% + Doprava", text: " | Zľava 15% + Doprava" },
+  { label: "+ Test & Recenzia 2025", text: " (Test 2025)" },
+  { label: "+ Skladom ihneď", text: " [Skladom ihneď]" },
+];
+
 function SerpLabPage() {
   const { isAdmin, plan } = useViewerRole();
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -58,9 +72,9 @@ function SerpLabPage() {
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [title, setTitle] = useState("Pánska bežecká obuv ASICS Gel-Nimbus 26 | Mojeshop.sk");
   const [description, setDescription] = useState(
-    "Hľadáte prémiové tlmenie na tvrdý povrch? Objavte bežecké topánky ASICS Gel-Nimbus 26 skladom. Rýchle doručenie do 24 hodín a výmena veľkosti zadarmo.",
+    "Hľadáte prémiové tlmenie na tvrdý povrch? Objavte bežecké topánky ASICS Gel-Nimbus 26 skladom s doručením do 24h. Bezplatná výmena veľkosti a garancia originality.",
   );
-  const [slug, setSlug] = useState("bezecka-obuv/asics-gel-nimbus-26");
+  const [slug, setSlug] = useState("kategoria/bezecka-obuv-asics-gel-nimbus-26");
 
   // Rich Snippet Details
   const [price, setPrice] = useState("179,90");
@@ -75,18 +89,21 @@ function SerpLabPage() {
   const [faqList, setFaqList] = useState<FaqItem[]>([
     {
       id: "1",
-      q: "Sú Gel-Nimbus 26 vhodné aj pre začiatočníkov?",
-      a: "Áno, vďaka masívnemu PureGEL tlmeniu a pene FF BLAST PLUS ECO poskytujú maximálnu ochranu kĺbov aj pri pomalom tempe.",
+      q: "Sú Gel-Nimbus 26 vhodné na maratón?",
+      a: "Áno, vďaka pene FF BLAST™ PLUS ECO a gélovej technológii PureGEL® patria k najpohodlnejšej maratónskej obuvi s maximálnym tlmením nárazov na asfalte.",
     },
     {
       id: "2",
-      q: "Aká je reálna životnosť podrážky?",
-      a: "Kombinácia gúm ASICSGRIP a AHARPLUS garantuje výdrž minimálne 800 až 1 000 odbehnutých kilometrov na asfalte.",
+      q: "Ako sedí číslovanie topánok ASICS?",
+      a: "Odporúčame zvoliť o pol čísla (0.5 EU) väčšiu veľkosť ako bežnú vychádzkovú obuv, aby mal palec pri dlhom behu dostatočnú rezervu.",
     },
   ]);
 
   // Tab switch in Preview column (SERP preview vs JSON-LD code)
   const [previewTab, setPreviewTab] = useState<"serp" | "jsonld">("serp");
+
+  // Mobile navigation tabs
+  const [mobileTab, setMobileTab] = useState<"serp" | "meta" | "schema" | "jsonld">("serp");
 
   // Title length & Pixel calculation (approx 9.5px per character in Arial 20px)
   const titleChars = title.length;
@@ -180,61 +197,209 @@ function SerpLabPage() {
     setFaqList((cur) => cur.map((f) => (f.id === id ? { ...f, [field]: val } : f)));
   };
 
+  const handleAiPillClick = (textToAdd: string) => {
+    if (!title.includes(textToAdd.trim())) {
+      setTitle((prev) => prev.trim() + textToAdd);
+      toast.success(`Pridaný AI akcelerátor CTR: ${textToAdd.trim()}`);
+    } else {
+      toast.info("Tento prvok už je v titulku zahrnutý");
+    }
+  };
+
+  const handleReset = () => {
+    setTitle("Pánska bežecká obuv ASICS Gel-Nimbus 26 | Mojeshop.sk");
+    setDescription(
+      "Hľadáte prémiové tlmenie na tvrdý povrch? Objavte bežecké topánky ASICS Gel-Nimbus 26 skladom s doručením do 24h. Bezplatná výmena veľkosti a garancia originality.",
+    );
+    setPrice("179,90");
+    setRating("4.9");
+    setReviews("142");
+    setStock("InStock");
+    toast.success("Údaje boli resetované na predvolenú simuláciu");
+  };
+
+  const scrollToMobileSection = (target: "serp" | "meta" | "schema" | "jsonld") => {
+    setMobileTab(target);
+    const el = document.getElementById(`${target}-section`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background font-sans text-on-surface antialiased selection:bg-primary-fixed selection:text-on-primary-fixed-variant">
       <Toaster />
       <AppHeader />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-28 md:pb-16 space-y-6">
-        {/* Header Title Bar */}
-        <section className="bg-surface-pure rounded-2xl p-4 sm:p-5 shadow-xs border border-border-subtle flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+        {/* =========================================================================
+            HEADER TITLE STRIP (DESKTOP + MOBILE COMMON)
+            ========================================================================= */}
+        <section className="bg-surface-pure rounded-2xl p-4 sm:p-5 shadow-xs border border-border-subtle flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary-container/10 flex items-center justify-center text-primary-container shrink-0">
               <Sparkles className="size-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="font-headline-sm text-xl sm:text-2xl font-bold text-text-primary tracking-tight">
-                  SerpLab Sandbox & SERP Simulátor
+                  SerpLab Sandbox
                 </h1>
-                <span className="inline-flex items-center gap-1 text-xs text-google-green font-medium bg-[#E6F4EA] px-2.5 py-0.5 rounded-full">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-xs font-semibold">
+                  Google SERP v2025
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-google-green font-medium bg-[#E6F4EA] px-2.5 py-0.5 rounded-full">
                   <span className="w-1.5 h-1.5 rounded-full bg-google-green animate-pulse"></span>
-                  Pozícia #1
+                  Simulácia aktívna: Pozícia #1
                 </span>
               </div>
-              <p className="font-body-sm text-body-sm text-text-secondary mt-0.5">
+              <p className="font-body-sm text-xs sm:text-sm text-text-secondary mt-0.5">
                 Simulujte reálny vzhľad výsledkov v Google, optimalizujte pixelovú dĺžku a generujte
                 validné Schema.org dáta.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Button
+              id="btn-refresh"
               variant="outline"
-              onClick={copyMetaTags}
-              className="rounded-full h-10 px-4 font-label-md text-label-md text-text-primary border-border-default hover:bg-surface-container flex items-center gap-1.5"
+              size="sm"
+              onClick={handleReset}
+              title="Obnoviť predvolenú simuláciu"
+              className="rounded-full h-9 px-3 text-xs text-text-secondary hover:text-text-primary border-border-default hover:bg-surface-container flex items-center gap-1"
             >
-              <Copy className="size-4" />
-              <span>Kopírovať Meta Tagy</span>
+              <RefreshCw className="size-3.5" />
+              <span className="hidden sm:inline">Reset</span>
             </Button>
             <Button
-              variant="studio"
-              onClick={copyJsonLd}
-              className="rounded-full h-10 px-5 font-label-md text-label-md font-bold bg-primary-container hover:bg-primary text-white flex items-center gap-1.5 shadow-xs"
+              variant="outline"
+              size="sm"
+              onClick={copyMetaTags}
+              className="rounded-full h-9 px-3 sm:px-4 text-xs font-medium text-text-primary border-border-default hover:bg-surface-container flex items-center gap-1.5"
             >
-              <Code2 className="size-4" />
-              <span>Exportovať JSON-LD</span>
+              <Copy className="size-3.5" />
+              <span className="hidden sm:inline">Kopírovať Meta Tagy</span>
+              <span className="sm:hidden">Meta</span>
+            </Button>
+            <Button
+              id="btn-quick-export"
+              variant="studio"
+              size="sm"
+              onClick={copyJsonLd}
+              className="rounded-full h-9 px-4 sm:px-5 text-xs font-bold bg-primary-container hover:bg-primary text-white flex items-center gap-1.5 shadow-xs"
+            >
+              <Code2 className="size-3.5" />
+              <span>JSON-LD</span>
             </Button>
           </div>
         </section>
 
-        {/* 2-Column Studio Grid */}
+        {/* =========================================================================
+            MOBILE-FIRST SECTION SWITCHER (VISIBLE ON MOBILE < LG)
+            ========================================================================= */}
+        <div className="lg:hidden flex flex-col gap-3">
+          {/* Segmented Horizontal Pill Tabs */}
+          <div className="flex items-center gap-1 p-1 bg-surface-container rounded-full overflow-x-auto no-scrollbar shadow-inner text-nowrap">
+            <button
+              type="button"
+              onClick={() => scrollToMobileSection("serp")}
+              className={`serp-tab flex-1 min-w-[110px] py-1.5 px-3 rounded-full text-xs transition-all text-center ${
+                mobileTab === "serp"
+                  ? "bg-surface-pure text-primary-container font-bold shadow-xs"
+                  : "text-text-secondary hover:text-text-primary font-medium"
+              }`}
+            >
+              SERP Náhľad
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollToMobileSection("meta")}
+              className={`serp-tab flex-1 min-w-[110px] py-1.5 px-3 rounded-full text-xs transition-all text-center ${
+                mobileTab === "meta"
+                  ? "bg-surface-pure text-primary-container font-bold shadow-xs"
+                  : "text-text-secondary hover:text-text-primary font-medium"
+              }`}
+            >
+              Meta & CTR
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollToMobileSection("schema")}
+              className={`serp-tab flex-1 min-w-[110px] py-1.5 px-3 rounded-full text-xs transition-all text-center ${
+                mobileTab === "schema"
+                  ? "bg-surface-pure text-primary-container font-bold shadow-xs"
+                  : "text-text-secondary hover:text-text-primary font-medium"
+              }`}
+            >
+              Schema.org
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollToMobileSection("jsonld")}
+              className={`serp-tab flex-1 min-w-[90px] py-1.5 px-3 rounded-full text-xs transition-all text-center ${
+                mobileTab === "jsonld"
+                  ? "bg-surface-pure text-primary-container font-bold shadow-xs"
+                  : "text-text-secondary hover:text-text-primary font-medium"
+              }`}
+            >
+              JSON-LD
+            </button>
+          </div>
+
+          {/* Search Query Bar with Intent Pill */}
+          <div className="bg-surface-pure rounded-2xl p-3.5 shadow-xs border border-border-subtle flex flex-col gap-3">
+            <div className="flex items-center gap-2 bg-surface-container-low px-3 py-2 rounded-full shadow-inner">
+              <Search className="size-4 text-text-secondary shrink-0" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="flex-1 bg-transparent text-xs sm:text-sm text-text-primary font-medium focus:outline-none truncate"
+                placeholder="Hľadaný dotaz..."
+              />
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant text-[10px] font-bold tracking-wider shrink-0">
+                GOOGLE.SK
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center gap-2 p-2 rounded-xl bg-surface-container-low">
+                <div className="w-7 h-7 rounded-full bg-secondary-container flex items-center justify-center shrink-0 text-on-secondary-container">
+                  <ShoppingCart className="size-3.5" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[10px] text-text-secondary truncate">Zámer hľadania</span>
+                  <span className="text-xs text-text-primary font-semibold truncate">
+                    Transakčný zámer
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-2 rounded-xl bg-surface-container-low">
+                <div className="w-7 h-7 rounded-full bg-primary-container/10 flex items-center justify-center shrink-0 text-primary-container">
+                  <TrendingUp className="size-3.5" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[10px] text-text-secondary truncate">
+                    Organický potenciál
+                  </span>
+                  <span className="text-xs text-google-green font-semibold truncate">
+                    Vysoký CTR
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* =========================================================================
+            DESKTOP STUDIO 2-COLUMN GRID / MOBILE STACKED WITH SECTION ANCHORS
+            ========================================================================= */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column: Form Controls */}
+          {/* Form Controls Column (Desktop Left 6-col / Mobile Stacked) */}
           <div className="lg:col-span-6 space-y-5">
-            {/* Target Query Card */}
-            <div className="bg-surface-pure rounded-2xl p-5 shadow-xs border border-border-subtle space-y-4">
+            {/* Desktop-only Search Query Card */}
+            <div className="hidden lg:block bg-surface-pure rounded-2xl p-5 shadow-xs border border-border-subtle space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
                 <h2 className="font-title-md text-base font-bold text-text-primary">
                   Dopyt a vyhľadávacie prostredie
@@ -281,16 +446,29 @@ function SerpLabPage() {
               </div>
             </div>
 
-            {/* Meta Tags & Snippet Text Card */}
-            <div className="bg-surface-pure rounded-2xl p-5 shadow-xs border border-border-subtle space-y-4">
-              <h2 className="font-title-md text-base font-bold text-text-primary pb-3 border-b border-border-subtle">
-                Meta Tagy & Text Snippetu
-              </h2>
+            {/* SEKCIA: Meta Tagy & AI CTR Akcelerátor */}
+            <div
+              id="meta-section"
+              className="bg-surface-pure rounded-2xl p-4 sm:p-5 shadow-xs border border-border-subtle space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="size-4 text-primary-container" />
+                  <h2 className="font-title-md text-sm sm:text-base font-bold text-text-primary">
+                    Meta Tagy & CTR Optimalizátor
+                  </h2>
+                </div>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold">
+                  AI Powered
+                </span>
+              </div>
 
               {/* Title Field */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
-                  <label className="font-semibold text-text-primary">SEO Title</label>
+                  <label className="font-semibold text-text-primary">
+                    SEO Titulok (&lt;title&gt;)
+                  </label>
                   <span
                     className={`font-mono font-medium ${
                       titleChars > 60 ? "text-google-red" : "text-google-green"
@@ -299,44 +477,71 @@ function SerpLabPage() {
                     {titleChars} / 60 znakov ({titlePixels}px / 600px)
                   </span>
                 </div>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-surface-container-low border border-border-subtle rounded-xl text-text-primary font-body-sm text-sm focus:outline-none focus:ring-2 focus:ring-primary-container/30 focus:border-primary-container"
-                />
-                <div className="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+                <div className="bg-surface-container-low rounded-xl p-2.5 flex items-center justify-between shadow-inner border border-border-subtle">
+                  <input
+                    id="input-seo-title"
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full bg-transparent font-body-sm text-xs sm:text-sm text-text-primary focus:outline-none"
+                  />
+                </div>
+                {/* Progress bar */}
+                <div className="w-full h-1.5 bg-surface-container rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-300 ${
                       titleChars > 60 ? "bg-google-red" : "bg-google-green"
                     }`}
-                    style={{ width: `${titleProgress}%` }}
+                    style={{ width: `${Math.min(100, (titlePixels / 600) * 100)}%` }}
                   />
                 </div>
               </div>
 
+              {/* AI CTR Suggestion Pills */}
+              <div className="space-y-1.5 pt-1">
+                <span className="text-[11px] text-text-secondary font-medium">
+                  Kliknite pre pridanie AI CTR akcelerátorov:
+                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {AI_CTR_SUGGESTIONS.map((pill) => (
+                    <button
+                      key={pill.label}
+                      type="button"
+                      onClick={() => handleAiPillClick(pill.text)}
+                      className="ai-pill inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container hover:bg-primary-fixed hover:text-on-primary-fixed text-text-primary text-xs transition-colors shadow-xs active:scale-95 border border-border-subtle"
+                    >
+                      <Zap className="size-3 text-primary-container" />
+                      <span>{pill.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Description Field */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between text-xs">
-                  <label className="font-semibold text-text-primary">Meta Description</label>
+                  <label className="font-semibold text-text-primary">
+                    Meta Popis (&lt;meta name="description"&gt;)
+                  </label>
                   <span
                     className={`font-mono font-medium ${
-                      descChars > 160 ? "text-google-red" : "text-google-green"
+                      descChars > 155 ? "text-google-red" : "text-google-green"
                     }`}
                   >
-                    {descChars} / 155 znakov
+                    {descChars} / 155 znakov ({descChars <= 155 ? "Perfektná dĺžka" : "Príliš dlhý"}
+                    )
                   </span>
                 </div>
                 <textarea
                   rows={3}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-surface-container-low border border-border-subtle rounded-xl text-text-primary font-body-sm text-sm focus:outline-none focus:ring-2 focus:ring-primary-container/30 focus:border-primary-container resize-none"
+                  className="w-full bg-surface-container-low rounded-xl p-2.5 font-body-sm text-xs sm:text-sm text-text-primary focus:outline-none resize-none shadow-inner leading-relaxed border border-border-subtle"
                 />
-                <div className="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+                <div className="w-full h-1.5 bg-surface-container rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-300 ${
-                      descChars > 160 ? "bg-google-red" : "bg-google-green"
+                      descChars > 155 ? "bg-google-red" : "bg-google-green"
                     }`}
                     style={{ width: `${descProgress}%` }}
                   />
@@ -344,12 +549,10 @@ function SerpLabPage() {
               </div>
 
               {/* URL Slug Field */}
-              <div className="space-y-1.5">
-                <label className="font-semibold text-text-primary text-xs block">
-                  URL Adresa (Breadcrumb)
-                </label>
-                <div className="flex items-center px-3.5 py-2 bg-surface-container-low border border-border-subtle rounded-xl text-xs font-mono">
-                  <span className="text-text-secondary select-none">https://mojeshop.sk/</span>
+              <div className="space-y-1 pt-1">
+                <label className="font-semibold text-xs text-text-primary">URL Slug</label>
+                <div className="flex items-center px-3 py-2 bg-surface-container-low border border-border-subtle rounded-xl text-xs font-mono">
+                  <span className="text-text-secondary">https://mojeshop.sk/</span>
                   <input
                     type="text"
                     value={slug}
@@ -360,91 +563,105 @@ function SerpLabPage() {
               </div>
             </div>
 
-            {/* Rich Snippets & Schema Fields Card */}
-            <div className="bg-surface-pure rounded-2xl p-5 shadow-xs border border-border-subtle space-y-4">
-              <h2 className="font-title-md text-base font-bold text-text-primary pb-3 border-b border-border-subtle">
-                Rich Snippets (Produkt & Sklad & Recenzie)
-              </h2>
+            {/* SEKCIA: Schema.org Rich Snippets Builder */}
+            <div
+              id="schema-section"
+              className="bg-surface-pure rounded-2xl p-4 sm:p-5 shadow-xs border border-border-subtle space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
+                <div className="flex items-center gap-1.5">
+                  <Tag className="size-4 text-primary-container" />
+                  <h2 className="font-title-md text-sm sm:text-base font-bold text-text-primary">
+                    Schema.org Snippets Builder
+                  </h2>
+                </div>
+                <span className="font-label-sm text-xs text-text-secondary bg-surface-container-low px-2 py-0.5 rounded-full">
+                  E-shop Typ
+                </span>
+              </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Feature Chips */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="p-2 rounded-xl bg-primary-fixed text-on-primary-fixed flex flex-col items-center text-center">
+                  <Tag className="size-4" />
+                  <span className="text-[11px] font-semibold mt-0.5">Produkt</span>
+                </div>
+                <div className="p-2 rounded-xl bg-surface-container-low text-text-primary flex flex-col items-center text-center">
+                  <HelpCircle className="size-4 text-primary-container" />
+                  <span className="text-[11px] font-semibold mt-0.5">FAQ Accordion</span>
+                </div>
+                <div className="p-2 rounded-xl bg-surface-container-low text-text-primary flex flex-col items-center text-center">
+                  <Star className="size-4 text-google-yellow" />
+                  <span className="text-[11px] font-semibold mt-0.5">Hodnotenie</span>
+                </div>
+              </div>
+
+              {/* Product Inputs Grid */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 <div>
-                  <label className="font-label-sm text-xs text-text-secondary block mb-1">
-                    Cena (€)
+                  <label className="font-label-sm text-[11px] text-text-secondary block mb-1">
+                    Cena (EUR)
                   </label>
                   <input
                     type="text"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
-                    className="w-full px-3 py-2 bg-surface-container-low border border-border-subtle rounded-xl text-text-primary font-body-sm text-xs focus:outline-none"
+                    className="w-full px-2.5 py-1.5 bg-surface-container-low border border-border-subtle rounded-xl text-text-primary font-semibold text-xs focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="font-label-sm text-xs text-text-secondary block mb-1">
-                    Dostupnosť
+                  <label className="font-label-sm text-[11px] text-text-secondary block mb-1">
+                    Sklad
                   </label>
                   <select
                     value={stock}
                     onChange={(e) =>
                       setStock(e.target.value as "InStock" | "OutOfStock" | "PreOrder")
                     }
-                    className="w-full px-3 py-2 bg-surface-container-low border border-border-subtle rounded-xl text-text-primary font-body-sm text-xs focus:outline-none cursor-pointer"
+                    className="w-full px-2 py-1.5 bg-surface-container-low border border-border-subtle rounded-xl text-google-green font-semibold text-xs focus:outline-none"
                   >
-                    <option value="InStock">Skladom (InStock)</option>
-                    <option value="OutOfStock">Vypredané (OutOfStock)</option>
-                    <option value="PreOrder">Predobjednávka (PreOrder)</option>
+                    <option value="InStock">Skladom (&gt;5ks)</option>
+                    <option value="OutOfStock">Vypredané</option>
+                    <option value="PreOrder">Predobjednávka</option>
                   </select>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-label-sm text-xs text-text-secondary block mb-1">
-                    Hodnotenie (0 - 5)
+                  <label className="font-label-sm text-[11px] text-text-secondary block mb-1">
+                    Rating
                   </label>
                   <input
-                    type="number"
-                    step="0.1"
-                    min="1"
-                    max="5"
-                    value={rating}
-                    onChange={(e) => setRating(e.target.value)}
-                    className="w-full px-3 py-2 bg-surface-container-low border border-border-subtle rounded-xl text-text-primary font-body-sm text-xs focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="font-label-sm text-xs text-text-secondary block mb-1">
-                    Počet recenzií
-                  </label>
-                  <input
-                    type="number"
-                    value={reviews}
-                    onChange={(e) => setReviews(e.target.value)}
-                    className="w-full px-3 py-2 bg-surface-container-low border border-border-subtle rounded-xl text-text-primary font-body-sm text-xs focus:outline-none"
+                    type="text"
+                    value={`${rating} / ${reviews} rec.`}
+                    onChange={(e) => {
+                      const val = e.target.value.split("/")[0]?.trim();
+                      if (val) setRating(val);
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-surface-container-low border border-border-subtle rounded-xl text-text-primary font-semibold text-xs focus:outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-label-sm text-xs text-text-secondary block mb-1">
+                  <label className="font-label-sm text-[11px] text-text-secondary block mb-1">
                     Značka (Brand)
                   </label>
                   <input
                     type="text"
                     value={brand}
                     onChange={(e) => setBrand(e.target.value)}
-                    className="w-full px-3 py-2 bg-surface-container-low border border-border-subtle rounded-xl text-text-primary font-body-sm text-xs focus:outline-none"
+                    className="w-full px-3 py-2 bg-surface-container-low border border-border-subtle rounded-xl text-text-primary text-xs focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="font-label-sm text-xs text-text-secondary block mb-1">
+                  <label className="font-label-sm text-[11px] text-text-secondary block mb-1">
                     GTIN / EAN
                   </label>
                   <input
                     type="text"
                     value={ean}
                     onChange={(e) => setEan(e.target.value)}
-                    className="w-full px-3 py-2 bg-surface-container-low border border-border-subtle rounded-xl text-text-primary font-body-sm text-xs focus:outline-none"
+                    className="w-full px-3 py-2 bg-surface-container-low border border-border-subtle rounded-xl text-text-primary text-xs focus:outline-none"
                   />
                 </div>
               </div>
@@ -459,28 +676,28 @@ function SerpLabPage() {
                       onChange={(e) => setIncludeFaq(e.target.checked)}
                       className="rounded border-border-default text-primary focus:ring-primary size-4"
                     />
-                    Zahrnúť FAQ Rich Snippet (Rozšírené otázky v Google)
+                    <span>Zahrnúť FAQ Rich Snippet (Zvyšuje výšku v Google o 40%)</span>
                   </label>
                   {includeFaq && (
                     <button
                       type="button"
                       onClick={addFaq}
-                      className="text-xs text-primary font-semibold hover:underline flex items-center gap-1"
+                      className="text-xs text-primary font-semibold hover:underline flex items-center gap-1 shrink-0"
                     >
-                      <Plus className="size-3" /> Pridať otázku
+                      <Plus className="size-3" /> Pridať
                     </button>
                   )}
                 </div>
 
                 {includeFaq && (
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     {faqList.map((f, i) => (
                       <div
                         key={f.id}
-                        className="p-3 rounded-xl bg-surface-container-low border border-border-subtle space-y-1.5 relative group"
+                        className="p-2.5 rounded-xl bg-surface-container-low border border-border-subtle space-y-1 relative"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-label-sm text-[11px] font-bold text-text-secondary">
+                          <span className="font-label-sm text-[10px] font-bold text-text-secondary">
                             Otázka #{i + 1}
                           </span>
                           <button
@@ -489,20 +706,20 @@ function SerpLabPage() {
                             className="text-text-secondary hover:text-google-red p-0.5"
                             title="Vymazať otázku"
                           >
-                            <Trash2 className="size-3.5" />
+                            <Trash2 className="size-3" />
                           </button>
                         </div>
                         <input
                           type="text"
                           value={f.q}
                           onChange={(e) => updateFaq(f.id, "q", e.target.value)}
-                          className="w-full px-2.5 py-1.5 bg-surface-pure border border-border-subtle rounded-lg text-xs text-text-primary focus:outline-none"
+                          className="w-full px-2.5 py-1 bg-surface-pure border border-border-subtle rounded-lg text-xs text-text-primary focus:outline-none"
                         />
                         <textarea
                           rows={2}
                           value={f.a}
                           onChange={(e) => updateFaq(f.id, "a", e.target.value)}
-                          className="w-full px-2.5 py-1.5 bg-surface-pure border border-border-subtle rounded-lg text-xs text-text-primary focus:outline-none resize-none"
+                          className="w-full px-2.5 py-1 bg-surface-pure border border-border-subtle rounded-lg text-xs text-text-primary focus:outline-none resize-none leading-normal"
                         />
                       </div>
                     ))}
@@ -512,9 +729,13 @@ function SerpLabPage() {
             </div>
           </div>
 
-          {/* Right Column: Live Google SERP Preview & JSON-LD */}
-          <div className="lg:col-span-6 space-y-5 sticky top-20">
-            <div className="bg-surface-pure rounded-2xl p-5 sm:p-6 shadow-xs border border-border-subtle space-y-4">
+          {/* Right Column: Google SERP Preview & JSON-LD (Desktop Sticky / Mobile Stacked) */}
+          <div className="lg:col-span-6 space-y-5 lg:sticky lg:top-20">
+            {/* SEKCIA: SERP Náhľad Card */}
+            <div
+              id="serp-section"
+              className="bg-surface-pure rounded-2xl p-4 sm:p-5 shadow-xs border border-border-subtle space-y-4"
+            >
               <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
                 <div className="flex items-center gap-2">
                   <button
@@ -541,134 +762,225 @@ function SerpLabPage() {
                   </button>
                 </div>
 
-                <span className="font-label-sm text-xs text-text-secondary font-medium">
-                  Googlebot Rank #1 Simulator
+                <span className="font-label-sm text-xs text-google-green bg-secondary-container px-2.5 py-0.5 rounded-full font-semibold">
+                  Mobile First Index
                 </span>
               </div>
 
               {previewTab === "serp" ? (
                 <div className="space-y-4">
-                  {/* Google Web Search Mock Container */}
-                  <div
-                    className={`p-5 rounded-2xl bg-white border border-border-subtle shadow-xs transition-all ${
-                      device === "mobile" ? "max-w-[390px] mx-auto" : "w-full"
-                    }`}
-                  >
-                    {/* Breadcrumbs & Favicon */}
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <div className="w-6 h-6 rounded-full bg-[#E8F0FE] flex items-center justify-center text-primary shrink-0 text-xs font-bold">
+                  {/* Result Card 1: Target Site (Rank #1) */}
+                  <div className="relative bg-surface-pure rounded-xl p-3.5 sm:p-4 border border-border-subtle shadow-md flex flex-col gap-2">
+                    {/* Visual Accent Tag */}
+                    <div className="flex items-center justify-between gap-1 pb-1">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary-container text-white font-label-sm text-xs font-semibold shadow-xs">
+                        <CheckCircle2 className="size-3" />
+                        POZÍCIA #1 (Google Mobile)
+                      </span>
+                      <span className="font-label-sm text-xs text-google-green bg-surface-container px-2 py-0.5 rounded-full font-semibold">
+                        CTR: 28.4% (+6.4% nad priemer)
+                      </span>
+                    </div>
+
+                    {/* URL & Favicon Row */}
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-xs">
                         M
                       </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-[13px] leading-tight text-[#202124] font-medium truncate">
-                          Mojeshop.sk
-                        </span>
-                        <span className="text-[11px] leading-tight text-[#5f6368] truncate font-mono">
+                      <div className="flex flex-col min-w-0 leading-tight">
+                        <span className="text-xs text-text-primary font-medium">Mojeshop.sk</span>
+                        <span className="text-[11px] text-text-secondary truncate font-mono">
                           https://mojeshop.sk › {slug}
                         </span>
                       </div>
                     </div>
 
-                    {/* Blue Title Link */}
-                    <h3 className="text-[19px] sm:text-[20px] leading-snug font-medium text-[#1a0dab] hover:underline cursor-pointer break-words mb-1.5">
+                    {/* Title link */}
+                    <a
+                      href="#serp-click"
+                      onClick={(e) => e.preventDefault()}
+                      className="text-base sm:text-lg text-[#1a0dab] hover:underline font-semibold leading-snug tracking-tight break-words"
+                    >
                       {title}
-                    </h3>
+                    </a>
 
-                    {/* Star Rating & Price Rich Snippets */}
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-[#4d5156] mb-2 font-sans">
-                      <div className="flex items-center text-[#e37400]">
+                    {/* Rich Snippet Metrics: Stars, Price, Stock */}
+                    <div className="flex items-center gap-1.5 flex-wrap py-0.5 text-xs text-text-secondary">
+                      <div className="inline-flex items-center text-google-yellow font-bold gap-0.5">
+                        <span className="text-text-primary font-semibold mr-0.5">{rating}</span>
                         <Star className="size-3.5 fill-current" />
                         <Star className="size-3.5 fill-current" />
                         <Star className="size-3.5 fill-current" />
                         <Star className="size-3.5 fill-current" />
                         <Star className="size-3.5 fill-current" />
-                        <span className="ml-1 font-bold text-[#202124]">{rating}</span>
                       </div>
-                      <span>({reviews})</span>
-                      <span>·</span>
-                      <span className="font-semibold text-[#188038]">
-                        {stock === "InStock" ? "Skladom" : "Dostupné"}
+                      <span>({reviews} recenzií)</span>
+                      <span>•</span>
+                      <span className="font-semibold text-text-primary">{price} €</span>
+                      <span>•</span>
+                      <span className="text-google-green font-medium flex items-center gap-0.5">
+                        <Check className="size-3" />
+                        {stock === "InStock" ? "Na sklade" : "Dostupné"}
                       </span>
-                      <span>·</span>
-                      <span className="font-bold text-[#202124]">{price} €</span>
-                      <span>·</span>
-                      <span>{brand}</span>
                     </div>
 
-                    {/* Snippet Description */}
-                    <p className="text-[14px] leading-relaxed text-[#4d5156] break-words">
+                    {/* Meta description snippet */}
+                    <p className="text-xs sm:text-sm text-text-secondary leading-relaxed break-words">
                       {description}
                     </p>
 
-                    {/* Google FAQ Accordions Mock */}
+                    {/* Rich FAQ Accordion in SERP */}
                     {includeFaq && faqList.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-[#ebebeb] space-y-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#70757a] block">
-                          Ľudia sa tiež pýtajú:
-                        </span>
-                        {faqList.map((f) => (
-                          <div
-                            key={f.id}
-                            className="p-2.5 rounded-lg bg-[#f8f9fa] border border-[#e8eaed]"
+                      <div className="mt-1 pt-2 flex flex-col gap-1.5 bg-surface-container-low p-2.5 rounded-xl border border-border-subtle">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider flex items-center gap-1">
+                            <HelpCircle className="size-3.5 text-primary-container" />
+                            Google FAQ Snippet
+                          </span>
+                          <span className="text-[10px] text-google-green font-medium">
+                            Validný markup
+                          </span>
+                        </div>
+
+                        {faqList.map((item) => (
+                          <details
+                            key={item.id}
+                            className="group bg-surface-pure rounded-lg p-2 transition-all border border-border-subtle"
                           >
-                            <span className="text-[13px] font-semibold text-[#1a0dab] block">
-                              {f.q}
-                            </span>
-                            <span className="text-[12px] text-[#4d5156] mt-0.5 block leading-normal">
-                              {f.a}
-                            </span>
-                          </div>
+                            <summary className="flex items-center justify-between text-xs font-medium text-text-primary cursor-pointer list-none">
+                              <span className="pr-2">{item.q}</span>
+                              <ChevronDown className="size-3.5 text-text-secondary group-open:rotate-180 transition-transform shrink-0" />
+                            </summary>
+                            <p className="text-[11px] text-text-secondary mt-1.5 pl-0.5 leading-normal">
+                              {item.a}
+                            </p>
+                          </details>
                         ))}
                       </div>
                     )}
                   </div>
 
-                  {/* Google Ranking Analysis Box */}
-                  <div className="p-4 rounded-xl bg-surface-container-low border border-border-subtle grid grid-cols-3 gap-2 text-center text-xs">
-                    <div>
-                      <span className="text-text-secondary block font-label-sm">CTR Odhad</span>
-                      <span className="font-headline-sm text-base font-bold text-google-green">
-                        ~28.4%
+                  {/* Competitor Result (#2 - Contrast without rich snippets) */}
+                  <div className="bg-surface-pure/75 rounded-xl p-3 sm:p-3.5 border border-border-subtle shadow-xs flex flex-col gap-1.5 opacity-90">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-text-secondary font-medium">
+                        Pozícia #2 • Konkurencia
+                      </span>
+                      <span className="text-[11px] text-google-red font-semibold bg-red-50 px-2 py-0.5 rounded-full">
+                        Bez Rich Snippets
                       </span>
                     </div>
-                    <div>
-                      <span className="text-text-secondary block font-label-sm">
-                        Pozícia v SERP
-                      </span>
-                      <span className="font-headline-sm text-base font-bold text-primary">
-                        TOP 1
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-text-secondary block font-label-sm">
-                        Schema Validácia
-                      </span>
-                      <span className="font-headline-sm text-base font-bold text-google-green flex items-center justify-center gap-1">
-                        <Check className="size-4" /> 100% Pass
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full bg-surface-container-highest flex items-center justify-center text-[10px] text-text-secondary font-bold">
+                        S
+                      </div>
+                      <span className="text-xs text-text-secondary truncate font-mono">
+                        https://www.sportisimo.sk › asics-nimbus
                       </span>
                     </div>
+                    <span className="text-sm font-medium text-primary-container truncate">
+                      ASICS GEL-NIMBUS - Bežecké topánky | Sportisimo.sk
+                    </span>
+                    <p className="text-xs text-text-secondary line-clamp-2">
+                      Kúpte si ASICS GEL-NIMBUS za skvelé ceny na Sportisimo.sk. Rýchle doručenie,
+                      široký výber bežeckej výbavy a vybavenia pre športovcov...
+                    </p>
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-3">
+              ) : null}
+
+              {/* SEKCIA: JSON-LD Code Output Box */}
+              {(previewTab === "jsonld" || mobileTab === "jsonld") && (
+                <div
+                  id="jsonld-section"
+                  className="bg-inverse-surface rounded-2xl p-4 sm:p-5 shadow-md flex flex-col gap-3 text-inverse-on-surface"
+                >
                   <div className="flex items-center justify-between">
-                    <span className="font-label-sm text-xs font-mono text-text-secondary">
-                      Schema.org (Product + AggregateRating + FAQPage)
+                    <div className="flex items-center gap-1.5">
+                      <Code2 className="size-4 text-primary-fixed" />
+                      <span className="text-xs sm:text-sm font-semibold">
+                        Schema.org JSON-LD Výstup
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-secondary-fixed bg-secondary/40 px-2.5 py-0.5 rounded-full font-semibold">
+                      Validné (0 chýb / 0 varovaní)
+                    </span>
+                  </div>
+
+                  <div className="relative bg-surface-container-lowest/5 rounded-xl p-3 overflow-x-auto max-h-[380px]">
+                    <pre className="font-mono text-xs text-primary-fixed-dim leading-relaxed whitespace-pre font-normal select-all">
+                      <code>{`<script type="application/ld+json">\n${jsonLdCode}\n</script>`}</code>
+                    </pre>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-xs text-outline-variant">
+                      Pripravené pre &lt;head&gt;
                     </span>
                     <Button
-                      variant="ghost"
+                      id="btn-copy-code"
                       size="sm"
                       onClick={copyJsonLd}
-                      className="h-8 text-xs font-medium text-primary"
+                      className="rounded-full bg-primary-container hover:bg-primary text-white text-xs font-semibold px-4 flex items-center gap-1.5 shadow-sm active:scale-95"
                     >
-                      <Copy className="size-3.5 mr-1" /> Kopírovať
+                      <Copy className="size-3.5" />
+                      <span id="copy-label">Kopírovať JSON-LD</span>
                     </Button>
                   </div>
-                  <pre className="p-4 rounded-xl bg-surface-container-low border border-border-subtle text-xs font-mono text-text-primary overflow-x-auto max-h-[460px] leading-relaxed">
-                    <code>{jsonLdCode}</code>
-                  </pre>
                 </div>
               )}
+            </div>
+
+            {/* SEKCIA: Impact & Benchmark Panel */}
+            <div className="bg-surface-pure rounded-2xl p-4 sm:p-5 shadow-xs border border-border-subtle flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-text-primary">
+                  Odhadovaný vplyv optimalizácie
+                </span>
+                <span className="text-xs text-primary-container font-medium">Mesačná prognóza</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="p-2.5 rounded-xl bg-surface-container-low flex flex-col text-center">
+                  <span className="text-[11px] text-text-secondary truncate">Odhadované CTR</span>
+                  <span className="text-base sm:text-lg font-bold text-google-green mt-0.5">
+                    28.4%
+                  </span>
+                  <span className="text-[10px] text-text-secondary">+6.4% gain</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-surface-container-low flex flex-col text-center">
+                  <span className="text-[11px] text-text-secondary truncate">Noví návštevníci</span>
+                  <span className="text-base sm:text-lg font-bold text-primary-container mt-0.5">
+                    +480
+                  </span>
+                  <span className="text-[10px] text-text-secondary">klikov / mes.</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-surface-container-low flex flex-col text-center">
+                  <span className="text-[11px] text-text-secondary truncate">Úspora Ads</span>
+                  <span className="text-base sm:text-lg font-bold text-google-green mt-0.5">
+                    ~312 €
+                  </span>
+                  <span className="text-[10px] text-text-secondary">ekvivalent CPC</span>
+                </div>
+              </div>
+
+              {/* Mobile Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <Button
+                  onClick={() => toast.success("Konfigurácia bola pripravená na export do CMS")}
+                  className="flex-1 rounded-full bg-primary-container hover:bg-primary text-white text-xs font-semibold h-10 shadow-xs"
+                >
+                  Uložiť do CMS / Shoptet
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    toast.success("Žiadosť o reindexáciu odoslaná do Google Search Console API")
+                  }
+                  className="flex-1 rounded-full text-xs font-semibold h-10 border-border-default hover:bg-surface-container text-text-primary"
+                >
+                  Odoslať na GSC reindexáciu
+                </Button>
+              </div>
             </div>
           </div>
         </div>
