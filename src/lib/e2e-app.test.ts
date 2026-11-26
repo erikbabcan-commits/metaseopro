@@ -1,6 +1,77 @@
-import { describe, expect, it } from "vitest";
+import { spawn, type ChildProcess } from "node:child_process";
+import { resolve } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-const BASE_URL = process.env.TEST_BASE_URL || "http://127.0.0.1:5180";
+// If TEST_BASE_URL is set (e.g. CI starts its own dev server on :4173) that server is used as-is.
+// Otherwise the suite targets 127.0.0.1:5180 and, when nothing is listening there,
+// starts `vite dev` itself on that port and tears it down in afterAll.
+const EXTERNAL_BASE_URL = process.env.TEST_BASE_URL;
+const SELF_HOST = "127.0.0.1";
+const SELF_PORT = 5180;
+const BASE_URL = EXTERNAL_BASE_URL || `http://${SELF_HOST}:${SELF_PORT}`;
+
+let devServer: ChildProcess | undefined;
+let devServerLog = "";
+
+async function isReachable(): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE_URL}/`, {
+      signal: AbortSignal.timeout(3000),
+      redirect: "manual",
+    });
+    return res.status >= 200 && res.status < 500;
+  } catch {
+    return false;
+  }
+}
+
+async function startDevServerIfNeeded(): Promise<void> {
+  if (EXTERNAL_BASE_URL) return; // caller owns the server; requireServer() reports if it is down
+  if (await isReachable()) return; // reuse an already running server on :5180
+
+  const viteBin = resolve(process.cwd(), "node_modules/vite/bin/vite.js");
+  devServer = spawn(
+    process.execPath,
+    [viteBin, "dev", "--host", SELF_HOST, "--port", String(SELF_PORT), "--strictPort"],
+    { cwd: process.cwd(), stdio: ["ignore", "pipe", "pipe"], detached: true },
+  );
+  const collect = (chunk: Buffer) => {
+    devServerLog = (devServerLog + chunk.toString()).slice(-4000);
+  };
+  devServer.stdout?.on("data", collect);
+  devServer.stderr?.on("data", collect);
+  let exited = false;
+  devServer.on("exit", () => {
+    exited = true;
+  });
+
+  const deadline = Date.now() + 90_000;
+  while (Date.now() < deadline) {
+    if (exited) break;
+    if (await isReachable()) return;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error(`Could not start vite dev on ${BASE_URL}.\n${devServerLog}`);
+}
+
+function stopDevServer(): void {
+  if (!devServer?.pid) return;
+  try {
+    // negative pid = whole process group created by detached spawn (only our own child tree)
+    process.kill(-devServer.pid, "SIGTERM");
+  } catch {
+    devServer.kill("SIGTERM");
+  }
+  devServer = undefined;
+}
+
+beforeAll(async () => {
+  await startDevServerIfNeeded();
+}, 120_000);
+
+afterAll(() => {
+  stopDevServer();
+});
 
 async function requireServer(): Promise<void> {
   try {
