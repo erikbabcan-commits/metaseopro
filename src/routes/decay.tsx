@@ -327,14 +327,7 @@ function DecayPage() {
 
   const sendToWriter = () => {
     if (!dataset || !selected) return;
-    handoffToWriter({
-      topic: `Refresh: ${selected.url}`,
-      primaryKeyword: selected.topKeywords[0] ?? "",
-      audience: "Organickí návštevníci hľadajúci aktuálne a autoritatívne informácie",
-      tone: "expert",
-      targetLength: "2000",
-      notes: plan ? `Plán z Decay Radaru:\n\n${plan}` : undefined,
-    });
+    handoffToWriter(dataset.siteUrl, selected);
     navigate({ to: "/plan" });
   };
 
@@ -356,7 +349,10 @@ function DecayPage() {
   const totalLostClicks = useMemo(() => {
     if (!dataset) return 4820;
     return Math.abs(
-      dataset.rows.reduce((acc, r) => acc + (r.clicksDelta < 0 ? r.clicksDelta : 0), 0),
+      dataset.rows.reduce((acc, r) => {
+        const delta = r.clicksNow - r.clicksPrev;
+        return acc + (delta < 0 ? delta : 0);
+      }, 0),
     );
   }, [dataset]);
 
@@ -679,14 +675,14 @@ function DecayPage() {
                           </div>
                         </div>
 
-                        {row.topKeywords.length > 0 && (
+                        {row.topQueries.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2.5 pt-2 border-t border-border-subtle">
-                            {row.topKeywords.slice(0, 3).map((kw) => (
+                            {row.topQueries.slice(0, 3).map((q) => (
                               <span
-                                key={kw}
+                                key={q.query}
                                 className="px-2 py-0.5 rounded-full bg-surface-container-low text-[11px] font-medium text-text-secondary"
                               >
-                                {kw}
+                                {q.query}
                               </span>
                             ))}
                           </div>
@@ -742,17 +738,27 @@ function DecayPage() {
                       Zasiahnuté kľúčové slová & Pokles
                     </span>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {selected.topKeywords.map((kw, idx) => (
-                        <div
-                          key={kw}
-                          className="p-2.5 rounded-xl bg-surface-container-low border border-border-subtle flex items-center justify-between text-xs"
-                        >
-                          <span className="font-medium text-text-primary truncate mr-2">{kw}</span>
-                          <span className="font-bold text-google-red shrink-0">
-                            -{(idx + 2) * 3} pozícií
-                          </span>
-                        </div>
-                      ))}
+                      {selected.topQueries.map((q) => {
+                        const posDelta = q.positionNow - q.positionPrev;
+                        return (
+                          <div
+                            key={q.query}
+                            className="p-2.5 rounded-xl bg-surface-container-low border border-border-subtle flex items-center justify-between text-xs"
+                          >
+                            <span className="font-medium text-text-primary truncate mr-2">
+                              {q.query}
+                            </span>
+                            <span
+                              className={`font-bold shrink-0 ${posDelta > 0 ? "text-google-red" : "text-google-green"}`}
+                            >
+                              {posDelta > 0
+                                ? `-${posDelta.toFixed(1)}`
+                                : `+${Math.abs(posDelta).toFixed(1)}`}{" "}
+                              pozícií
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 

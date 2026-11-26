@@ -1308,10 +1308,10 @@ function AgencySettingsPage() {
           {/* TAB 3: Billing & Invoices */}
           <TabsContent value="billing" className="mt-0 space-y-6">
             <BillingPortalCard
-              subscription={currentSubscription}
-              onOpenPortal={handleOpenPortal}
-              openingPortal={openingPortal}
-              onRetrySubscription={() => setSubscriptionRetry((prev) => prev + 1)}
+              state={currentSubscription ?? { status: "loading" }}
+              onOpen={handleOpenPortal}
+              opening={openingPortal}
+              onRetry={() => setSubscriptionRetry((prev) => prev + 1)}
             />
             <BillingInvoiceSection />
           </TabsContent>
@@ -1321,13 +1321,7 @@ function AgencySettingsPage() {
       <ClientReportModal
         open={previewOpen}
         onOpenChange={setPreviewOpen}
-        agencyProfile={{
-          agency_name: agencyName,
-          logo_url: logoUrl,
-          primary_color: primaryColor,
-          contact_email: contactEmail,
-          report_footer_text: reportFooterText,
-        }}
+        siteUrl={subdomain ? `https://${subdomain}` : "https://mojeshop.sk"}
       />
 
       <PaywallModal

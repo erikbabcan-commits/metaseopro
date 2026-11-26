@@ -15,7 +15,7 @@ interface LaserBorderCardProps {
 export function LaserBorderCard({
   children,
   className = "",
-  glowColor = "bg-mark",
+  glowColor = "#10b981",
 }: LaserBorderCardProps) {
   return (
     <div className={`relative rounded-3xl p-[1.5px] overflow-hidden group shadow-2xl ${className}`}>

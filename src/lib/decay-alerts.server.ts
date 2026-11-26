@@ -123,9 +123,9 @@ export function buildDecayAlertEmailHtml(params: {
 <head>
   <meta charset="utf-8">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: text-on-primary; margin: 0; padding: 24px; color: #0f172a; }
-    .container { max-width: 600px; margin: 0 auto; background: bg-card; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; }
-    .header { background: #dc2626; padding: 20px 24px; color: bg-card; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
+    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; }
+    .header { background: #dc2626; padding: 20px 24px; color: #ffffff; }
     .header h1 { margin: 0; font-size: 18px; font-weight: 700; }
     .content { padding: 24px; }
     .intro { font-size: 14px; line-height: 1.5; color: #334155; margin-bottom: 20px; }
@@ -134,8 +134,8 @@ export function buildDecayAlertEmailHtml(params: {
     td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
     .url { font-family: monospace; color: #0284c7; word-break: break-all; max-width: 280px; }
     .loss { color: #dc2626; font-weight: 700; text-align: right; }
-    .btn { display: inline-block; background: #0284c7; color: bg-card; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-weight: 600; font-size: 14px; text-align: center; }
-    .footer { padding: 16px 24px; background: text-on-primary; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center; }
+    .btn { display: inline-block; background: #0284c7; color: #ffffff; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-weight: 600; font-size: 14px; text-align: center; }
+    .footer { padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center; }
   </style>
 </head>
 <body>

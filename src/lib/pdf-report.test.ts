@@ -22,7 +22,7 @@ describe("Whitelabel Client PDF Report Generator", () => {
     executiveSummary: {
       healthIndex: 88,
       healthStatus: "Výborný",
-      healthColor: "bg-mark",
+      healthColor: "#10b981",
       clicksNow: 12500,
       clicksPrev: 11000,
       clicksDelta: 1500,

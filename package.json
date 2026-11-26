@@ -11,7 +11,6 @@
     "preview:cf": "wrangler dev --config .output/server/wrangler.json --port 5180 --ip 0.0.0.0",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "replace-hex": "node scripts/replace-hex.cjs",
     "test": "vitest"
   },
   "dependencies": {

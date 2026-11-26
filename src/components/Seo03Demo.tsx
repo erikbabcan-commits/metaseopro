@@ -355,7 +355,7 @@ function Intro() {
       <h1 className="mb-3 font-display text-3xl leading-tight text-balance md:text-4xl">
         Kde e-shop stráca kliknutia
       </h1>
-      <p className="max-w-[60ch] text-base text-pretty text-secondary-foreground">
+      <p className="max-w-[60ch] text-base text-pretty text-text-secondary">
         Nahrajte anonymizovaný export stránok zo Search Console. Za 90 sekúnd uvidíte tri stránky s
         najväčším poklesom a čo opraviť ako prvé.
       </p>
@@ -390,7 +390,7 @@ function HowTo() {
         </span>
         Ako získať export zo Search Console
       </summary>
-      <ol className="list-inside list-decimal space-y-1 px-4 pb-4 text-sm text-secondary-foreground">
+      <ol className="list-inside list-decimal space-y-1 px-4 pb-4 text-sm text-text-secondary">
         <li>Search Console → Výkon → karta Stránky.</li>
         <li>
           Nastavte obdobie na minulých 90 dní a exportujte CSV (obdobie A), potom aktuálnych 90 dní
@@ -502,7 +502,7 @@ function EmptyState({
         />
       </div>
       {waitingFor && (
-        <p role="status" className="mt-3 text-sm text-secondary-foreground">
+        <p role="status" className="mt-3 text-sm text-text-secondary">
           Obdobie {waitingFor === "B" ? "A" : "B"} je načítané. Pridajte ešte obdobie {waitingFor}.
         </p>
       )}
@@ -510,7 +510,7 @@ function EmptyState({
         Použiť ukážkové dáta
       </Button>
       <Limits withPrivacy={false} />
-      <p className="mt-4 flex items-start gap-2 text-sm text-secondary-foreground">
+      <p className="mt-4 flex items-start gap-2 text-sm text-text-secondary">
         <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
         Súbor sa spracuje len vo vašom prehliadači. Na server nejde ani kópia, ani náhľad obsahu a
         nič sa neukladá ani neloguje.
@@ -680,7 +680,7 @@ function NoLoss({
       <Periods outcome={outcome} />
       <div className="mt-5 rounded-xl bg-card p-5 ring-1 ring-border">
         <p>V porovnaní období A a B žiadna stránka nestratila kliknutia.</p>
-        <p className="mt-2 text-sm text-secondary-foreground">
+        <p className="mt-2 text-sm text-text-secondary">
           Porovnali sme {intFmt.format(outcome.summary.pagesTotal)} stránok. Skontrolujte, či je A
           staršie obdobie a B novšie a či ide o export stránok, nie dopytov.
         </p>
@@ -795,7 +795,7 @@ function Result({
       </h1>
       <Periods outcome={outcome} />
       {n < 3 && (
-        <p className="mt-2 text-sm text-secondary-foreground">
+        <p className="mt-2 text-sm text-text-secondary">
           Kliknutia stratil{n === 1 ? "a iba 1 stránka" : `i iba ${n} stránky`}, preto ich je menej
           ako tri.
         </p>
@@ -843,7 +843,7 @@ function Result({
       </ol>
 
       {skipped > 0 && (
-        <p className="mt-3 text-sm text-secondary-foreground">
+        <p className="mt-3 text-sm text-text-secondary">
           Preskočené riadky: {skipped} (chýba stránka alebo číselná hodnota, prípadne duplicita).
         </p>
       )}
@@ -905,7 +905,7 @@ function Report({
         <h1 id="seo03-report" className="mb-3 font-display text-2xl leading-tight md:text-3xl">
           Stratené kliknutia{outcome.host ? `: ${outcome.host}` : ""}
         </h1>
-        <p className="mb-3 text-sm text-secondary-foreground">
+        <p className="mb-3 text-sm text-text-secondary">
           Porovnanie {parsed.periodLabels.previous} s {parsed.periodLabels.current}.
         </p>
         <p className="mb-4 text-sm">

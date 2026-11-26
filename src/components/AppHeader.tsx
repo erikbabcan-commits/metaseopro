@@ -277,7 +277,7 @@ export function AppHeader() {
             className={
               "inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold transition-colors " +
               (pathname === "/dashboard"
-                ? "bg-secondary text-primary shadow-xs"
+                ? "bg-primary-fixed/60 text-primary shadow-xs"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground")
             }
           >
@@ -294,7 +294,7 @@ export function AppHeader() {
                 className={
                   "h-8 gap-1 px-3 text-xs font-semibold transition-colors " +
                   (isSeoActive && pathname !== "/dashboard"
-                    ? "bg-secondary text-primary shadow-xs"
+                    ? "bg-primary-fixed/60 text-primary shadow-xs"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground")
                 }
               >
@@ -318,7 +318,9 @@ export function AppHeader() {
                       to={item.to}
                       className={
                         "flex items-start gap-3 p-2 rounded-md transition-colors w-full cursor-pointer " +
-                        (active ? "bg-secondary text-primary" : "hover:bg-muted text-foreground")
+                        (active
+                          ? "bg-primary-fixed/60 text-primary"
+                          : "hover:bg-muted text-foreground")
                       }
                     >
                       <div className="size-7 rounded-md bg-muted flex items-center justify-center shrink-0 mt-0.5">
@@ -346,7 +348,7 @@ export function AppHeader() {
                 className={
                   "h-8 gap-1 px-3 text-xs font-semibold transition-colors " +
                   (isContentActive
-                    ? "bg-secondary text-primary shadow-xs"
+                    ? "bg-primary-fixed/60 text-primary shadow-xs"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground")
                 }
               >
@@ -370,7 +372,9 @@ export function AppHeader() {
                       to={item.to}
                       className={
                         "flex items-start gap-3 p-2 rounded-md transition-colors w-full cursor-pointer " +
-                        (active ? "bg-secondary text-primary" : "hover:bg-muted text-foreground")
+                        (active
+                          ? "bg-primary-fixed/60 text-primary"
+                          : "hover:bg-muted text-foreground")
                       }
                     >
                       <div className="size-7 rounded-md bg-muted flex items-center justify-center shrink-0 mt-0.5">
@@ -398,7 +402,7 @@ export function AppHeader() {
                 className={
                   "h-8 gap-1 px-3 text-xs font-semibold transition-colors " +
                   (isAgencyActive
-                    ? "bg-secondary text-primary shadow-xs"
+                    ? "bg-primary-fixed/60 text-primary shadow-xs"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground")
                 }
               >
@@ -422,7 +426,9 @@ export function AppHeader() {
                       to={item.to}
                       className={
                         "flex items-start gap-3 p-2 rounded-md transition-colors w-full cursor-pointer " +
-                        (active ? "bg-secondary text-primary" : "hover:bg-muted text-foreground")
+                        (active
+                          ? "bg-primary-fixed/60 text-primary"
+                          : "hover:bg-muted text-foreground")
                       }
                     >
                       <div className="size-7 rounded-md bg-muted flex items-center justify-center shrink-0 mt-0.5">
@@ -684,7 +690,7 @@ export function AppHeader() {
                               className={
                                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors " +
                                 (active
-                                  ? "bg-secondary text-primary font-semibold"
+                                  ? "bg-primary-fixed/60 text-primary font-semibold"
                                   : "text-muted-foreground hover:bg-muted hover:text-foreground")
                               }
                             >
@@ -713,7 +719,7 @@ export function AppHeader() {
                               className={
                                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors " +
                                 (active
-                                  ? "bg-secondary text-primary font-semibold"
+                                  ? "bg-primary-fixed/60 text-primary font-semibold"
                                   : "text-muted-foreground hover:bg-muted hover:text-foreground")
                               }
                             >
@@ -742,7 +748,7 @@ export function AppHeader() {
                               className={
                                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors " +
                                 (active
-                                  ? "bg-secondary text-primary font-semibold"
+                                  ? "bg-primary-fixed/60 text-primary font-semibold"
                                   : "text-muted-foreground hover:bg-muted hover:text-foreground")
                               }
                             >
@@ -822,7 +828,7 @@ function LocaleSwitch({ locale, onSwitch }: { locale: Locale; onSwitch: (next: L
           className={
             "rounded px-1.5 py-0.5 uppercase " +
             (locale === code
-              ? "font-semibold text-foreground bg-secondary"
+              ? "font-semibold text-on-primary-fixed bg-primary-fixed"
               : "text-muted-foreground hover:text-foreground")
           }
           aria-current={locale === code ? "true" : undefined}

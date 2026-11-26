@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useAuth } from "@/hooks/use-auth";
 import { parseDomainInput } from "@/lib/domain-input";
 import { startAuditEntry } from "@/lib/audit-entry";
 import { toast } from "sonner";
@@ -10,6 +11,7 @@ interface LandingHeroProps {
 
 export function LandingHero({ onAnalyze }: LandingHeroProps) {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [domain, setDomain] = useState("");
   const [placeholder, setPlaceholder] = useState("www.mojeshop.sk");
   const [isCrawling, setIsCrawling] = useState(false);
@@ -80,11 +82,17 @@ export function LandingHero({ onAnalyze }: LandingHeroProps) {
     // Launch audit & navigate after brief crawling visual feedback
     setTimeout(() => {
       setIsCrawling(false);
-      try {
-        const parsed = parseDomainInput(cleaned);
-        startAuditEntry(parsed, "audit");
-      } catch {
-        // Fallback navigation
+      const parsed = parseDomainInput(cleaned);
+      if (parsed) {
+        const target = startAuditEntry({
+          normalizedDomain: parsed,
+          signedIn: Boolean(user),
+          loading: authLoading,
+        });
+        if (target) {
+          void navigate({ to: target });
+          return;
+        }
       }
       void navigate({ to: "/audit", search: { domain: cleaned } as Record<string, string> });
     }, 2400);
@@ -186,7 +194,7 @@ export function LandingHero({ onAnalyze }: LandingHeroProps) {
             Rýchle ukážky:
           </span>
           <button
-            className="chip-item google-pill-btn inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container border border-border-subtle hover:border-outline text-text-secondary font-label-md text-label-md cursor-pointer"
+            className="google-pill-btn inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container border border-border-subtle hover:border-outline text-text-secondary font-label-md text-label-md cursor-pointer"
             onClick={() => handleSelectChip("www.mojeshop.sk")}
             type="button"
           >
@@ -194,7 +202,7 @@ export function LandingHero({ onAnalyze }: LandingHeroProps) {
             <span>www.mojeshop.sk</span>
           </button>
           <button
-            className="chip-item google-pill-btn inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container border border-border-subtle hover:border-outline text-text-secondary font-label-md text-label-md cursor-pointer"
+            className="google-pill-btn inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container border border-border-subtle hover:border-outline text-text-secondary font-label-md text-label-md cursor-pointer"
             onClick={() => handleSelectChip("www.fitness-eshop.cz")}
             type="button"
           >
@@ -202,7 +210,7 @@ export function LandingHero({ onAnalyze }: LandingHeroProps) {
             <span>www.fitness-eshop.cz</span>
           </button>
           <button
-            className="chip-item google-pill-btn inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container border border-border-subtle hover:border-outline text-text-secondary font-label-md text-label-md cursor-pointer"
+            className="google-pill-btn inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container border border-border-subtle hover:border-outline text-text-secondary font-label-md text-label-md cursor-pointer"
             onClick={() => handleSelectChip("www.kaviaren.sk")}
             type="button"
           >
