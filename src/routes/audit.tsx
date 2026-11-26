@@ -9,7 +9,6 @@ import { Toaster } from "@/components/ui/sonner";
 import {
   ArrowDown,
   ArrowRight,
-  Check,
   Copy,
   Globe,
   Plus,
@@ -18,9 +17,7 @@ import {
   ShieldCheck,
   Sparkles,
   Square,
-  TrendingUp,
   X,
-  Zap,
 } from "lucide-react";
 import { streamSSE } from "@/lib/stream-sse";
 import { AppHeader } from "@/components/AppHeader";
@@ -204,10 +201,6 @@ function AuditPage() {
   const showOutput = status !== "idle" || report.length > 0;
   const canRun = (domains.length > 0 || parseDomains(input).length > 0) && status !== "streaming";
 
-  // Score estimation for UI preview based on analysis state
-  const scoreValue = showOutput ? 74 : 0;
-  const strokeDashoffset = 314 - (314 * scoreValue) / 100;
-
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background font-sans text-on-surface antialiased selection:bg-primary-fixed selection:text-on-primary-fixed-variant">
       <Toaster />
@@ -337,176 +330,28 @@ function AuditPage() {
         {/* Audit Results Dashboard (Search Clarity 2-Column Grid) */}
         {showOutput && (
           <div className="space-y-6 animate-in fade-in duration-300">
-            {/* Top Metrics Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-              {/* Circular SEO Score Card */}
-              <div className="lg:col-span-4 bg-surface-pure rounded-2xl p-6 shadow-xs border border-border-subtle flex flex-col justify-between relative overflow-hidden">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="font-label-md text-label-md text-text-secondary uppercase tracking-wider font-semibold">
-                    Zdravie webu & SEO Skóre
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-google-green/10 text-google-green font-label-sm text-label-sm font-bold">
-                    <Check className="size-3" /> Dobré
-                  </span>
+            {/* AI Action CTA Banner */}
+            <div className="p-4 rounded-xl bg-gradient-to-br from-primary via-primary-container to-[#174EA6] text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur flex items-center justify-center shrink-0">
+                  <Sparkles className="size-5 text-white" />
                 </div>
-
-                <div className="py-2 flex flex-col items-center justify-center">
-                  <div className="relative w-36 h-36 flex items-center justify-center">
-                    <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 120 120">
-                      <circle
-                        cx="60"
-                        cy="60"
-                        r="50"
-                        stroke="currentColor"
-                        strokeWidth="10"
-                        className="text-surface-container"
-                        fill="transparent"
-                      />
-                      <circle
-                        cx="60"
-                        cy="60"
-                        r="50"
-                        stroke="currentColor"
-                        strokeWidth="10"
-                        strokeDasharray={314}
-                        strokeDashoffset={strokeDashoffset}
-                        strokeLinecap="round"
-                        className="text-google-green transition-all duration-1000 ease-out"
-                        fill="transparent"
-                      />
-                    </svg>
-                    <div className="absolute flex flex-col items-center text-center">
-                      <span className="font-display text-4xl font-extrabold text-text-primary leading-none">
-                        {status === "streaming" && !report ? "..." : scoreValue}
-                      </span>
-                      <span className="font-label-sm text-label-sm text-text-secondary mt-1">
-                        zo 100
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-border-subtle grid grid-cols-3 gap-2 text-center">
-                  <div className="p-2 rounded-xl bg-surface-container-low">
-                    <span className="font-label-sm text-label-sm text-text-secondary block">
-                      Indexácia
-                    </span>
-                    <span className="font-label-md text-label-md font-bold text-google-green">
-                      100%
-                    </span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-surface-container-low">
-                    <span className="font-label-sm text-label-sm text-text-secondary block">
-                      Mobil
-                    </span>
-                    <span className="font-label-md text-label-md font-bold text-google-green">
-                      Pass
-                    </span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-surface-container-low">
-                    <span className="font-label-sm text-label-sm text-text-secondary block">
-                      SSL
-                    </span>
-                    <span className="font-label-md text-label-md font-bold text-google-green">
-                      Platný
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Potenciál rastu a Core Web Vitals */}
-              <div className="lg:col-span-8 bg-surface-pure rounded-2xl p-6 shadow-xs border border-border-subtle flex flex-col justify-between">
                 <div>
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <span className="font-label-md text-label-md text-text-secondary uppercase tracking-wider font-semibold">
-                      Identifikovaný potenciál rastu
-                    </span>
-                    <span className="font-label-sm text-label-sm text-text-secondary">
-                      Zdroj: Googlebot & Semrush Live Matrix
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                    <div className="p-4 rounded-xl bg-surface-container-low flex flex-col justify-between border border-border-subtle">
-                      <div className="flex items-center gap-2 mb-2 text-text-secondary font-label-md text-label-md">
-                        <TrendingUp className="size-4 text-google-blue-bright" />
-                        <span>Mesačný traffic potenciál</span>
-                      </div>
-                      <div className="font-headline-md text-2xl font-bold text-text-primary">
-                        ~850 návštev
-                      </div>
-                      <p className="font-body-sm text-xs text-text-secondary mt-1">
-                        Okamžitý zisk optimalizáciou top 5 keywordov
-                      </p>
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-surface-container-low flex flex-col justify-between border border-border-subtle">
-                      <div className="flex items-center gap-2 mb-2 text-text-secondary font-label-md text-label-md">
-                        <Zap className="size-4 text-google-yellow" />
-                        <span>Ekvivalentná úspora na PPC</span>
-                      </div>
-                      <div className="font-headline-md text-2xl font-bold text-text-primary">
-                        ~510 € / mes.
-                      </div>
-                      <p className="font-body-sm text-xs text-text-secondary mt-1">
-                        Hodnota organických kliknutí v Google Ads
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Core Web Vitals Mini Bar */}
-                  <div className="p-4 rounded-xl bg-surface-container-low/60 border border-border-subtle grid grid-cols-3 gap-3 text-center">
-                    <div>
-                      <span className="font-label-sm text-label-sm text-text-secondary block">
-                        LCP (Rýchlosť)
-                      </span>
-                      <span className="font-label-lg text-sm font-bold text-google-green">
-                        1.4s
-                      </span>
-                    </div>
-                    <div>
-                      <span className="font-label-sm text-label-sm text-text-secondary block">
-                        CLS (Stabilita)
-                      </span>
-                      <span className="font-label-lg text-sm font-bold text-google-green">
-                        0.02
-                      </span>
-                    </div>
-                    <div>
-                      <span className="font-label-sm text-label-sm text-text-secondary block">
-                        INP (Odozva)
-                      </span>
-                      <span className="font-label-lg text-sm font-bold text-google-green">
-                        68ms
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* AI Action CTA Banner */}
-                <div className="mt-4 p-4 rounded-xl bg-gradient-to-br from-primary via-primary-container to-[#174EA6] text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur flex items-center justify-center shrink-0">
-                      <Sparkles className="size-5 text-white" />
-                    </div>
-                    <div>
-                      <span className="font-label-sm text-label-sm uppercase tracking-wider text-primary-fixed block font-bold">
-                        Odporúčaná akcia
-                      </span>
-                      <p className="font-body-sm text-sm text-white font-medium">
-                        Premeňte tieto zistenia na optimalizovaný obsah jediným klikom.
-                      </p>
-                    </div>
-                  </div>
-                  <Link
-                    to="/raketa"
-                    className="shrink-0 px-5 py-2.5 rounded-full bg-white text-primary font-label-md text-label-md font-bold hover:bg-surface-container transition-all active:scale-[0.98] shadow-xs flex items-center gap-1.5"
-                  >
-                    <span>Spustiť SEO Raketu</span>
-                    <ArrowRight className="size-4" />
-                  </Link>
+                  <span className="font-label-sm text-label-sm uppercase tracking-wider text-primary-fixed block font-bold">
+                    Odporúčaná akcia
+                  </span>
+                  <p className="font-body-sm text-sm text-white font-medium">
+                    Premeňte tieto zistenia na optimalizovaný obsah jediným klikom.
+                  </p>
                 </div>
               </div>
+              <Link
+                to="/raketa"
+                className="shrink-0 px-5 py-2.5 rounded-full bg-white text-primary font-label-md text-label-md font-bold hover:bg-surface-container transition-all active:scale-[0.98] shadow-xs flex items-center gap-1.5"
+              >
+                <span>Spustiť SEO Raketu</span>
+                <ArrowRight className="size-4" />
+              </Link>
             </div>
 
             {/* Detailed Markdown Report Container */}

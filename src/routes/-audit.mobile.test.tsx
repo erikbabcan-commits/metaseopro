@@ -19,16 +19,20 @@ describe("SEO Audit (/audit) Search Clarity Design System & 100dvh Layout", () =
     expect(source).toContain("text-text-primary");
     expect(source).toContain("text-text-secondary");
     expect(source).toContain("bg-primary-container");
-    expect(source).toContain("text-google-green");
     expect(source).not.toContain("bg-muted/50");
   });
 
-  it("contains circular SEO score gauge and growth potential metrics", () => {
-    expect(source).toContain("Zdravie webu & SEO Skóre");
-    expect(source).toContain("Identifikovaný potenciál rastu");
-    expect(source).toContain("~850 návštev");
-    expect(source).toContain("~510 € / mes.");
-    expect(source).toContain("LCP (Rýchlosť)");
+  it("does not render hard-coded score, traffic or Core Web Vitals numbers", () => {
+    for (const fake of [
+      "Zdravie webu & SEO Skóre",
+      "showOutput ? 74 : 0",
+      "~850 návštev",
+      "~510 € / mes.",
+      "LCP (Rýchlosť)",
+      "Semrush Live Matrix",
+    ]) {
+      expect(source).not.toContain(fake);
+    }
   });
 
   it("provides 1-click CTA to SEO Raketa", () => {
