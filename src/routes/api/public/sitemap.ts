@@ -2,13 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 
 const BASE_URL = "https://seo.vorkei.com";
 
+// Indexable public routes only. Login-only app routes (/audit /plan /brief /raketa /decay)
+// are intentionally excluded. Keep in sync with public/sitemap.xml.
 const PUBLIC_ROUTES = [
   { path: "", changefreq: "weekly", priority: "1.0" },
-  { path: "/audit", changefreq: "weekly", priority: "0.9" },
-  { path: "/plan", changefreq: "monthly", priority: "0.8" },
-  { path: "/brief", changefreq: "monthly", priority: "0.8" },
-  { path: "/raketa", changefreq: "weekly", priority: "0.9" },
-  { path: "/decay", changefreq: "daily", priority: "0.9" },
   { path: "/login", changefreq: "monthly", priority: "0.5" },
 ];
 

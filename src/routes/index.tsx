@@ -6,6 +6,7 @@ import { LandingAiWriterDemo } from "@/components/landing/LandingAiWriterDemo";
 import { LandingPricing } from "@/components/landing/LandingPricing";
 import { LandingFaq } from "@/components/landing/LandingFaq";
 import { LandingFooter } from "@/components/landing/LandingFooter";
+import { buildLandingJsonLd, serializeJsonLd } from "@/lib/landing-jsonld";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -28,7 +29,16 @@ export const Route = createFileRoute("/")({
       { property: "og:image:height", content: "630" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Seo4web - Autentická SEO analýza & AI Writer" },
+      {
+        name: "twitter:description",
+        content:
+          "Okamžitá analýza technického SEO s live crawler indikátorom a generátorom obsahu pre Google.",
+      },
     ],
+    scripts: buildLandingJsonLd().map((node) => ({
+      type: "application/ld+json",
+      children: serializeJsonLd(node),
+    })),
   }),
   component: LandingPage,
 });
