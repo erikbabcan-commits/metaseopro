@@ -348,7 +348,7 @@ export function CmsDeployDialog({
                 <label
                   className={`flex cursor-pointer items-center justify-center gap-2 rounded-md border p-2 text-xs font-medium transition-all ${
                     status === "publish"
-                      ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      ? "border-primary-container bg-primary-container/10 text-primary-container font-semibold"
                       : "border-border hover:bg-muted"
                   }`}
                 >
@@ -372,8 +372,8 @@ export function CmsDeployDialog({
 
             {/* Last Result Box */}
             {lastResult && (
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 space-y-2 text-xs">
-                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold">
+              <div className="rounded-lg border border-google-green/30 bg-secondary-container/20 p-3 space-y-2 text-xs">
+                <div className="flex items-center gap-2 text-google-green font-semibold">
                   <CheckCircle2 className="size-4 shrink-0" />
                   <span>Úspešne nasadené do WordPressu!</span>
                 </div>

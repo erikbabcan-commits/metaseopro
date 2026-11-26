@@ -348,7 +348,7 @@ export function CmsConnectionsSection() {
               <div
                 className={`rounded-md p-3 text-xs flex items-center gap-2 border ${
                   testResult.ok
-                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                    ? "bg-secondary-container text-google-green border-google-green/30 font-medium"
                     : "bg-destructive/10 border-destructive/30 text-destructive"
                 }`}
               >
@@ -481,7 +481,7 @@ export function CmsConnectionsSection() {
                 </div>
                 <div className="flex justify-between">
                   <span>Autentifikácia:</span>
-                  <span className="font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <span className="font-medium text-google-green flex items-center gap-1">
                     <CheckCircle2 className="size-3" /> Aktívna
                   </span>
                 </div>

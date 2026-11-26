@@ -185,21 +185,21 @@ export function TactileFloatingNav() {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-200"
           onClick={() => setCreateDrawerOpen(false)}
         >
           <div
-            className="w-full max-w-sm rounded-3xl bg-[#171717] border border-white/10 p-5 shadow-2xl relative mb-20 text-white animate-in slide-in-from-bottom-6 duration-300 ring-1 ring-white/5"
+            className="w-full max-w-sm rounded-3xl bg-surface-pure border border-border-subtle p-5 shadow-2xl relative mb-20 text-text-primary animate-in slide-in-from-bottom-6 duration-300 ring-1 ring-black/5"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+            <div className="flex items-center justify-between pb-3 border-b border-border-subtle mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-primary-container">
                 ⚡ Nový AI Obsah & Taktika
               </span>
               <button
                 type="button"
                 onClick={() => setCreateDrawerOpen(false)}
-                className="text-zinc-400 hover:text-white p-1 rounded-full hover:bg-white/5"
+                className="text-text-secondary hover:text-text-primary p-1 rounded-full hover:bg-surface-container"
               >
                 <X className="size-4" />
               </button>
@@ -209,14 +209,16 @@ export function TactileFloatingNav() {
               <Link
                 to="/"
                 onClick={() => setCreateDrawerOpen(false)}
-                className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-emerald-500/30 transition-all text-left group"
+                className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container border border-border-subtle hover:border-primary-container/30 transition-all text-left group"
               >
-                <div className="size-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20 group-hover:bg-emerald-500 group-hover:text-black transition-colors">
+                <div className="size-9 rounded-lg bg-primary-container/10 text-primary-container flex items-center justify-center shrink-0 border border-primary-container/20 group-hover:bg-primary-container group-hover:text-white transition-colors">
                   <PenTool className="size-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-white">Blog Writer & SERP Lab</div>
-                  <div className="text-[11px] text-zinc-400">
+                  <div className="text-xs font-semibold text-text-primary">
+                    Blog Writer & SERP Lab
+                  </div>
+                  <div className="text-[11px] text-text-secondary">
                     Kompletný SEO článok s live konkurentmi
                   </div>
                 </div>
@@ -225,14 +227,16 @@ export function TactileFloatingNav() {
               <Link
                 to="/brief"
                 onClick={() => setCreateDrawerOpen(false)}
-                className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-emerald-500/30 transition-all text-left group"
+                className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container border border-border-subtle hover:border-primary-container/30 transition-all text-left group"
               >
-                <div className="size-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20 group-hover:bg-emerald-500 group-hover:text-black transition-colors">
+                <div className="size-9 rounded-lg bg-primary-container/10 text-primary-container flex items-center justify-center shrink-0 border border-primary-container/20 group-hover:bg-primary-container group-hover:text-white transition-colors">
                   <FileCheck className="size-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-white">SEO Brief pre copywritera</div>
-                  <div className="text-[11px] text-zinc-400">
+                  <div className="text-xs font-semibold text-text-primary">
+                    SEO Brief pre copywritera
+                  </div>
+                  <div className="text-[11px] text-text-secondary">
                     Štruktúra, LSI kľúčové slová a E-E-A-T
                   </div>
                 </div>
@@ -241,14 +245,16 @@ export function TactileFloatingNav() {
               <Link
                 to="/plan"
                 onClick={() => setCreateDrawerOpen(false)}
-                className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-emerald-500/30 transition-all text-left group"
+                className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container border border-border-subtle hover:border-primary-container/30 transition-all text-left group"
               >
-                <div className="size-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20 group-hover:bg-emerald-500 group-hover:text-black transition-colors">
+                <div className="size-9 rounded-lg bg-primary-container/10 text-primary-container flex items-center justify-center shrink-0 border border-primary-container/20 group-hover:bg-primary-container group-hover:text-white transition-colors">
                   <Calendar className="size-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-white">30-Dňový Content Plan</div>
-                  <div className="text-[11px] text-zinc-400">
+                  <div className="text-xs font-semibold text-text-primary">
+                    30-Dňový Content Plan
+                  </div>
+                  <div className="text-[11px] text-text-secondary">
                     Publikačný kalendár a tematické klastre
                   </div>
                 </div>
@@ -265,21 +271,21 @@ export function TactileFloatingNav() {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-200"
           onClick={() => setToolsDrawerOpen(false)}
         >
           <div
-            className="w-full max-w-sm rounded-3xl bg-[#171717] border border-white/10 p-5 shadow-2xl relative mb-20 text-white animate-in slide-in-from-bottom-6 duration-300 ring-1 ring-white/5"
+            className="w-full max-w-sm rounded-3xl bg-surface-pure border border-border-subtle p-5 shadow-2xl relative mb-20 text-text-primary animate-in slide-in-from-bottom-6 duration-300 ring-1 ring-black/5"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+            <div className="flex items-center justify-between pb-3 border-b border-border-subtle mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-primary-container">
                 🛠️ SEO4WEB Všetky Nástroje
               </span>
               <button
                 type="button"
                 onClick={() => setToolsDrawerOpen(false)}
-                className="text-zinc-400 hover:text-white p-1 rounded-full hover:bg-white/5"
+                className="text-text-secondary hover:text-text-primary p-1 rounded-full hover:bg-surface-container"
               >
                 <X className="size-4" />
               </button>
@@ -289,28 +295,30 @@ export function TactileFloatingNav() {
               <Link
                 to="/audit"
                 onClick={() => setToolsDrawerOpen(false)}
-                className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-emerald-500/30 transition-all text-left group"
+                className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container border border-border-subtle hover:border-primary-container/30 transition-all text-left group"
               >
-                <div className="size-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20 group-hover:bg-emerald-500 group-hover:text-black transition-colors">
+                <div className="size-9 rounded-lg bg-primary-container/10 text-primary-container flex items-center justify-center shrink-0 border border-primary-container/20 group-hover:bg-primary-container group-hover:text-white transition-colors">
                   <Search className="size-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-white">Hĺbkový SEO Audit</div>
-                  <div className="text-[11px] text-zinc-400">Semrush keyword gap & konkurencia</div>
+                  <div className="text-xs font-semibold text-text-primary">Hĺbkový SEO Audit</div>
+                  <div className="text-[11px] text-text-secondary">
+                    Semrush keyword gap & konkurencia
+                  </div>
                 </div>
               </Link>
 
               <Link
                 to="/history"
                 onClick={() => setToolsDrawerOpen(false)}
-                className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-emerald-500/30 transition-all text-left group"
+                className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container border border-border-subtle hover:border-primary-container/30 transition-all text-left group"
               >
-                <div className="size-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20 group-hover:bg-emerald-500 group-hover:text-black transition-colors">
+                <div className="size-9 rounded-lg bg-primary-container/10 text-primary-container flex items-center justify-center shrink-0 border border-primary-container/20 group-hover:bg-primary-container group-hover:text-white transition-colors">
                   <History className="size-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-white">História a Archív</div>
-                  <div className="text-[11px] text-zinc-400">
+                  <div className="text-xs font-semibold text-text-primary">História a Archív</div>
+                  <div className="text-[11px] text-text-secondary">
                     Všetky vygenerované články a analýzy
                   </div>
                 </div>
@@ -319,14 +327,16 @@ export function TactileFloatingNav() {
               <Link
                 to="/serplab"
                 onClick={() => setToolsDrawerOpen(false)}
-                className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-emerald-500/30 transition-all text-left group"
+                className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container border border-border-subtle hover:border-primary-container/30 transition-all text-left group"
               >
-                <div className="size-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20 group-hover:bg-emerald-500 group-hover:text-black transition-colors">
+                <div className="size-9 rounded-lg bg-primary-container/10 text-primary-container flex items-center justify-center shrink-0 border border-primary-container/20 group-hover:bg-primary-container group-hover:text-white transition-colors">
                   <SearchCode className="size-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-white">SerpLab Sandbox & SERP</div>
-                  <div className="text-[11px] text-zinc-400">
+                  <div className="text-xs font-semibold text-text-primary">
+                    SerpLab Sandbox & SERP
+                  </div>
+                  <div className="text-[11px] text-text-secondary">
                     Google simulátor, rich snippety a CTR
                   </div>
                 </div>
@@ -335,14 +345,14 @@ export function TactileFloatingNav() {
               <Link
                 to="/settings/agency"
                 onClick={() => setToolsDrawerOpen(false)}
-                className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-emerald-500/30 transition-all text-left group"
+                className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container border border-border-subtle hover:border-primary-container/30 transition-all text-left group"
               >
-                <div className="size-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20 group-hover:bg-emerald-500 group-hover:text-black transition-colors">
+                <div className="size-9 rounded-lg bg-primary-container/10 text-primary-container flex items-center justify-center shrink-0 border border-primary-container/20 group-hover:bg-primary-container group-hover:text-white transition-colors">
                   <Building2 className="size-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-white">Whitelabel Agentúra</div>
-                  <div className="text-[11px] text-zinc-400">
+                  <div className="text-xs font-semibold text-text-primary">Whitelabel Agentúra</div>
+                  <div className="text-[11px] text-text-secondary">
                     Klientske PDF reporty a vlastné logo
                   </div>
                 </div>
