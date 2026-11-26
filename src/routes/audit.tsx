@@ -37,13 +37,13 @@ export const Route = createFileRoute("/audit")({
       {
         name: "description",
         content:
-          "Zadaj 1 až 5 domén. SEO4WEB SEO Audit zanalyzuje konkurenciu cez reálne Semrush dáta a navrhne keyword príležitosti.",
+          "Zadaj 1 až 5 domén. SEO4WEB SEO Audit stiahne a porovná ich úvodné stránky (title, meta, nadpisy, obsah) a navrhne konkrétne on-page kroky.",
       },
       { property: "og:title", content: "SEO Audit — SEO4WEB" },
       {
         property: "og:description",
         content:
-          "Zadaj 1 až 5 domén. SEO4WEB SEO Audit zanalyzuje konkurenciu cez reálne Semrush dáta a navrhne keyword príležitosti.",
+          "Zadaj 1 až 5 domén. SEO4WEB SEO Audit stiahne a porovná ich úvodné stránky (title, meta, nadpisy, obsah) a navrhne konkrétne on-page kroky.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -318,7 +318,7 @@ function AuditPage() {
 
           <div className="bg-surface-pure rounded-xl p-3.5 border border-border-subtle shadow-xs flex items-center gap-3">
             <span className="font-label-md text-label-md text-text-secondary font-medium shrink-0">
-              Región Semrush:
+              Cieľový trh:
             </span>
             <select
               value={database}
