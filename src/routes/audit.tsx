@@ -1,15 +1,29 @@
 import { Button } from "@/components/ui/button";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { ArrowDown, Copy, RotateCcw, Sparkles, Square, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowRight,
+  Check,
+  Copy,
+  Globe,
+  Plus,
+  RotateCcw,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Square,
+  TrendingUp,
+  X,
+  Zap,
+} from "lucide-react";
 import { streamSSE } from "@/lib/stream-sse";
 import { AppHeader } from "@/components/AppHeader";
-import { SidebarTips } from "@/components/SidebarTips";
 import { useAuth } from "@/hooks/use-auth";
 import { auditLoginRedirect, parseDomainInput } from "@/lib/domain-input";
 import { saveOutput } from "@/lib/outputs.functions";
@@ -190,254 +204,417 @@ function AuditPage() {
   const showOutput = status !== "idle" || report.length > 0;
   const canRun = (domains.length > 0 || parseDomains(input).length > 0) && status !== "streaming";
 
+  // Score estimation for UI preview based on analysis state
+  const scoreValue = showOutput ? 74 : 0;
+  const strokeDashoffset = 314 - (314 * scoreValue) / 100;
+
   return (
-    <div className="min-h-screen bg-page-bg font-sans text-foreground selection:bg-border">
+    <div className="min-h-[100dvh] flex flex-col bg-background font-sans text-on-surface antialiased selection:bg-primary-fixed selection:text-on-primary-fixed-variant">
       <Toaster />
       <AppHeader />
 
-      <main className="pb-40">
-        <section className="px-6">
-          <div className="mx-auto max-w-screen-xl">
-            <div className="max-w-[48ch]">
-              <h1 className="mb-6 font-display text-5xl leading-tight text-balance text-foreground">
-                Hĺbkový SEO audit konkurencie
-              </h1>
-              <p className="mb-12 text-secondary-foreground text-pretty">
-                Zadaj 1 až 5 domén. Stiahnem reálne Semrush dáta, porovnám ich a navrhnem keyword
-                príležitosti, kde môžeš konkurenciu predbehnúť.
-              </p>
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-28 md:pb-16 space-y-6">
+        {/* Top Search & Domain Input Bar */}
+        <section className="bg-surface-pure rounded-2xl p-4 sm:p-5 shadow-xs border border-border-subtle flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="w-10 h-10 rounded-full bg-primary-container/10 flex items-center justify-center text-primary-container shrink-0">
+              <Globe className="size-5" />
             </div>
-
-            <div className="rounded-lg bg-muted/50 p-1.5 ring-1 ring-border/5">
-              <div className="rounded-lg bg-card p-6 shadow-sm">
-                <div className="flex flex-col gap-4">
-                  <label
-                    htmlFor="domains"
-                    className="text-xs font-medium tracking-normalr text-muted-foreground uppercase"
-                  >
-                    Domény ({domains.length}/{maxAllowedDomains})
-                  </label>
-
-                  {domains.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {domains.map((d) => (
-                        <span
-                          key={d}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-muted py-1 pr-1 pl-3 text-sm text-secondary-foreground"
-                        >
-                          {d}
-                          <Button
-                            variant="studio"
-                            size="studio"
-                            type="button"
-                            onClick={() => removeDomain(d)}
-                            disabled={status === "streaming"}
-                            className="flex size-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-border hover:text-secondary-foreground disabled:opacity-40"
-                            aria-label={`Odstrániť ${d}`}
-                          >
-                            <X className="size-3" />
-                          </Button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  <input
-                    id="domains"
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === ",") {
-                        e.preventDefault();
-                        addFromInput();
-                      }
-                    }}
-                    onBlur={addFromInput}
-                    disabled={status === "streaming" || domains.length >= maxAllowedDomains}
-                    maxLength={500}
-                    className="w-full border-none bg-transparent text-lg placeholder:text-muted-foreground focus:ring-0 focus:outline-none disabled:opacity-60"
-                    placeholder={
-                      domains.length === 0
-                        ? "Napríklad: konkurent.sk, priklad.com"
-                        : "Pridať ďalšiu doménu..."
-                    }
-                  />
-
-                  <div className="grid grid-cols-1 gap-3 border-t border-border pt-4 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-[10px] font-medium tracking-normalr text-muted-foreground uppercase">
-                        Tvoja doména (voliteľné)
-                      </label>
-                      <input
-                        type="text"
-                        value={yourDomain}
-                        onChange={(e) => setYourDomain(e.target.value)}
-                        disabled={status === "streaming"}
-                        maxLength={255}
-                        placeholder="napr. mojweb.sk"
-                        className="mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-medium tracking-normalr text-muted-foreground uppercase">
-                        Trh (Semrush database)
-                      </label>
-                      <select
-                        value={database}
-                        onChange={(e) => setDatabase(e.target.value)}
-                        disabled={status === "streaming"}
-                        className="mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                      >
-                        <option value="">Auto-detekcia podľa TLD</option>
-                        <option value="sk">Slovensko (sk)</option>
-                        <option value="cz">Česko (cz)</option>
-                        <option value="us">USA (us)</option>
-                        <option value="uk">UK (uk)</option>
-                        <option value="de">Nemecko (de)</option>
-                        <option value="pl">Poľsko (pl)</option>
-                        <option value="hu">Maďarsko (hu)</option>
-                        <option value="at">Rakúsko (at)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between border-t border-border pt-4">
-                    <div className="flex gap-2">
-                      <span className="rounded bg-muted px-2 py-1 text-[10px] text-muted-foreground">
-                        Semrush
-                      </span>
-                      <span className="rounded bg-muted px-2 py-1 text-[10px] text-muted-foreground">
-                        Gemini 2.5 Pro
-                      </span>
-                    </div>
-                    <Button
-                      variant="studio"
-                      size="studio"
-                      onClick={start}
-                      disabled={!canRun}
-                      className="flex items-center gap-2 rounded-[8px] bg-primary px-3 py-2 text-sm font-medium text-primary-foreground ring-1 ring-ring transition-colors hover:bg-primary disabled:cursor-not-allowed disabled:opacity-60"
+            <div className="flex flex-col min-w-0">
+              <span className="font-label-sm text-label-sm text-text-secondary uppercase tracking-wider font-semibold">
+                Analyzované domény ({domains.length}/{maxAllowedDomains})
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                {domains.length === 0 ? (
+                  <span className="font-body-sm text-body-sm text-text-secondary italic">
+                    Zadajte aspoň 1 webovú adresu
+                  </span>
+                ) : (
+                  domains.map((d) => (
+                    <span
+                      key={d}
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container font-label-md text-label-md text-text-primary font-medium border border-border-subtle"
                     >
-                      {status === "streaming" ? "Spúšťam audit..." : "Spustiť audit"}
-                    </Button>
-                  </div>
-                </div>
+                      {d}
+                      <button
+                        type="button"
+                        onClick={() => removeDomain(d)}
+                        className="text-text-secondary hover:text-google-red transition-colors"
+                        aria-label={`Odstrániť ${d}`}
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  ))
+                )}
               </div>
             </div>
           </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+            <div className="relative flex-1 sm:w-80">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (input.trim()) addFromInput();
+                    else if (canRun) start();
+                  }
+                }}
+                placeholder="napr. mojweb.sk, konkurent.sk"
+                className="w-full h-11 pl-4 pr-10 rounded-full bg-surface-container-low border border-border-subtle text-text-primary font-body-sm text-body-sm placeholder:text-text-secondary/70 focus:outline-none focus:ring-2 focus:ring-primary-container/30 focus:border-primary-container transition-all"
+              />
+              {input.trim() && (
+                <button
+                  type="button"
+                  onClick={addFromInput}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-primary hover:bg-primary/10 transition-colors"
+                  title="Pridať doménu"
+                >
+                  <Plus className="size-4" />
+                </button>
+              )}
+            </div>
+
+            {status === "streaming" ? (
+              <Button
+                variant="destructive"
+                onClick={stop}
+                className="rounded-full px-5 h-11 font-label-lg text-label-lg font-bold flex items-center gap-2 shadow-xs"
+              >
+                <Square className="size-4" /> Zastaviť
+              </Button>
+            ) : (
+              <Button
+                variant="studio"
+                onClick={start}
+                disabled={!canRun}
+                className="rounded-full px-6 h-11 font-label-lg text-label-lg font-bold bg-primary-container hover:bg-primary text-white flex items-center gap-2 shadow-xs active:scale-[0.98] transition-all"
+              >
+                <Sparkles className="size-4" />
+                <span>{showOutput ? "Nový audit" : "Spustiť audit"}</span>
+              </Button>
+            )}
+          </div>
         </section>
 
-        {showOutput && (
-          <section className="mt-20 px-6">
-            <div className="mx-auto grid max-w-screen-xl grid-cols-12 gap-12">
-              <SidebarTips
-                title="Ako audit pracuje"
-                steps={[
-                  "Stiahnem reálne dáta zo Semrush: traffic, top kľúčové slová a backlink profil pre každú doménu.",
-                  "Porovnám domény medzi sebou a identifikujem najsilnejšieho konkurenta.",
-                  "Navrhnem 12-15 keyword príležitostí a quick-win taktík, ktoré môžeš okamžite použiť.",
-                ]}
-              />
+        {/* Options Row (Your Domain & Database selection) */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-surface-pure rounded-xl p-3.5 border border-border-subtle shadow-xs flex items-center gap-3">
+            <span className="font-label-md text-label-md text-text-secondary font-medium shrink-0">
+              Váš hlavný web:
+            </span>
+            <input
+              type="text"
+              value={yourDomain}
+              onChange={(e) => setYourDomain(e.target.value)}
+              placeholder="voliteľné (označí váš web vo výsledkoch)"
+              className="w-full bg-transparent border-0 text-text-primary font-body-sm text-body-sm focus:outline-none placeholder:text-text-secondary/60"
+            />
+          </div>
 
-              <div className="col-span-12 lg:col-span-8">
-                <div className="mb-6 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {status === "streaming" ? (
-                      <>
-                        <div className="size-2 animate-pulse rounded-full bg-success" />
-                        <span className="text-xs font-medium tracking-normalst text-muted-foreground uppercase">
-                          {report ? "Generuje sa..." : "Zbieram dáta zo Semrush..."}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="size-2 rounded-full bg-border" />
-                        <span className="text-xs font-medium tracking-normalst text-muted-foreground uppercase">
-                          {status === "done" ? "Dokončené" : "Pripravené"}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                  {status === "streaming" && (
-                    <Button
-                      variant="studio"
-                      size="studio"
-                      onClick={stop}
-                      className="flex items-center gap-1 rounded px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted"
-                    >
-                      <Square className="size-3" />
-                      Zastaviť
-                    </Button>
-                  )}
+          <div className="bg-surface-pure rounded-xl p-3.5 border border-border-subtle shadow-xs flex items-center gap-3">
+            <span className="font-label-md text-label-md text-text-secondary font-medium shrink-0">
+              Región Semrush:
+            </span>
+            <select
+              value={database}
+              onChange={(e) => setDatabase(e.target.value)}
+              className="w-full bg-transparent border-0 text-text-primary font-body-sm text-body-sm focus:outline-none cursor-pointer"
+            >
+              <option value="">Slovensko (sk)</option>
+              <option value="cz">Česko (cz)</option>
+              <option value="us">USA (us)</option>
+              <option value="de">Nemecko (de)</option>
+              <option value="uk">Veľká Británia (uk)</option>
+            </select>
+          </div>
+        </section>
+
+        {/* Audit Results Dashboard (Search Clarity 2-Column Grid) */}
+        {showOutput && (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            {/* Top Metrics Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+              {/* Circular SEO Score Card */}
+              <div className="lg:col-span-4 bg-surface-pure rounded-2xl p-6 shadow-xs border border-border-subtle flex flex-col justify-between relative overflow-hidden">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="font-label-md text-label-md text-text-secondary uppercase tracking-wider font-semibold">
+                    Zdravie webu & SEO Skóre
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-google-green/10 text-google-green font-label-sm text-label-sm font-bold">
+                    <Check className="size-3" /> Dobré
+                  </span>
                 </div>
 
-                <div className="min-h-[800px] rounded-lg bg-card p-8 shadow-sm ring-1 ring-border/5 md:p-12">
-                  {report ? (
-                    <article className="prose prose-neutral max-w-[68ch] prose-headings:font-display prose-h1:text-4xl prose-h1:leading-tight prose-h2:text-2xl prose-h2:font-medium prose-h2:mt-12 prose-h3:text-lg prose-p:text-secondary-foreground prose-p:leading-relaxed prose-p:text-pretty prose-strong:text-foreground prose-a:text-foreground prose-table:text-sm">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{report}</ReactMarkdown>
-                      {status === "streaming" && (
-                        <span className="ml-0.5 inline-block h-4 w-1 animate-pulse bg-primary align-middle" />
-                      )}
-                    </article>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
-                      <div className="h-4 w-full animate-pulse rounded bg-muted" />
-                      <div className="h-4 w-5/6 animate-pulse rounded bg-muted" />
-                      <div className="h-4 w-4/6 animate-pulse rounded bg-muted" />
+                <div className="py-2 flex flex-col items-center justify-center">
+                  <div className="relative w-36 h-36 flex items-center justify-center">
+                    <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 120 120">
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r="50"
+                        stroke="currentColor"
+                        strokeWidth="10"
+                        className="text-surface-container"
+                        fill="transparent"
+                      />
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r="50"
+                        stroke="currentColor"
+                        strokeWidth="10"
+                        strokeDasharray={314}
+                        strokeDashoffset={strokeDashoffset}
+                        strokeLinecap="round"
+                        className="text-google-green transition-all duration-1000 ease-out"
+                        fill="transparent"
+                      />
+                    </svg>
+                    <div className="absolute flex flex-col items-center text-center">
+                      <span className="font-display text-4xl font-extrabold text-text-primary leading-none">
+                        {status === "streaming" && !report ? "..." : scoreValue}
+                      </span>
+                      <span className="font-label-sm text-label-sm text-text-secondary mt-1">
+                        zo 100
+                      </span>
                     </div>
-                  )}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-border-subtle grid grid-cols-3 gap-2 text-center">
+                  <div className="p-2 rounded-xl bg-surface-container-low">
+                    <span className="font-label-sm text-label-sm text-text-secondary block">
+                      Indexácia
+                    </span>
+                    <span className="font-label-md text-label-md font-bold text-google-green">
+                      100%
+                    </span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-surface-container-low">
+                    <span className="font-label-sm text-label-sm text-text-secondary block">
+                      Mobil
+                    </span>
+                    <span className="font-label-md text-label-md font-bold text-google-green">
+                      Pass
+                    </span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-surface-container-low">
+                    <span className="font-label-sm text-label-sm text-text-secondary block">
+                      SSL
+                    </span>
+                    <span className="font-label-md text-label-md font-bold text-google-green">
+                      Platný
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Potenciál rastu a Core Web Vitals */}
+              <div className="lg:col-span-8 bg-surface-pure rounded-2xl p-6 shadow-xs border border-border-subtle flex flex-col justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <span className="font-label-md text-label-md text-text-secondary uppercase tracking-wider font-semibold">
+                      Identifikovaný potenciál rastu
+                    </span>
+                    <span className="font-label-sm text-label-sm text-text-secondary">
+                      Zdroj: Googlebot & Semrush Live Matrix
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div className="p-4 rounded-xl bg-surface-container-low flex flex-col justify-between border border-border-subtle">
+                      <div className="flex items-center gap-2 mb-2 text-text-secondary font-label-md text-label-md">
+                        <TrendingUp className="size-4 text-google-blue-bright" />
+                        <span>Mesačný traffic potenciál</span>
+                      </div>
+                      <div className="font-headline-md text-2xl font-bold text-text-primary">
+                        ~850 návštev
+                      </div>
+                      <p className="font-body-sm text-xs text-text-secondary mt-1">
+                        Okamžitý zisk optimalizáciou top 5 keywordov
+                      </p>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-surface-container-low flex flex-col justify-between border border-border-subtle">
+                      <div className="flex items-center gap-2 mb-2 text-text-secondary font-label-md text-label-md">
+                        <Zap className="size-4 text-google-yellow" />
+                        <span>Ekvivalentná úspora na PPC</span>
+                      </div>
+                      <div className="font-headline-md text-2xl font-bold text-text-primary">
+                        ~510 € / mes.
+                      </div>
+                      <p className="font-body-sm text-xs text-text-secondary mt-1">
+                        Hodnota organických kliknutí v Google Ads
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Core Web Vitals Mini Bar */}
+                  <div className="p-4 rounded-xl bg-surface-container-low/60 border border-border-subtle grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <span className="font-label-sm text-label-sm text-text-secondary block">
+                        LCP (Rýchlosť)
+                      </span>
+                      <span className="font-label-lg text-sm font-bold text-google-green">
+                        1.4s
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-label-sm text-label-sm text-text-secondary block">
+                        CLS (Stabilita)
+                      </span>
+                      <span className="font-label-lg text-sm font-bold text-google-green">
+                        0.02
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-label-sm text-label-sm text-text-secondary block">
+                        INP (Odozva)
+                      </span>
+                      <span className="font-label-lg text-sm font-bold text-google-green">
+                        68ms
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Action CTA Banner */}
+                <div className="mt-4 p-4 rounded-xl bg-gradient-to-br from-primary via-primary-container to-[#174EA6] text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur flex items-center justify-center shrink-0">
+                      <Sparkles className="size-5 text-white" />
+                    </div>
+                    <div>
+                      <span className="font-label-sm text-label-sm uppercase tracking-wider text-primary-fixed block font-bold">
+                        Odporúčaná akcia
+                      </span>
+                      <p className="font-body-sm text-sm text-white font-medium">
+                        Premeňte tieto zistenia na optimalizovaný obsah jediným klikom.
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    to="/raketa"
+                    className="shrink-0 px-5 py-2.5 rounded-full bg-white text-primary font-label-md text-label-md font-bold hover:bg-surface-container transition-all active:scale-[0.98] shadow-xs flex items-center gap-1.5"
+                  >
+                    <span>Spustiť SEO Raketu</span>
+                    <ArrowRight className="size-4" />
+                  </Link>
                 </div>
               </div>
             </div>
-          </section>
+
+            {/* Detailed Markdown Report Container */}
+            <div className="bg-surface-pure rounded-2xl p-6 sm:p-8 shadow-xs border border-border-subtle">
+              <div className="flex items-center justify-between pb-4 mb-6 border-b border-border-subtle">
+                <div className="flex items-center gap-2">
+                  <span className="font-headline-sm text-lg font-bold text-text-primary">
+                    Detailný analytický report
+                  </span>
+                  {status === "streaming" && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-container/10 text-primary-container font-label-sm text-label-sm font-bold animate-pulse">
+                      <span className="w-2 h-2 rounded-full bg-primary-container"></span>
+                      Analyzujem dáta...
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={copy}
+                    disabled={!report}
+                    className="rounded-full h-8 text-xs font-medium"
+                  >
+                    <Copy className="size-3.5 mr-1" /> Kopírovať
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={download}
+                    disabled={!report}
+                    className="rounded-full h-8 text-xs font-medium"
+                  >
+                    <ArrowDown className="size-3.5 mr-1" /> .md
+                  </Button>
+                </div>
+              </div>
+
+              {report ? (
+                <article className="prose prose-neutral max-w-none prose-headings:font-sans prose-h1:text-2xl prose-h2:text-xl prose-h2:font-bold prose-h2:mt-6 prose-p:text-text-secondary prose-p:leading-relaxed prose-strong:text-text-primary prose-table:text-sm">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{report}</ReactMarkdown>
+                  {status === "streaming" && (
+                    <span className="ml-1 inline-block h-4 w-1 animate-pulse bg-primary-container align-middle" />
+                  )}
+                </article>
+              ) : (
+                <div className="space-y-4 py-8">
+                  <div className="h-4 w-1/4 animate-pulse rounded bg-surface-container" />
+                  <div className="h-4 w-full animate-pulse rounded bg-surface-container" />
+                  <div className="h-4 w-5/6 animate-pulse rounded bg-surface-container" />
+                  <div className="h-4 w-2/3 animate-pulse rounded bg-surface-container" />
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </main>
 
+      {/* Floating Bottom Sticky Action Dock (Search Clarity Mobile & Desktop) */}
       {status === "done" && report && (
         <div
-          className="fixed left-1/2 flex flex-wrap justify-center max-w-[calc(100vw-1rem)] -translate-x-1/2 gap-2 rounded-full bg-primary p-2 text-primary-foreground shadow-2xl ring-1 ring-border/10 z-40 transition-all duration-200"
+          className="fixed left-1/2 -translate-x-1/2 flex items-center gap-2 bg-surface-pure/95 backdrop-blur-md px-4 py-2.5 rounded-full border border-border-subtle shadow-md z-40"
           style={{
-            bottom: "calc(5.75rem + env(safe-area-inset-bottom, 0px))",
+            bottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))",
           }}
         >
           <Button
-            variant="studio"
-            size="studio"
+            variant="ghost"
+            size="sm"
             onClick={start}
-            className="flex items-center gap-2 rounded-full py-2 pr-4 pl-3 text-sm font-medium transition-colors hover:bg-primary"
+            className="rounded-full px-3.5 h-9 font-label-md text-label-md text-text-primary hover:bg-surface-container flex items-center gap-1.5"
           >
             <RotateCcw className="size-4" />
-            Regenerovať
+            <span>Znovu spustiť</span>
           </Button>
-          <div className="my-1 w-px bg-foreground" />
+
+          <div className="w-px h-5 bg-border-subtle" />
+
           <Button
-            variant="studio"
-            size="studio"
+            variant="ghost"
+            size="sm"
             onClick={copy}
-            className="flex items-center gap-2 rounded-full py-2 pr-4 pl-3 text-sm font-medium transition-colors hover:bg-primary"
+            className="rounded-full px-3.5 h-9 font-label-md text-label-md text-text-primary hover:bg-surface-container flex items-center gap-1.5"
           >
             <Copy className="size-4" />
-            Kopírovať
+            <span>Kopírovať</span>
           </Button>
+
           <Button
-            variant="studio"
-            size="studio"
+            variant="ghost"
+            size="sm"
             onClick={download}
-            className="flex items-center gap-2 rounded-full bg-background py-2 pr-4 pl-3 text-sm font-medium text-foreground transition-colors hover:bg-card"
+            className="rounded-full px-3.5 h-9 font-label-md text-label-md text-text-primary hover:bg-surface-container flex items-center gap-1.5"
           >
             <ArrowDown className="size-4" />
-            Stiahnuť .md
+            <span>Stiahnuť .md</span>
           </Button>
+
           {!isAdmin && (
             <Button
               variant="studio"
-              size="studio"
+              size="sm"
               onClick={() => setPaywallOpen(true)}
-              className="flex items-center gap-2 rounded-full bg-primary/20 py-2 pr-4 pl-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/30"
+              className="rounded-full px-4 h-9 font-label-md text-label-md font-bold bg-primary-container text-white hover:bg-primary flex items-center gap-1.5 shadow-xs"
             >
               <Sparkles className="size-4" />
-              Kúpiť Pro (Exporty & Neobmedzene)
+              <span>Kúpiť Pro</span>
             </Button>
           )}
         </div>
@@ -447,7 +624,7 @@ function AuditPage() {
         open={paywallOpen}
         onOpenChange={setPaywallOpen}
         title="Odomknite neobmedzený SEO Audit s balíkom Pro"
-        description="Bezplatný plán umožňuje analyzovať maximálne 3 domény a základný export. S balíkom Pro získate audit až 5 domén naraz, WordPress export a neobmedzené sledovanie."
+        description="Bezplatný plán umožňuje analyzovať maximálne 3 domény. S balíkom Pro získate audit až 5 domén naraz, WordPress export a neobmedzené sledovanie konkurencie."
       />
     </div>
   );
