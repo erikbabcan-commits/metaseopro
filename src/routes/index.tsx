@@ -15,13 +15,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Okamžitá analýza technického SEO s live crawler indikátorom a generátorom obsahu pre Google. Autentické SEO nástroje pre e-shopy a weby.",
+          "On-page SEO audit domén, porovnanie s konkurenciou a generátor obsahu pre Google. SEO nástroje pre slovenské e-shopy a weby.",
       },
       { property: "og:title", content: "Seo4web - Autentická SEO analýza & AI Writer" },
       {
         property: "og:description",
         content:
-          "Okamžitá analýza technického SEO s live crawler indikátorom a generátorom obsahu pre Google.",
+          "On-page SEO audit domén, porovnanie s konkurenciou a generátor obsahu pre Google.",
       },
       { property: "og:type", content: "website" },
       { property: "og:image", content: "https://seo.vorkei.com/og-seo-vorkei.png" },
@@ -32,7 +32,7 @@ export const Route = createFileRoute("/")({
       {
         name: "twitter:description",
         content:
-          "Okamžitá analýza technického SEO s live crawler indikátorom a generátorom obsahu pre Google.",
+          "On-page SEO audit domén, porovnanie s konkurenciou a generátor obsahu pre Google.",
       },
     ],
     scripts: buildLandingJsonLd().map((node) => ({
