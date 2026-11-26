@@ -131,11 +131,10 @@ export function OpportunityRadar({
   };
 
   const stateColor: Record<string, string> = {
-    Critical: "bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 font-bold",
-    Opportunity:
-      "bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold",
-    Good: "bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold",
-    Protected: "bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400 font-bold",
+    Critical: "bg-rose-500/10 border border-rose-500/20 text-rose-600 font-bold",
+    Opportunity: "bg-amber-500/10 border border-amber-500/20 text-amber-600 font-bold",
+    Good: "bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 font-bold",
+    Protected: "bg-sky-500/10 border border-sky-500/20 text-sky-600 font-bold",
     "Needs data": "bg-muted border border-border text-muted-foreground font-medium",
   };
 
@@ -483,10 +482,10 @@ export function OpportunityRadar({
                       <td
                         className={
                           verdict.startsWith("IMPROVED")
-                            ? "text-emerald-600 dark:text-emerald-400 font-semibold"
+                            ? "text-google-green font-semibold"
                             : verdict.startsWith("DECLINED")
-                              ? "text-rose-600 dark:text-rose-400 font-semibold"
-                              : "text-muted-foreground"
+                              ? "text-google-red font-semibold"
+                              : "text-text-secondary"
                         }
                       >
                         {verdict}

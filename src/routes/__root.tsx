@@ -77,7 +77,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
+  head: ({ match }) => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
@@ -88,7 +88,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-title", content: "SEO4WEB" },
       { name: "format-detection", content: "telephone=no" },
       { name: "robots", content: "index, follow" },
-      { title: "SEO4WEB — All-in-One SEO Command Center pre slovenský a český trh" },
+      {
+        title: match._notFound
+          ? "Stránka nenájdená — SEO4WEB"
+          : "SEO4WEB — All-in-One SEO Command Center pre slovenský a český trh",
+      },
       {
         name: "description",
         content:
@@ -115,7 +119,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "twitter:description",
         content:
-          "Audit, brief, 30-day plan and SEO article. One workflow for agencies and freelancers. SK / EN / DE.",
+          "Automatizovaný SEO audit, Search Console integrácia, Content Decay Radar a 1-klikové nasadzovanie meta tagov do WordPressu.",
       },
     ],
     links: [

@@ -10,12 +10,12 @@ interface LaserBorderCardProps {
  * LaserBorderCard
  *
  * Titanium-dark tactile container wrapped in a continuous, slowly orbiting
- * 1px neon laser border beam (Smaragd Emerald Glow).
+ * 1px neon laser border beam (Google Blue / Search Clarity Glow).
  */
 export function LaserBorderCard({
   children,
   className = "",
-  glowColor = "#10b981",
+  glowColor = "#1a73e8",
 }: LaserBorderCardProps) {
   return (
     <div className={`relative rounded-3xl p-[1.5px] overflow-hidden group shadow-2xl ${className}`}>

@@ -112,10 +112,10 @@ export function TopBarLaserLoader() {
     >
       {/* Background track subtle glow */}
       <div
-        className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-300 transition-all duration-200 ease-out relative"
+        className="h-full bg-gradient-to-r from-blue-600 via-primary-container to-blue-400 transition-all duration-200 ease-out relative"
         style={{
           width: `${progress}%`,
-          boxShadow: "0 0 10px rgba(16, 185, 129, 0.7), 0 0 4px rgba(52, 211, 153, 0.9)",
+          boxShadow: "0 0 10px rgba(26, 115, 232, 0.7), 0 0 4px rgba(66, 133, 244, 0.9)",
         }}
       >
         {/* Leading Laser Head Flare */}
@@ -123,8 +123,8 @@ export function TopBarLaserLoader() {
           className="absolute right-0 top-1/2 -translate-y-1/2 w-8 h-3 -mr-2 pointer-events-none"
           style={{
             background:
-              "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(52,211,153,0.8) 40%, transparent 80%)",
-            filter: "drop-shadow(0 0 6px #10b981) drop-shadow(0 0 14px #34d399)",
+              "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(66,133,244,0.8) 40%, transparent 80%)",
+            filter: "drop-shadow(0 0 6px #1a73e8) drop-shadow(0 0 14px #4285f4)",
           }}
         />
       </div>

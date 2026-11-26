@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { parseLoginMode, parseLoginSearch, rememberLoginRedirect } from "./login-search";
+import {
+  loginDestination,
+  loginSearchForMode,
+  parseLoginMode,
+  parseLoginSearch,
+  rememberLoginRedirect,
+} from "./login-search";
 import { consumeAuthRedirect, peekAuthRedirect, saveAuthRedirect } from "./safe-auth-redirect";
 
 afterEach(() => {
@@ -134,5 +140,81 @@ describe("sticky redirect fix (46da7b7) — rememberLoginRedirect", () => {
   it("does not throw without storage", () => {
     stubBrowser(false);
     expect(() => rememberLoginRedirect("/brief")).not.toThrow();
+  });
+});
+
+describe("parseLoginSearch — ?next= alias", () => {
+  it("keeps a safe next path", () => {
+    expect(parseLoginSearch({ next: "/audit" })).toEqual({ next: "/audit" });
+  });
+
+  it("keeps next with a query string", () => {
+    expect(parseLoginSearch({ next: "/audit?domain=example.sk" })).toEqual({
+      next: "/audit?domain=example.sk",
+    });
+  });
+
+  it("sanitizes an unsafe next to /dashboard (open-redirect guard)", () => {
+    expect(parseLoginSearch({ next: "https://evil.example" })).toEqual({ next: "/dashboard" });
+    expect(parseLoginSearch({ next: "//evil.com" })).toEqual({ next: "/dashboard" });
+    expect(parseLoginSearch({ next: "audit" })).toEqual({ next: "/dashboard" });
+  });
+
+  it("returns no next key when ?next is absent or empty", () => {
+    expect("next" in parseLoginSearch({})).toBe(false);
+    expect("next" in parseLoginSearch({ next: "" })).toBe(false);
+    expect("next" in parseLoginSearch({ next: null })).toBe(false);
+  });
+
+  it("keeps next and redirect independently when both are safe", () => {
+    expect(parseLoginSearch({ next: "/audit", redirect: "/brief" })).toEqual({
+      next: "/audit",
+      redirect: "/brief",
+    });
+  });
+});
+
+describe("loginDestination", () => {
+  it("prefers next over redirect", () => {
+    expect(loginDestination({ next: "/audit", redirect: "/brief" })).toBe("/audit");
+  });
+
+  it("falls back to redirect when next is absent", () => {
+    expect(loginDestination({ redirect: "/brief" })).toBe("/brief");
+    expect(loginDestination({})).toBeUndefined();
+  });
+});
+
+describe("loginSearchForMode", () => {
+  it("preserves next when toggling mode", () => {
+    expect(loginSearchForMode({ next: "/audit" }, "signup")).toEqual({
+      next: "/audit",
+      mode: "signup",
+    });
+    expect(loginSearchForMode({ next: "/audit", mode: "signup" }, "signin")).toEqual({
+      next: "/audit",
+    });
+  });
+});
+
+describe("sticky redirect — rememberLoginRedirect with ?next=", () => {
+  it("an explicit ?next overrides a saved target", () => {
+    stubBrowser();
+    saveAuthRedirect("/brief");
+    rememberLoginRedirect(loginDestination(parseLoginSearch({ next: "/audit" })));
+    expect(consumeAuthRedirect()).toBe("/audit");
+  });
+
+  it("an unsafe ?next is stored as the safe default, never as given", () => {
+    stubBrowser();
+    rememberLoginRedirect(loginDestination(parseLoginSearch({ next: "https://evil.example" })));
+    expect(consumeAuthRedirect()).toBe("/dashboard");
+  });
+
+  it("an absent ?next keeps the saved target", () => {
+    stubBrowser();
+    saveAuthRedirect("/audit");
+    rememberLoginRedirect(loginDestination(parseLoginSearch({ mode: "signup" })));
+    expect(consumeAuthRedirect()).toBe("/audit");
   });
 });

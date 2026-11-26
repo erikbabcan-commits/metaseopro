@@ -8,7 +8,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/use-auth";
 import { translateAuthError } from "@/lib/auth-errors";
-import { parseLoginSearch, rememberLoginRedirect, type LoginMode } from "@/lib/login-search";
+import {
+  loginDestination,
+  loginSearchForMode,
+  parseLoginSearch,
+  rememberLoginRedirect,
+  type LoginMode,
+} from "@/lib/login-search";
 import { authCallbackUrl, consumeAuthRedirect, hasAuthErrorInUrl } from "@/lib/safe-auth-redirect";
 
 export const Route = createFileRoute("/login")({
@@ -32,7 +38,8 @@ const inputClassName =
 function LoginPage() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
-  const { redirect, mode: searchMode } = Route.useSearch();
+  const search = Route.useSearch();
+  const { next, redirect, mode: searchMode } = search;
   const [mode, setMode] = useState<LoginMode>(searchMode === "signup" ? "signup" : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,17 +55,17 @@ function LoginPage() {
       toast.error("Prihlásenie zlyhalo. Skús to znova.");
       navigate({
         to: "/login",
-        search: searchMode === "signup" ? { redirect, mode: "signup" } : { redirect },
+        search: loginSearchForMode(search, searchMode === "signup" ? "signup" : "signin"),
         replace: true,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // An explicit ?redirect= always wins; a landing-saved target is kept when none is given.
+  // An explicit ?next= or ?redirect= always wins; a landing-saved target is kept when none is given.
   useEffect(() => {
-    rememberLoginRedirect(redirect);
-  }, [redirect]);
+    rememberLoginRedirect(loginDestination({ next, redirect }));
+  }, [next, redirect]);
 
   useEffect(() => {
     if (!loading && user) {
@@ -96,7 +103,7 @@ function LoginPage() {
     try {
       // Persist the post-login target in sessionStorage (survives the OAuth broker
       // round-trip); the callback URL stays on the current app origin, clean of params.
-      rememberLoginRedirect(redirect);
+      rememberLoginRedirect(loginDestination(search));
 
       let lovableFailed = false;
       try {
@@ -135,7 +142,7 @@ function LoginPage() {
     setMode(next);
     navigate({
       to: "/login",
-      search: next === "signup" ? { redirect, mode: "signup" } : { redirect },
+      search: loginSearchForMode(search, next),
       replace: true,
     });
   };
