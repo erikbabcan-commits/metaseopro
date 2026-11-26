@@ -303,7 +303,7 @@ export function TactileFloatingNav() {
                 <div>
                   <div className="text-xs font-semibold text-text-primary">Hĺbkový SEO Audit</div>
                   <div className="text-[11px] text-text-secondary">
-                    Semrush keyword gap & konkurencia
+                    On-page audit & porovnanie konkurencie
                   </div>
                 </div>
               </Link>
