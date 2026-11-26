@@ -22,6 +22,7 @@ import {
   PRO_DIRECT_CHECKOUT_URL,
 } from "@/lib/slovak-billing";
 import { checkoutPlanLabel } from "@/lib/billing-ui";
+import { PRICE_LINE_LABEL, PRICE_SHORT_LABEL } from "@/lib/pricing-proposal";
 
 interface PaywallModalProps {
   open: boolean;
@@ -118,7 +119,7 @@ export function PaywallModal({
                 ? "B2B Fast-Track Audit Pass (99 € jednorazovo)"
                 : selectedPlan === "agency"
                   ? "SEO4WEB Agency (290 € / rok)"
-                  : "SEO4WEB Pro (29 € / mesiac)"}
+                  : `SEO4WEB Pro (${PRICE_LINE_LABEL})`}
             </span>
           </div>
           <DialogTitle className="text-xl font-bold tracking-tight">{title}</DialogTitle>
@@ -138,7 +139,7 @@ export function PaywallModal({
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            Pro <span className="text-[10px] opacity-75">(29 €)</span>
+            Pro <span className="text-[10px] opacity-75">({PRICE_SHORT_LABEL})</span>
           </button>
           <button
             type="button"
@@ -336,7 +337,7 @@ export function PaywallModal({
                     <span>
                       {isAgency
                         ? "Aktivovať Agency (290 € / rok)"
-                        : "Aktivovať Pro (29 € / mesiac)"}
+                        : `Aktivovať Pro (${PRICE_SHORT_LABEL})`}
                     </span>
                   </>
                 )}
@@ -349,7 +350,7 @@ export function PaywallModal({
                     rel="noopener noreferrer"
                     className="text-[11px] text-muted-foreground hover:text-primary transition-colors underline inline-flex items-center gap-1"
                   >
-                    <span>Alebo zaplatiť priamo cez Stripe odkaz (29 €)</span>
+                    <span>Alebo zaplatiť priamo cez Stripe odkaz</span>
                     <ExternalLink className="size-3" />
                   </a>
                 </div>
