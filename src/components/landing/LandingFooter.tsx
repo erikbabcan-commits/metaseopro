@@ -1,12 +1,6 @@
 import { Link } from "@tanstack/react-router";
 
 export function LandingFooter() {
-  const scrollToTop = () => {
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  };
-
   return (
     <>
       {/* Bottom CTA Banner */}
@@ -21,13 +15,13 @@ export function LandingFooter() {
               kartu.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
+              <Link
+                to="/login"
+                search={{ next: "/audit" }}
                 className="google-pill-btn px-8 py-3.5 rounded-full bg-surface-pure text-primary font-label-lg text-label-lg font-bold shadow-md hover:bg-surface-container transition-all cursor-pointer"
-                onClick={scrollToTop}
-                type="button"
               >
                 Začať bezplatný audit teraz
-              </button>
+              </Link>
               <a
                 className="google-pill-btn px-6 py-3.5 rounded-full border border-primary-fixed/50 text-white font-label-lg text-label-lg hover:bg-primary-container transition-colors"
                 href="#cennik"
