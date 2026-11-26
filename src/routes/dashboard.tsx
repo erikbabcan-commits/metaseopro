@@ -11,8 +11,6 @@ import {
   ChevronRight,
   Copy,
   FileText,
-  Gauge,
-  Link2,
   Loader2,
   Minus,
   MousePointerClick,
@@ -21,7 +19,6 @@ import {
   Radar,
   RefreshCw,
   Rocket,
-  Search,
   Sparkles,
   Trash2,
   TrendingUp,
@@ -33,6 +30,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { streamSSE } from "@/lib/stream-sse";
 import { startLaserProgress, stopLaserProgress } from "@/lib/laser-loader";
 import { handoffToWriter } from "@/lib/refresh-handoff";
+import { QuickUrlInspection } from "@/components/QuickUrlInspection";
 import { OpportunityRadar } from "@/components/OpportunityRadar";
 import { AppHeader } from "@/components/AppHeader";
 import { useAuth } from "@/hooks/use-auth";
@@ -167,7 +165,6 @@ function DashboardPage() {
   const [deployCurrentTitle, setDeployCurrentTitle] = useState("");
   const [deployMetaDesc, setDeployMetaDesc] = useState("");
   const [segmentedTab, setSegmentedTab] = useState<SegmentedTabKey>("dashboard");
-  const [quickUrl, setQuickUrl] = useState("");
 
   const handleOpenDeploy = (targetUrl: string, markdown?: string, currentTitle?: string) => {
     setDeployTargetUrl(targetUrl);
@@ -895,58 +892,8 @@ function DashboardPage() {
           </>
         )}
 
-        {/* 5. RÝCHLY AI ASISTENT & SKEN (Rýchla URL inšpekcia) */}
-        {(segmentedTab === "dashboard" || segmentedTab === "status") && (
-          <section className="p-4 rounded-xl bg-surface-pure border border-border-subtle shadow-[0_1px_3px_rgba(60,64,67,0.08)] flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-primary-fixed/60 flex items-center justify-center text-primary">
-                  <Search className="size-4" />
-                </div>
-                <h2 className="text-[16px] leading-[22px] font-semibold text-text-primary">
-                  Rýchla URL inšpekcia
-                </h2>
-              </div>
-              <div className="flex items-center gap-1 text-[11px] text-google-green font-medium">
-                <Gauge className="size-3.5" />
-                <span>CWV Live</span>
-              </div>
-            </div>
-            <p className="text-[13px] leading-[18px] text-text-secondary">
-              Okamžitá AI kontrola meta značiek, indexácie a Core Web Vitals metrík.
-            </p>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const target = quickUrl.trim() || site.replace("sc-domain:", "");
-                navigate({
-                  to: "/audit",
-                  search: target ? { url: target } : undefined,
-                });
-              }}
-              className="flex flex-col sm:flex-row gap-2"
-            >
-              <div className="relative flex items-center flex-1">
-                <Link2 className="size-4 absolute left-3.5 text-text-secondary pointer-events-none" />
-                <input
-                  type="text"
-                  value={quickUrl}
-                  onChange={(e) => setQuickUrl(e.target.value)}
-                  placeholder="napr. mojeshop.sk/novy-produkt"
-                  aria-label="URL podstránky na inšpekciu"
-                  className="w-full h-11 pl-10 pr-3 rounded-full bg-surface-container-low text-[13px] text-text-primary placeholder:text-text-secondary focus:outline-none focus:bg-surface-pure border border-transparent focus:border-primary shadow-xs"
-                />
-              </div>
-              <Button
-                type="submit"
-                className="h-11 px-5 rounded-full bg-primary-container text-on-primary-container text-[12px] font-semibold flex items-center justify-center gap-2 shadow-xs active:scale-[0.98] transition-all hover:bg-primary"
-              >
-                <Search className="size-4" />
-                <span>Analyzovať podstránku</span>
-              </Button>
-            </form>
-          </section>
-        )}
+        {/* Rýchla URL inšpekcia */}
+        {(segmentedTab === "dashboard" || segmentedTab === "status") && <QuickUrlInspection />}
 
         {/* 6. FAKTURÁCIA & PREDPLATNÉ */}
         {(segmentedTab === "dashboard" || segmentedTab === "projects") && (
