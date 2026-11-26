@@ -147,6 +147,7 @@ export function LandingHero({ onAnalyze }: LandingHeroProps) {
             <div className="relative flex-grow text-left">
               <input
                 ref={inputRef}
+                aria-label="Doména alebo URL na SEO audit"
                 autoComplete="off"
                 className="w-full bg-transparent border-0 p-0 text-text-primary font-body-md text-body-md focus:ring-0 focus:outline-none placeholder:text-outline-variant"
                 placeholder={placeholder}

@@ -27,7 +27,11 @@ function unlabeledControls(source: string): string[] {
 }
 
 describe("form controls have accessible names", () => {
-  it.each(["src/routes/serplab.tsx", "src/components/landing/LandingPricing.tsx"])("%s", (file) => {
+  it.each([
+    "src/routes/serplab.tsx",
+    "src/components/landing/LandingPricing.tsx",
+    "src/components/landing/LandingHero.tsx",
+  ])("%s", (file) => {
     const source = readFileSync(resolve(process.cwd(), file), "utf8");
     expect(unlabeledControls(source)).toEqual([]);
   });
