@@ -26,6 +26,7 @@ import { auditLoginRedirect, parseDomainInput } from "@/lib/domain-input";
 import { saveOutput } from "@/lib/outputs.functions";
 import { PaywallModal } from "@/components/PaywallModal";
 import { useViewerRole } from "@/hooks/use-viewer-role";
+import { PageSpeedCard } from "@/components/PageSpeedCard";
 
 export const Route = createFileRoute("/audit")({
   head: () => ({
@@ -409,6 +410,10 @@ function AuditPage() {
             </div>
           </div>
         )}
+
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-8">
+          <PageSpeedCard domain={yourDomain || domains[0]} />
+        </div>
       </main>
 
       {/* Floating Bottom Sticky Action Dock (Search Clarity Mobile & Desktop) */}
