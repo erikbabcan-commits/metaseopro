@@ -65,6 +65,33 @@ const AI_CTR_SUGGESTIONS = [
   { label: "+ Skladom ihneď", text: " [Skladom ihneď]" },
 ];
 
+const SERP_DEFAULTS = {
+  query: "bežecká obuv na asfalt asics gel nimbus",
+  title: "Pánska bežecká obuv ASICS Gel-Nimbus 26 | Mojeshop.sk",
+  description:
+    "Hľadáte prémiové tlmenie na tvrdý povrch? Objavte bežecké topánky ASICS Gel-Nimbus 26 skladom s doručením do 24h. Bezplatná výmena veľkosti a garancia originality.",
+  slug: "kategoria/bezecka-obuv-asics-gel-nimbus-26",
+  price: "179,90",
+  stock: "InStock" as const,
+  rating: "4.9",
+  reviews: "142",
+  brand: "ASICS",
+  ean: "8718833918201",
+};
+
+const DEFAULT_FAQ: FaqItem[] = [
+  {
+    id: "1",
+    q: "Sú Gel-Nimbus 26 vhodné na maratón?",
+    a: "Áno, vďaka pene FF BLAST™ PLUS ECO a gélovej technológii PureGEL® patria k najpohodlnejšej maratónskej obuvi s maximálnym tlmením nárazov na asfalte.",
+  },
+  {
+    id: "2",
+    q: "Ako sedí číslovanie topánok ASICS?",
+    a: "Odporúčame zvoliť o pol čísla (0.5 EU) väčšiu veľkosť ako bežnú vychádzkovú obuv, aby mal palec pri dlhom behu dostatočnú rezervu.",
+  },
+];
+
 function SerpLabPage() {
   const { isAdmin, plan } = useViewerRole();
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -96,36 +123,23 @@ function SerpLabPage() {
   };
 
   // SERP Input Fields
-  const [query, setQuery] = useState("bežecká obuv na asfalt asics gel nimbus");
+  const [query, setQuery] = useState(SERP_DEFAULTS.query);
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
-  const [title, setTitle] = useState("Pánska bežecká obuv ASICS Gel-Nimbus 26 | Mojeshop.sk");
-  const [description, setDescription] = useState(
-    "Hľadáte prémiové tlmenie na tvrdý povrch? Objavte bežecké topánky ASICS Gel-Nimbus 26 skladom s doručením do 24h. Bezplatná výmena veľkosti a garancia originality.",
-  );
-  const [slug, setSlug] = useState("kategoria/bezecka-obuv-asics-gel-nimbus-26");
+  const [title, setTitle] = useState(SERP_DEFAULTS.title);
+  const [description, setDescription] = useState(SERP_DEFAULTS.description);
+  const [slug, setSlug] = useState(SERP_DEFAULTS.slug);
 
   // Rich Snippet Details
-  const [price, setPrice] = useState("179,90");
-  const [stock, setStock] = useState<"InStock" | "OutOfStock" | "PreOrder">("InStock");
-  const [rating, setRating] = useState("4.9");
-  const [reviews, setReviews] = useState("142");
-  const [brand, setBrand] = useState("ASICS");
-  const [ean, setEan] = useState("8718833918201");
+  const [price, setPrice] = useState(SERP_DEFAULTS.price);
+  const [stock, setStock] = useState<"InStock" | "OutOfStock" | "PreOrder">(SERP_DEFAULTS.stock);
+  const [rating, setRating] = useState(SERP_DEFAULTS.rating);
+  const [reviews, setReviews] = useState(SERP_DEFAULTS.reviews);
+  const [brand, setBrand] = useState(SERP_DEFAULTS.brand);
+  const [ean, setEan] = useState(SERP_DEFAULTS.ean);
 
   // FAQ Schema
   const [includeFaq, setIncludeFaq] = useState(true);
-  const [faqList, setFaqList] = useState<FaqItem[]>([
-    {
-      id: "1",
-      q: "Sú Gel-Nimbus 26 vhodné na maratón?",
-      a: "Áno, vďaka pene FF BLAST™ PLUS ECO a gélovej technológii PureGEL® patria k najpohodlnejšej maratónskej obuvi s maximálnym tlmením nárazov na asfalte.",
-    },
-    {
-      id: "2",
-      q: "Ako sedí číslovanie topánok ASICS?",
-      a: "Odporúčame zvoliť o pol čísla (0.5 EU) väčšiu veľkosť ako bežnú vychádzkovú obuv, aby mal palec pri dlhom behu dostatočnú rezervu.",
-    },
-  ]);
+  const [faqList, setFaqList] = useState<FaqItem[]>(DEFAULT_FAQ);
 
   // Tab switch in Preview column (SERP preview vs JSON-LD code)
   const [previewTab, setPreviewTab] = useState<"serp" | "jsonld">("serp");
@@ -235,14 +249,19 @@ function SerpLabPage() {
   };
 
   const handleReset = () => {
-    setTitle("Pánska bežecká obuv ASICS Gel-Nimbus 26 | Mojeshop.sk");
-    setDescription(
-      "Hľadáte prémiové tlmenie na tvrdý povrch? Objavte bežecké topánky ASICS Gel-Nimbus 26 skladom s doručením do 24h. Bezplatná výmena veľkosti a garancia originality.",
-    );
-    setPrice("179,90");
-    setRating("4.9");
-    setReviews("142");
-    setStock("InStock");
+    setQuery(SERP_DEFAULTS.query);
+    setTitle(SERP_DEFAULTS.title);
+    setDescription(SERP_DEFAULTS.description);
+    setSlug(SERP_DEFAULTS.slug);
+    setPrice(SERP_DEFAULTS.price);
+    setStock(SERP_DEFAULTS.stock);
+    setRating(SERP_DEFAULTS.rating);
+    setReviews(SERP_DEFAULTS.reviews);
+    setBrand(SERP_DEFAULTS.brand);
+    setEan(SERP_DEFAULTS.ean);
+    setIncludeFaq(true);
+    setFaqList(DEFAULT_FAQ);
+    setLiveSerpResults([]);
     toast.success("Údaje boli resetované na predvolenú simuláciu");
   };
 
@@ -293,6 +312,7 @@ function SerpLabPage() {
               id="btn-refresh"
               variant="outline"
               size="sm"
+              disabled={liveSerpLoading}
               onClick={handleReset}
               title="Obnoviť predvolenú simuláciu"
               className="rounded-full h-9 px-3 text-xs text-text-secondary hover:text-text-primary border-border-default hover:bg-surface-container flex items-center gap-1"
