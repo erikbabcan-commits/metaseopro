@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import {
@@ -55,6 +55,13 @@ function PageSpeedReportPage() {
   const [loading, setLoading] = useState(false);
   const [liveReport, setLiveReport] = useState<PageSpeedReport | null>(null);
 
+  const [edited, setEdited] = useState(false);
+  const [measurementError, setMeasurementError] = useState("");
+  const pending = useRef(false);
+  const demo = !edited && !liveReport && !loading && !measurementError;
+  const reportName = liveReport?.url ?? "ukazkovy-report";
+  const canPrint = demo || Boolean(liveReport);
+
   const handleZoom = (delta: number) => {
     setZoom((prev) => Math.min(Math.max(prev + delta, 60), 160));
   };
@@ -63,7 +70,7 @@ function PageSpeedReportPage() {
     try {
       if (typeof window !== "undefined") {
         await navigator.clipboard.writeText(window.location.href);
-        toast.success("Odkaz na audit bol skopírovaný do schránky");
+        toast.success("Odkaz na nástroj PageSpeed bol skopírovaný do schránky");
       }
     } catch {
       toast.error("Nepodarilo sa skopírovať odkaz");
@@ -77,11 +84,16 @@ function PageSpeedReportPage() {
   };
 
   const handleLiveMeasure = async () => {
+    if (pending.current) return;
     const trimmed = domain.trim();
     if (!trimmed) {
       toast.error("Zadajte doménu na meranie");
       return;
     }
+    pending.current = true;
+    setEdited(true);
+    setLiveReport(null);
+    setMeasurementError("");
     setLoading(true);
     try {
       const result = await runPageSpeedFn({
@@ -90,17 +102,20 @@ function PageSpeedReportPage() {
       setLiveReport(result);
       toast.success(`Živé dáta načítané pre ${trimmed}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Meranie PageSpeed zlyhalo");
+      const message = err instanceof Error ? err.message : "Meranie PageSpeed zlyhalo";
+      setMeasurementError(message);
+      toast.error(message);
     } finally {
+      pending.current = false;
       setLoading(false);
     }
   };
 
-  // Metrics: fallback demo or live
-  const perfScore = liveReport?.scores.performance ?? 99;
-  const lcpValue = liveReport?.metrics.lcp.displayValue ?? "1.1 s";
-  const clsValue = liveReport?.metrics.cls.displayValue ?? "0.00";
-  const tbtValue = liveReport?.metrics.tbt.displayValue ?? "0 ms";
+  // Values used only by the two-page demonstration.
+  const perfScore = 99;
+  const lcpValue = "1.1 s";
+  const clsValue = "0.00";
+  const tbtValue = "0 ms";
 
   return (
     <div className="min-h-screen bg-surface flex flex-col font-sans text-on-surface">
@@ -118,15 +133,19 @@ function PageSpeedReportPage() {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-xs sm:text-sm text-text-primary truncate">
-                  Client_Audit_Report_{domain.replace(/[^a-zA-Z0-9]/g, "_")}.pdf
+                  Client_Audit_Report_{reportName.replace(/[^a-zA-Z0-9]/g, "_")}.pdf
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-surface-container text-text-secondary text-[11px] font-medium shrink-0">
-                  A4 Formát • 2 Strany
+                  {demo ? "A4 · 2 strany ukážky" : "A4"}
                 </span>
               </div>
               <p className="text-[11px] text-text-secondary flex items-center gap-1.5 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-google-green"></span>
-                Vygenerované: Dnes • Overené Seo4web Engine v12.1
+                {demo
+                  ? "Ukážkový report · ilustračné údaje"
+                  : liveReport
+                    ? "Výsledok merania PageSpeed Insights"
+                    : "Čaká na meranie"}
               </p>
             </div>
           </div>
@@ -155,7 +174,10 @@ function PageSpeedReportPage() {
               <Plus className="size-3.5" />
             </button>
             <span className="w-px h-4 bg-border-subtle mx-1"></span>
-            <div className="flex items-center gap-1 text-xs text-text-primary px-1">
+            <div
+              hidden={!demo}
+              className={demo ? "flex items-center gap-1 text-xs text-text-primary px-1" : "hidden"}
+            >
               <span>Strana</span>
               <button
                 type="button"
@@ -222,6 +244,7 @@ function PageSpeedReportPage() {
             <button
               type="button"
               onClick={handlePrint}
+              disabled={!canPrint}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-pure hover:bg-surface-container text-text-primary border border-border-subtle shadow-xs transition-all cursor-pointer"
             >
               <Printer className="size-3.5" />
@@ -232,6 +255,7 @@ function PageSpeedReportPage() {
             <button
               type="button"
               onClick={handlePrint}
+              disabled={!canPrint}
               className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary-container hover:bg-primary text-white shadow-xs hover:shadow-md transition-all active:scale-[0.98] cursor-pointer"
             >
               <Download className="size-3.5" />
@@ -253,7 +277,14 @@ function PageSpeedReportPage() {
               <input
                 type="text"
                 value={domain}
-                onChange={(e) => setDomain(e.target.value)}
+                disabled={loading}
+                aria-label="Doména alebo URL na meranie"
+                onChange={(e) => {
+                  setDomain(e.target.value);
+                  setEdited(true);
+                  setLiveReport(null);
+                  setMeasurementError("");
+                }}
                 placeholder="Zadajte doménu (napr. mojeshop.sk)..."
                 className="w-full pl-9 pr-3 py-1.5 rounded-full bg-surface-pure border border-border-subtle text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-container/30"
               />
@@ -286,8 +317,51 @@ function PageSpeedReportPage() {
           style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
           className="transition-transform duration-200 flex flex-col items-center gap-8 w-full print:transform-none"
         >
+          {liveReport && (
+            <article
+              className="w-full max-w-[860px] rounded-xl bg-surface-pure p-8"
+              aria-label="Výsledok merania"
+            >
+              <h1 className="font-bold text-xl">Výkonnosť stránky</h1>
+              <p>{liveReport.url}</p>
+              <p>
+                {liveReport.fetchedAt} · {liveReport.strategy}
+                {liveReport.cached ? " · z vyrovnávacej pamäte" : ""}
+              </p>
+              <dl className="my-6 space-y-2">
+                {Object.entries({
+                  "Lighthouse Performance": liveReport.scores.performance,
+                  LCP: liveReport.metrics.lcp.displayValue,
+                  CLS: liveReport.metrics.cls.displayValue,
+                  TBT: liveReport.metrics.tbt.displayValue,
+                  FCP: liveReport.metrics.fcp.displayValue,
+                  TTFB: liveReport.metrics.ttfb.displayValue,
+                }).map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="font-semibold">{label}</dt>
+                    <dd>{value ?? "Údaj nie je dostupný"}</dd>
+                  </div>
+                ))}
+              </dl>
+              {liveReport.opportunities.map((item) => (
+                <p key={item.id}>
+                  {item.title} {item.displayValue}
+                </p>
+              ))}
+              {!whitelabel && <p>SEO4WEB</p>}
+            </article>
+          )}
+          {!demo && !liveReport && (
+            <p role={measurementError ? "alert" : "status"}>
+              {measurementError ||
+                (loading ? "Prebieha meranie…" : "Spustite meranie zadanej stránky.")}
+            </p>
+          )}
+          {demo && (
+            <p className="font-semibold">Ukážkový report pre mojeshop.sk · ilustračné údaje</p>
+          )}
           {/* ================= PAGE 1: A4 Paper Sheet ================= */}
-          {(activePage === 1 || typeof window !== "undefined") && (
+          {demo && (activePage === 1 || typeof window !== "undefined") && (
             <div
               id="pagespeed-a4-page-1"
               className={`w-full max-w-[860px] bg-surface-pure rounded-2xl shadow-[0_4px_32px_rgba(0,0,0,0.08),0_1px_3px_rgba(0,0,0,0.04)] p-8 sm:p-12 relative overflow-hidden print:shadow-none print:p-8 print:max-w-none print:w-full print:rounded-none ${
@@ -329,7 +403,9 @@ function PageSpeedReportPage() {
                   <p className="text-[10px] uppercase tracking-wider text-text-secondary font-medium">
                     Klient &amp; Projekt
                   </p>
-                  <p className="text-sm font-bold text-text-primary">{domain} / vorkei.com</p>
+                  <p className="text-sm font-bold text-text-primary">
+                    mojeshop.sk · ukážkové údaje
+                  </p>
                   <div className="flex items-center justify-end gap-2 text-text-secondary text-xs mt-0.5">
                     <span>Dnes</span>
                     <span>•</span>
@@ -772,7 +848,7 @@ function PageSpeedReportPage() {
           )}
 
           {/* ================= PAGE 2: Secondary Page (A4) ================= */}
-          {(activePage === 2 || typeof window !== "undefined") && (
+          {demo && (activePage === 2 || typeof window !== "undefined") && (
             <div
               id="pagespeed-a4-page-2"
               className={`w-full max-w-[860px] bg-surface-pure rounded-2xl shadow-[0_4px_32px_rgba(0,0,0,0.08),0_1px_3px_rgba(0,0,0,0.04)] p-8 sm:p-12 relative overflow-hidden print:shadow-none print:p-8 print:max-w-none print:w-full print:rounded-none ${
@@ -840,30 +916,32 @@ function PageSpeedReportPage() {
           )}
 
           {/* Secondary Page Teaser (A4 Preview Stacking Effect on Desktop) */}
-          <div className="print:hidden w-full max-w-[830px] bg-surface-pure rounded-xl border border-border-subtle shadow-xs p-4 flex items-center justify-between opacity-90 hover:opacity-100 transition-opacity">
-            <div className="flex items-center gap-3">
-              <span className="w-7 h-7 rounded-full bg-surface-container text-text-primary font-bold text-xs flex items-center justify-center">
-                2
-              </span>
-              <div>
-                <p className="text-xs font-bold text-text-primary">
-                  Strana 2: Detailný rozbor zdrojového kódu a Waterfall analýza
-                </p>
-                <p className="text-[11px] text-text-secondary">
-                  Obsahuje zoznam 18 optimalizovaných multimédií a zhrnutie TTFB pre 8 svetových
-                  regiónov.
-                </p>
+          {demo && (
+            <div className="print:hidden w-full max-w-[830px] bg-surface-pure rounded-xl border border-border-subtle shadow-xs p-4 flex items-center justify-between opacity-90 hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-3">
+                <span className="w-7 h-7 rounded-full bg-surface-container text-text-primary font-bold text-xs flex items-center justify-center">
+                  2
+                </span>
+                <div>
+                  <p className="text-xs font-bold text-text-primary">
+                    Strana 2: Detailný rozbor zdrojového kódu a Waterfall analýza
+                  </p>
+                  <p className="text-[11px] text-text-secondary">
+                    Obsahuje zoznam 18 optimalizovaných multimédií a zhrnutie TTFB pre 8 svetových
+                    regiónov.
+                  </p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setActivePage(activePage === 1 ? 2 : 1)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface-container hover:bg-surface-container-high text-text-primary text-xs font-semibold transition-colors cursor-pointer"
+              >
+                <span>{activePage === 1 ? "Otvoriť stranu 2" : "Späť na stranu 1"}</span>
+                <ArrowRight className="size-3.5" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setActivePage(activePage === 1 ? 2 : 1)}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface-container hover:bg-surface-container-high text-text-primary text-xs font-semibold transition-colors cursor-pointer"
-            >
-              <span>{activePage === 1 ? "Otvoriť stranu 2" : "Späť na stranu 1"}</span>
-              <ArrowRight className="size-3.5" />
-            </button>
-          </div>
+          )}
         </div>
       </main>
 

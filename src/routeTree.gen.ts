@@ -19,6 +19,7 @@ import { Route as HistoryRouteImport } from './routes/history'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ObchodnePodmienkyRouteImport } from './routes/obchodne-podmienky'
 import { Route as OchranaOsobnychUdajovRouteImport } from './routes/ochrana-osobnych-udajov'
+import { Route as PagespeedRouteImport } from './routes/pagespeed'
 import { Route as PlanRouteImport } from './routes/plan'
 import { Route as RaketaRouteImport } from './routes/raketa'
 import { Route as SerplabRouteImport } from './routes/serplab'
@@ -85,6 +86,11 @@ const ObchodnePodmienkyRoute = ObchodnePodmienkyRouteImport.update({
 const OchranaOsobnychUdajovRoute = OchranaOsobnychUdajovRouteImport.update({
   id: '/ochrana-osobnych-udajov',
   path: '/ochrana-osobnych-udajov',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PagespeedRoute = PagespeedRouteImport.update({
+  id: '/pagespeed',
+  path: '/pagespeed',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlanRoute = PlanRouteImport.update({
@@ -185,6 +191,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/obchodne-podmienky': typeof ObchodnePodmienkyRoute
   '/ochrana-osobnych-udajov': typeof OchranaOsobnychUdajovRoute
+  '/pagespeed': typeof PagespeedRoute
   '/plan': typeof PlanRoute
   '/raketa': typeof RaketaRoute
   '/serplab': typeof SerplabRoute
@@ -214,6 +221,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/obchodne-podmienky': typeof ObchodnePodmienkyRoute
   '/ochrana-osobnych-udajov': typeof OchranaOsobnychUdajovRoute
+  '/pagespeed': typeof PagespeedRoute
   '/plan': typeof PlanRoute
   '/raketa': typeof RaketaRoute
   '/serplab': typeof SerplabRoute
@@ -244,6 +252,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/obchodne-podmienky': typeof ObchodnePodmienkyRoute
   '/ochrana-osobnych-udajov': typeof OchranaOsobnychUdajovRoute
+  '/pagespeed': typeof PagespeedRoute
   '/plan': typeof PlanRoute
   '/raketa': typeof RaketaRoute
   '/serplab': typeof SerplabRoute
@@ -275,6 +284,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/obchodne-podmienky'
     | '/ochrana-osobnych-udajov'
+    | '/pagespeed'
     | '/plan'
     | '/raketa'
     | '/serplab'
@@ -304,6 +314,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/obchodne-podmienky'
     | '/ochrana-osobnych-udajov'
+    | '/pagespeed'
     | '/plan'
     | '/raketa'
     | '/serplab'
@@ -333,6 +344,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/obchodne-podmienky'
     | '/ochrana-osobnych-udajov'
+    | '/pagespeed'
     | '/plan'
     | '/raketa'
     | '/serplab'
@@ -363,6 +375,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ObchodnePodmienkyRoute: typeof ObchodnePodmienkyRoute
   OchranaOsobnychUdajovRoute: typeof OchranaOsobnychUdajovRoute
+  PagespeedRoute: typeof PagespeedRoute
   PlanRoute: typeof PlanRoute
   RaketaRoute: typeof RaketaRoute
   SerplabRoute: typeof SerplabRoute
@@ -452,6 +465,13 @@ declare module '@tanstack/react-router' {
       path: '/ochrana-osobnych-udajov'
       fullPath: '/ochrana-osobnych-udajov'
       preLoaderRoute: typeof OchranaOsobnychUdajovRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pagespeed': {
+      id: '/pagespeed'
+      path: '/pagespeed'
+      fullPath: '/pagespeed'
+      preLoaderRoute: typeof PagespeedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/plan': {
@@ -587,6 +607,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ObchodnePodmienkyRoute: ObchodnePodmienkyRoute,
   OchranaOsobnychUdajovRoute: OchranaOsobnychUdajovRoute,
+  PagespeedRoute: PagespeedRoute,
   PlanRoute: PlanRoute,
   RaketaRoute: RaketaRoute,
   SerplabRoute: SerplabRoute,
