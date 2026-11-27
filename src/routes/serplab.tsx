@@ -508,12 +508,24 @@ function SerpLabPage() {
               </div>
 
               <div>
-                <label
-                  htmlFor="input-target-query"
-                  className="font-label-sm text-xs font-medium text-text-secondary block mb-1.5"
-                >
-                  Hľadaný výraz (Target Query)
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label
+                    htmlFor="input-target-query"
+                    className="font-label-sm text-xs font-medium text-text-secondary block"
+                  >
+                    Hľadaný výraz (Target Query)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleFetchLiveSerp}
+                    disabled={liveSerpLoading}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-on-primary text-[11px] font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer"
+                    title="Načítať reálne TOP 5 výsledky z Google.sk"
+                  >
+                    <RefreshCw className={`size-3 ${liveSerpLoading ? "animate-spin" : ""}`} />
+                    {liveSerpLoading ? "Načítavam..." : "Živý SERP"}
+                  </button>
+                </div>
                 <div className="relative">
                   <Search className="size-4 text-text-secondary absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
@@ -524,6 +536,46 @@ function SerpLabPage() {
                     className="w-full pl-10 pr-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-full text-text-primary font-body-sm text-sm focus:outline-none focus:ring-2 focus:ring-primary-container/30 focus:border-primary-container"
                   />
                 </div>
+                {liveSerpResults.length > 0 && (
+                  <div className="mt-3 flex flex-col gap-1.5 pt-2.5 border-t border-border-subtle">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-text-secondary">
+                      <span>
+                        Živý Google.sk TOP {liveSerpResults.length} (kliknutím prevezmete do
+                        simulátora)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setLiveSerpResults([])}
+                        className="text-text-secondary hover:text-text-primary cursor-pointer"
+                      >
+                        Skryť
+                      </button>
+                    </div>
+                    <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-1">
+                      {liveSerpResults.map((item, idx) => (
+                        <button
+                          key={`desktop-${item.link}-${idx}`}
+                          type="button"
+                          onClick={() => {
+                            if (item.title) setTitle(item.title);
+                            if (item.snippet) setDescription(item.snippet);
+                            toast.success(
+                              `Prevzatý výsledok #${item.position ?? idx + 1} do simulátora`,
+                            );
+                          }}
+                          className="text-left p-2 rounded-xl bg-surface-container-low hover:bg-primary-container/10 border border-transparent hover:border-primary/20 transition-colors cursor-pointer"
+                        >
+                          <div className="text-xs font-semibold text-primary truncate">
+                            #{item.position ?? idx + 1} · {item.title}
+                          </div>
+                          <div className="text-[11px] text-text-secondary truncate">
+                            {item.link}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
