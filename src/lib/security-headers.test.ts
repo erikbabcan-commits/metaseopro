@@ -39,9 +39,11 @@ describe("vercel.json security headers", () => {
   it("ships the full policy as Report-Only and allows Supabase + Google Fonts", () => {
     const ro = h["content-security-policy-report-only"];
     expect(ro).toContain("default-src 'self'");
-    expect(ro).toContain("connect-src 'self' https://*.supabase.co wss://*.supabase.co");
-    expect(ro).toContain("https://fonts.googleapis.com");
-    expect(ro).toContain("https://fonts.gstatic.com");
+    expect(ro).toContain(
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com",
+    );
+    expect(ro).toContain("style-src 'self' 'unsafe-inline' https://fonts.googleapis.com");
+    expect(ro).toContain("font-src 'self' data: https://fonts.gstatic.com");
     // ignored (and logged as a console error) in a Report-Only policy
     expect(ro).not.toContain("upgrade-insecure-requests");
   });
