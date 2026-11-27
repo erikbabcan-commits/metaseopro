@@ -1144,25 +1144,6 @@ function SerpLabPage() {
                   <span className="text-[10px] text-text-secondary">ekvivalent CPC</span>
                 </div>
               </div>
-
-              {/* Mobile Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                <Button
-                  onClick={() => toast.success("Konfigurácia bola pripravená na export do CMS")}
-                  className="flex-1 rounded-full bg-primary-container hover:bg-primary text-white text-xs font-semibold h-10 shadow-xs"
-                >
-                  Uložiť do CMS / Shoptet
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    toast.success("Žiadosť o reindexáciu odoslaná do Google Search Console API")
-                  }
-                  className="flex-1 rounded-full text-xs font-semibold h-10 border-border-default hover:bg-surface-container text-text-primary"
-                >
-                  Odoslať na GSC reindexáciu
-                </Button>
-              </div>
             </div>
           </div>
         </div>
