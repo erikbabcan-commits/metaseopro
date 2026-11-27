@@ -29,6 +29,8 @@ import {
 import { AppHeader } from "@/components/AppHeader";
 import { useViewerRole } from "@/hooks/use-viewer-role";
 import { PaywallModal } from "@/components/PaywallModal";
+import { fetchLiveSerpFn } from "@/lib/serper-fn";
+import type { SerperOrganicResult } from "@/lib/serper.server";
 
 export const Route = createFileRoute("/serplab")({
   head: () => ({
@@ -66,6 +68,32 @@ const AI_CTR_SUGGESTIONS = [
 function SerpLabPage() {
   const { isAdmin, plan } = useViewerRole();
   const [paywallOpen, setPaywallOpen] = useState(false);
+
+  // Live Google SERP (Serper.dev)
+  const [liveSerpResults, setLiveSerpResults] = useState<SerperOrganicResult[]>([]);
+  const [liveSerpLoading, setLiveSerpLoading] = useState(false);
+
+  const handleFetchLiveSerp = async () => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      toast.error("Zadajte kľúčové slovo pre živý Google SERP.");
+      return;
+    }
+    setLiveSerpLoading(true);
+    try {
+      const res = await fetchLiveSerpFn({ data: { query: trimmed, num: 5 } });
+      setLiveSerpResults(res.organic);
+      if (res.organic.length === 0) {
+        toast.info("Pre tento dotaz sa nenašli žiadne organické výsledky.");
+      } else {
+        toast.success(`Načítaných ${res.organic.length} živých výsledkov z Google.sk`);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Nepodarilo sa načítať živý Google SERP.");
+    } finally {
+      setLiveSerpLoading(false);
+    }
+  };
 
   // SERP Input Fields
   const [query, setQuery] = useState("bežecká obuv na asfalt asics gel nimbus");
@@ -362,7 +390,55 @@ function SerpLabPage() {
               <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant text-[10px] font-bold tracking-wider shrink-0">
                 GOOGLE.SK
               </span>
+              <button
+                type="button"
+                onClick={handleFetchLiveSerp}
+                disabled={liveSerpLoading}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-on-primary text-[10px] font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity shrink-0 cursor-pointer"
+                title="Načítať reálne TOP 5 výsledky z Google.sk"
+              >
+                <RefreshCw className={`size-3 ${liveSerpLoading ? "animate-spin" : ""}`} />
+                {liveSerpLoading ? "Načítavam..." : "Živý SERP"}
+              </button>
             </div>
+
+            {liveSerpResults.length > 0 && (
+              <div className="flex flex-col gap-1.5 pt-1 border-t border-border-subtle">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-text-secondary">
+                  <span>
+                    Živý Google.sk TOP {liveSerpResults.length} (kliknutím prevezmete do simulátora)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setLiveSerpResults([])}
+                    className="text-text-secondary hover:text-text-primary cursor-pointer"
+                  >
+                    Skryť
+                  </button>
+                </div>
+                <div className="flex flex-col gap-1.5 max-h-44 overflow-y-auto pr-1">
+                  {liveSerpResults.map((item, idx) => (
+                    <button
+                      key={`${item.link}-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        if (item.title) setTitle(item.title);
+                        if (item.snippet) setDescription(item.snippet);
+                        toast.success(
+                          `Prevzatý výsledok #${item.position ?? idx + 1} do simulátora`,
+                        );
+                      }}
+                      className="text-left p-2 rounded-xl bg-surface-container-low hover:bg-primary-container/10 border border-transparent hover:border-primary/20 transition-colors cursor-pointer"
+                    >
+                      <div className="text-[11px] font-semibold text-primary truncate">
+                        #{item.position ?? idx + 1} · {item.title}
+                      </div>
+                      <div className="text-[10px] text-text-secondary truncate">{item.link}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-2">
               <div className="flex items-center gap-2 p-2 rounded-xl bg-surface-container-low">
