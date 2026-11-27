@@ -3,6 +3,26 @@
 import { supabase } from "@/integrations/supabase/client";
 import { startLaserProgress, stopLaserProgress } from "./laser-loader";
 
+function isTextPart(part: unknown): part is { type: "text"; text: string } {
+  if (part === null || typeof part !== "object") return false;
+  const rec = part as Record<string, unknown>;
+  return rec.type === "text" && typeof rec.text === "string";
+}
+
+/**
+ * Normalise OpenAI/Mistral chat `content` (a string, or an array of typed
+ * parts) to visible text. Thinking / reasoning parts are dropped. Anything
+ * else, including null, yields an empty string — never String(object).
+ */
+export function deltaToText(c: unknown): string {
+  if (typeof c === "string") return c;
+  if (!Array.isArray(c)) return "";
+  return c
+    .filter(isTextPart)
+    .map((part) => part.text)
+    .join("");
+}
+
 export async function streamSSE({
   url,
   body,
@@ -76,8 +96,8 @@ export async function streamSSE({
           }
           try {
             const parsed = JSON.parse(json);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) onDelta(content);
+            const text = deltaToText(parsed.choices?.[0]?.delta?.content);
+            if (text) onDelta(text);
           } catch {
             buffer = line + "\n" + buffer;
             break;

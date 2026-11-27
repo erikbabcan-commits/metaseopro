@@ -29,6 +29,8 @@ import {
 import { AppHeader } from "@/components/AppHeader";
 import { useViewerRole } from "@/hooks/use-viewer-role";
 import { PaywallModal } from "@/components/PaywallModal";
+import { fetchLiveSerpFn } from "@/lib/serper-fn";
+import type { SerperOrganicResult } from "@/lib/serper.server";
 
 export const Route = createFileRoute("/serplab")({
   head: () => ({
@@ -63,41 +65,81 @@ const AI_CTR_SUGGESTIONS = [
   { label: "+ Skladom ihneď", text: " [Skladom ihneď]" },
 ];
 
+const SERP_DEFAULTS = {
+  query: "bežecká obuv na asfalt asics gel nimbus",
+  title: "Pánska bežecká obuv ASICS Gel-Nimbus 26 | Mojeshop.sk",
+  description:
+    "Hľadáte prémiové tlmenie na tvrdý povrch? Objavte bežecké topánky ASICS Gel-Nimbus 26 skladom s doručením do 24h. Bezplatná výmena veľkosti a garancia originality.",
+  slug: "kategoria/bezecka-obuv-asics-gel-nimbus-26",
+  price: "179,90",
+  stock: "InStock" as const,
+  rating: "4.9",
+  reviews: "142",
+  brand: "ASICS",
+  ean: "8718833918201",
+};
+
+const DEFAULT_FAQ: FaqItem[] = [
+  {
+    id: "1",
+    q: "Sú Gel-Nimbus 26 vhodné na maratón?",
+    a: "Áno, vďaka pene FF BLAST™ PLUS ECO a gélovej technológii PureGEL® patria k najpohodlnejšej maratónskej obuvi s maximálnym tlmením nárazov na asfalte.",
+  },
+  {
+    id: "2",
+    q: "Ako sedí číslovanie topánok ASICS?",
+    a: "Odporúčame zvoliť o pol čísla (0.5 EU) väčšiu veľkosť ako bežnú vychádzkovú obuv, aby mal palec pri dlhom behu dostatočnú rezervu.",
+  },
+];
+
 function SerpLabPage() {
   const { isAdmin, plan } = useViewerRole();
   const [paywallOpen, setPaywallOpen] = useState(false);
 
+  // Live Google SERP (Serper.dev)
+  const [liveSerpResults, setLiveSerpResults] = useState<SerperOrganicResult[]>([]);
+  const [liveSerpLoading, setLiveSerpLoading] = useState(false);
+
+  const handleFetchLiveSerp = async () => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      toast.error("Zadajte kľúčové slovo pre živý Google SERP.");
+      return;
+    }
+    setLiveSerpLoading(true);
+    try {
+      const res = await fetchLiveSerpFn({ data: { query: trimmed, num: 5 } });
+      setLiveSerpResults(res.organic);
+      if (res.organic.length === 0) {
+        toast.info("Pre tento dotaz sa nenašli žiadne organické výsledky.");
+      } else {
+        toast.success(`Načítaných ${res.organic.length} živých výsledkov z Google.sk`);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Nepodarilo sa načítať živý Google SERP.");
+    } finally {
+      setLiveSerpLoading(false);
+    }
+  };
+
   // SERP Input Fields
-  const [query, setQuery] = useState("bežecká obuv na asfalt asics gel nimbus");
+  const [query, setQuery] = useState(SERP_DEFAULTS.query);
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
-  const [title, setTitle] = useState("Pánska bežecká obuv ASICS Gel-Nimbus 26 | Mojeshop.sk");
-  const [description, setDescription] = useState(
-    "Hľadáte prémiové tlmenie na tvrdý povrch? Objavte bežecké topánky ASICS Gel-Nimbus 26 skladom s doručením do 24h. Bezplatná výmena veľkosti a garancia originality.",
-  );
-  const [slug, setSlug] = useState("kategoria/bezecka-obuv-asics-gel-nimbus-26");
+  const [title, setTitle] = useState(SERP_DEFAULTS.title);
+  const [description, setDescription] = useState(SERP_DEFAULTS.description);
+  const [slug, setSlug] = useState(SERP_DEFAULTS.slug);
 
   // Rich Snippet Details
-  const [price, setPrice] = useState("179,90");
-  const [stock, setStock] = useState<"InStock" | "OutOfStock" | "PreOrder">("InStock");
-  const [rating, setRating] = useState("4.9");
-  const [reviews, setReviews] = useState("142");
-  const [brand, setBrand] = useState("ASICS");
-  const [ean, setEan] = useState("8718833918201");
+  const [price, setPrice] = useState(SERP_DEFAULTS.price);
+  const [stock, setStock] = useState<"InStock" | "OutOfStock" | "PreOrder">(SERP_DEFAULTS.stock);
+  const [rating, setRating] = useState(SERP_DEFAULTS.rating);
+  const [reviews, setReviews] = useState(SERP_DEFAULTS.reviews);
+  const [brand, setBrand] = useState(SERP_DEFAULTS.brand);
+  const [ean, setEan] = useState(SERP_DEFAULTS.ean);
 
   // FAQ Schema
   const [includeFaq, setIncludeFaq] = useState(true);
-  const [faqList, setFaqList] = useState<FaqItem[]>([
-    {
-      id: "1",
-      q: "Sú Gel-Nimbus 26 vhodné na maratón?",
-      a: "Áno, vďaka pene FF BLAST™ PLUS ECO a gélovej technológii PureGEL® patria k najpohodlnejšej maratónskej obuvi s maximálnym tlmením nárazov na asfalte.",
-    },
-    {
-      id: "2",
-      q: "Ako sedí číslovanie topánok ASICS?",
-      a: "Odporúčame zvoliť o pol čísla (0.5 EU) väčšiu veľkosť ako bežnú vychádzkovú obuv, aby mal palec pri dlhom behu dostatočnú rezervu.",
-    },
-  ]);
+  const [faqList, setFaqList] = useState<FaqItem[]>(DEFAULT_FAQ);
 
   // Tab switch in Preview column (SERP preview vs JSON-LD code)
   const [previewTab, setPreviewTab] = useState<"serp" | "jsonld">("serp");
@@ -207,14 +249,19 @@ function SerpLabPage() {
   };
 
   const handleReset = () => {
-    setTitle("Pánska bežecká obuv ASICS Gel-Nimbus 26 | Mojeshop.sk");
-    setDescription(
-      "Hľadáte prémiové tlmenie na tvrdý povrch? Objavte bežecké topánky ASICS Gel-Nimbus 26 skladom s doručením do 24h. Bezplatná výmena veľkosti a garancia originality.",
-    );
-    setPrice("179,90");
-    setRating("4.9");
-    setReviews("142");
-    setStock("InStock");
+    setQuery(SERP_DEFAULTS.query);
+    setTitle(SERP_DEFAULTS.title);
+    setDescription(SERP_DEFAULTS.description);
+    setSlug(SERP_DEFAULTS.slug);
+    setPrice(SERP_DEFAULTS.price);
+    setStock(SERP_DEFAULTS.stock);
+    setRating(SERP_DEFAULTS.rating);
+    setReviews(SERP_DEFAULTS.reviews);
+    setBrand(SERP_DEFAULTS.brand);
+    setEan(SERP_DEFAULTS.ean);
+    setIncludeFaq(true);
+    setFaqList(DEFAULT_FAQ);
+    setLiveSerpResults([]);
     toast.success("Údaje boli resetované na predvolenú simuláciu");
   };
 
@@ -265,6 +312,7 @@ function SerpLabPage() {
               id="btn-refresh"
               variant="outline"
               size="sm"
+              disabled={liveSerpLoading}
               onClick={handleReset}
               title="Obnoviť predvolenú simuláciu"
               className="rounded-full h-9 px-3 text-xs text-text-secondary hover:text-text-primary border-border-default hover:bg-surface-container flex items-center gap-1"
@@ -362,7 +410,55 @@ function SerpLabPage() {
               <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant text-[10px] font-bold tracking-wider shrink-0">
                 GOOGLE.SK
               </span>
+              <button
+                type="button"
+                onClick={handleFetchLiveSerp}
+                disabled={liveSerpLoading}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-on-primary text-[10px] font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity shrink-0 cursor-pointer"
+                title="Načítať reálne TOP 5 výsledky z Google.sk"
+              >
+                <RefreshCw className={`size-3 ${liveSerpLoading ? "animate-spin" : ""}`} />
+                {liveSerpLoading ? "Načítavam..." : "Živý SERP"}
+              </button>
             </div>
+
+            {liveSerpResults.length > 0 && (
+              <div className="flex flex-col gap-1.5 pt-1 border-t border-border-subtle">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-text-secondary">
+                  <span>
+                    Živý Google.sk TOP {liveSerpResults.length} (kliknutím prevezmete do simulátora)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setLiveSerpResults([])}
+                    className="text-text-secondary hover:text-text-primary cursor-pointer"
+                  >
+                    Skryť
+                  </button>
+                </div>
+                <div className="flex flex-col gap-1.5 max-h-44 overflow-y-auto pr-1">
+                  {liveSerpResults.map((item, idx) => (
+                    <button
+                      key={`${item.link}-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        if (item.title) setTitle(item.title);
+                        if (item.snippet) setDescription(item.snippet);
+                        toast.success(
+                          `Prevzatý výsledok #${item.position ?? idx + 1} do simulátora`,
+                        );
+                      }}
+                      className="text-left p-2 rounded-xl bg-surface-container-low hover:bg-primary-container/10 border border-transparent hover:border-primary/20 transition-colors cursor-pointer"
+                    >
+                      <div className="text-[11px] font-semibold text-primary truncate">
+                        #{item.position ?? idx + 1} · {item.title}
+                      </div>
+                      <div className="text-[10px] text-text-secondary truncate">{item.link}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-2">
               <div className="flex items-center gap-2 p-2 rounded-xl bg-surface-container-low">
@@ -432,12 +528,24 @@ function SerpLabPage() {
               </div>
 
               <div>
-                <label
-                  htmlFor="input-target-query"
-                  className="font-label-sm text-xs font-medium text-text-secondary block mb-1.5"
-                >
-                  Hľadaný výraz (Target Query)
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label
+                    htmlFor="input-target-query"
+                    className="font-label-sm text-xs font-medium text-text-secondary block"
+                  >
+                    Hľadaný výraz (Target Query)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleFetchLiveSerp}
+                    disabled={liveSerpLoading}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-on-primary text-[11px] font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer"
+                    title="Načítať reálne TOP 5 výsledky z Google.sk"
+                  >
+                    <RefreshCw className={`size-3 ${liveSerpLoading ? "animate-spin" : ""}`} />
+                    {liveSerpLoading ? "Načítavam..." : "Živý SERP"}
+                  </button>
+                </div>
                 <div className="relative">
                   <Search className="size-4 text-text-secondary absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
@@ -448,6 +556,46 @@ function SerpLabPage() {
                     className="w-full pl-10 pr-4 py-2.5 bg-surface-container-low border border-border-subtle rounded-full text-text-primary font-body-sm text-sm focus:outline-none focus:ring-2 focus:ring-primary-container/30 focus:border-primary-container"
                   />
                 </div>
+                {liveSerpResults.length > 0 && (
+                  <div className="mt-3 flex flex-col gap-1.5 pt-2.5 border-t border-border-subtle">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-text-secondary">
+                      <span>
+                        Živý Google.sk TOP {liveSerpResults.length} (kliknutím prevezmete do
+                        simulátora)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setLiveSerpResults([])}
+                        className="text-text-secondary hover:text-text-primary cursor-pointer"
+                      >
+                        Skryť
+                      </button>
+                    </div>
+                    <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-1">
+                      {liveSerpResults.map((item, idx) => (
+                        <button
+                          key={`desktop-${item.link}-${idx}`}
+                          type="button"
+                          onClick={() => {
+                            if (item.title) setTitle(item.title);
+                            if (item.snippet) setDescription(item.snippet);
+                            toast.success(
+                              `Prevzatý výsledok #${item.position ?? idx + 1} do simulátora`,
+                            );
+                          }}
+                          className="text-left p-2 rounded-xl bg-surface-container-low hover:bg-primary-container/10 border border-transparent hover:border-primary/20 transition-colors cursor-pointer"
+                        >
+                          <div className="text-xs font-semibold text-primary truncate">
+                            #{item.position ?? idx + 1} · {item.title}
+                          </div>
+                          <div className="text-[11px] text-text-secondary truncate">
+                            {item.link}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -995,25 +1143,6 @@ function SerpLabPage() {
                   </span>
                   <span className="text-[10px] text-text-secondary">ekvivalent CPC</span>
                 </div>
-              </div>
-
-              {/* Mobile Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                <Button
-                  onClick={() => toast.success("Konfigurácia bola pripravená na export do CMS")}
-                  className="flex-1 rounded-full bg-primary-container hover:bg-primary text-white text-xs font-semibold h-10 shadow-xs"
-                >
-                  Uložiť do CMS / Shoptet
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    toast.success("Žiadosť o reindexáciu odoslaná do Google Search Console API")
-                  }
-                  className="flex-1 rounded-full text-xs font-semibold h-10 border-border-default hover:bg-surface-container text-text-primary"
-                >
-                  Odoslať na GSC reindexáciu
-                </Button>
               </div>
             </div>
           </div>
