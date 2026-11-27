@@ -14,6 +14,7 @@ import {
   Building2,
   X,
   SearchCode,
+  Gauge,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -338,6 +339,24 @@ export function TactileFloatingNav() {
                   </div>
                   <div className="text-[11px] text-text-secondary">
                     Google simulátor, rich snippety a CTR
+                  </div>
+                </div>
+              </Link>
+
+              <Link
+                to="/pagespeed"
+                onClick={() => setToolsDrawerOpen(false)}
+                className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container border border-border-subtle hover:border-primary-container/30 transition-all text-left group"
+              >
+                <div className="size-9 rounded-lg bg-primary-container/10 text-primary-container flex items-center justify-center shrink-0 border border-primary-container/20 group-hover:bg-primary-container group-hover:text-white transition-colors">
+                  <Gauge className="size-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-text-primary">
+                    PageSpeed & Core Web Vitals
+                  </div>
+                  <div className="text-[11px] text-text-secondary">
+                    Lighthouse audit & exekutívny A4 report
                   </div>
                 </div>
               </Link>
